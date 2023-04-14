@@ -1,6 +1,25 @@
-## Proxy-Wasm plugin example: HTTP auth (random)
+## WASM OIDC Plugin
 
-Proxy-Wasm plugin that grants access based on a result of HTTP callout.
+WASM OIDC Envoy Plugin.
+
+It's structure is inherited from [Proxy-Wasm plugin example: HTTP auth
+(random)](https://github.com/proxy-wasm/proxy-wasm-rust-sdk/tree/8d1f04aa0de41fc934c2e960ca9bfb091e108bdc/examples/http_auth_random).
+
+### Install Toolchain for WASM in Rust
+
+For developing the [Rust Toolchain](https://www.rust-lang.org/tools/install)
+has to be installed and the WASM target has to be enabled.
+
+E.g. for Ubuntu this can be achieved by:
+
+```sh
+# Install Build essentials
+$ apt install build-essential
+# Install Rustup
+$ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+# Enable WASM compilation target
+$ cargo build --target wasm32-wasi --release
+```
 
 ### Building
 
@@ -8,49 +27,17 @@ Proxy-Wasm plugin that grants access based on a result of HTTP callout.
 $ cargo build --target wasm32-wasi --release
 ```
 
-### Using in Envoy
+### Testing locally with Envoy
 
-This example can be run with [`docker compose`](https://docs.docker.com/compose/install/)
-and has a matching Envoy configuration.
+To test [docker](https://www.docker.com/) and [docker
+compose](https://docs.docker.com/compose/install/) are needed.
 
 ```sh
 $ docker compose up
 ```
 
-#### Access granted.
-
-Send HTTP request to `localhost:10000/headers`:
+Requests to the locally running envoy with the plugin enabled:
 
 ```sh
-$ curl localhost:10000/headers
-{
-  "headers": {
-    "Accept": "*/*", 
-    "Host": "localhost", 
-    "User-Agent": "curl/7.81.0", 
-    "X-Amzn-Trace-Id": "Root=1-637c4767-6e31776a0b407a0219b5b570", 
-    "X-Envoy-Expected-Rq-Timeout-Ms": "15000"
-  }
-}
-```
-
-Expected Envoy logs:
-
-```console
-[...] wasm log http_auth_random: Access granted.
-```
-
-#### Access forbidden.
-
-Send HTTP request to `localhost:10000/headers`:
-
-```sh
-$ curl localhost:10000/headers
-Access forbidden.
-```
-
-Expected Envoy logs:
-
-```console
-[...] wasm log http_auth_random: Access forbidden.
+$ curl localhost:10000
 ```

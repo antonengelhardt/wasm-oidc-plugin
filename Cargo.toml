@@ -1,9 +1,9 @@
 [package]
 publish = false
-name = "proxy-wasm-example-http-auth-random"
+name = "wasm-oidc-plugin"
 version = "0.0.1"
-authors = ["Piotr Sikora <piotrsikora@google.com>"]
-description = "Proxy-Wasm plugin example: HTTP auth (random)"
+authors = ["WWU Cloud Developer <cloud@uni-muenster.de"]
+description = "WASM OIDC Envoy Plugin"
 license = "Apache-2.0"
 edition = "2018"
 
@@ -12,7 +12,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 log = "0.4"
-proxy-wasm = { path = "../../" }
+proxy-wasm = "0.2.1"
 
 [profile.release]
 lto = true
