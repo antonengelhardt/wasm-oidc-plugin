@@ -12,55 +12,123 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// log
 use log::info;
+
+// proxy-wasm
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
-use std::time::Duration;
+
+// url
+use url::Url;
 
 proxy_wasm::main! {{
     proxy_wasm::set_log_level(LogLevel::Trace);
-    proxy_wasm::set_http_context(|_, _| -> Box<dyn HttpContext> { Box::new(HttpAuthRandom) });
+    proxy_wasm::set_http_context(|_, _| -> Box<dyn HttpContext> { Box::new(OIDCFlow) });
 }}
 
-struct HttpAuthRandom;
+struct HttpAuth;
 
-impl HttpContext for HttpAuthRandom {
-    fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
-        self.dispatch_http_call(
-            "httpbin",
-            vec![
-                (":method", "GET"),
-                (":path", "/bytes/1"),
-                (":authority", "httpbin.org"),
-            ],
-            None,
-            vec![],
-            Duration::from_secs(5),
-        )
-        .unwrap();
-        Action::Pause
+impl HttpAuth {
+
+    // Validate the token using the JWT library.
+    fn validate_token(&self, _token: &str) -> Result<(), String> {
+        let _issuer_url = "https://auth.k8s.wwu.de";
+        // TODO: Validate the token using the JWT library.
+        // let validation = Validation::default();
+        // let decoded = decode::<Value>(token, &DecodingKey::from_secret("secret".as_ref()), &validation);
+
+        // match decoded {
+            //     Ok(_) => Ok(()),
+            //     Err(err) => return Err(err.to_string()),
+            // }
+         Ok(())
     }
 
-    fn on_http_response_headers(&mut self, _: usize, _: bool) -> Action {
-        self.set_http_response_header("Powered-By", Some("proxy-wasm"));
-        Action::Continue
+    // Build the URL to redirect to the OIDC provider along with the required parameters.
+    fn redirect_to_oidc(&self) -> String {
+        let auth_endpoint = "https://auth.k8s.wwu.de/saml2/oidc/authorization";
+        let redirect_uri = "http://localhost:10000/oidc/callback";
+        let response_type = "code";
+        let client_id = "wasm-oidc-plugin";
+        let scope = "openid account";
+        let claims = r#"{"id_token":{"username":null,"groups":null}}"#;
+
+        let url = Url::parse_with_params(
+            auth_endpoint,
+            &[
+                ("redirect_uri", redirect_uri),
+                ("response_type", response_type),
+                ("client_id", client_id),
+                ("scope", scope),
+                ("claims", claims),
+            ],
+        )
+        .unwrap();
+
+        return url.to_string();
     }
 }
 
-impl Context for HttpAuthRandom {
-    fn on_http_call_response(&mut self, _: u32, _: usize, body_size: usize, _: usize) {
-        if let Some(body) = self.get_http_call_response_body(0, body_size) {
-            if !body.is_empty() && body[0] % 2 == 0 {
-                info!("Access granted.");
-                self.resume_http_request();
-                return;
-            }
+struct OIDCFlow;
+
+impl HttpContext for OIDCFlow {
+    // This function is called when the request headers are received.
+    fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
+        let path = self.get_http_request_header(":path").unwrap_or_default();
+        let headers = self.get_http_request_headers();
+        // TODO: The header name is most likely not "Authorization".
+        let token_header = headers.iter().find(|(name, _)| name == "Authorization");
+
+        // If the request is for the OIDC callback, continue the request.
+        if path.starts_with("/oidc/callback") {
+            info!("Access granted.");
+            // Extract code
+            let code = path.split("=").last().unwrap_or_default();
+            info!("Code: {}", code);
+            self.resume_http_request();
+            return Action::Continue;
         }
-        info!("Access forbidden.");
-        self.send_http_response(
-            403,
-            vec![("Powered-By", "proxy-wasm")],
-            Some(b"Access forbidden.\n"),
-        );
+
+        // If the request is not for the OIDC callback, check for an existing token.
+        match token_header {
+            // If the token is found, validate it.
+            // TODO: Validate the token.
+            Some((_, token)) => match HttpAuth.validate_token(token) {
+                // If the token is valid, continue the request.
+                Ok(_) => {
+                    info!("Access granted.");
+                    self.resume_http_request();
+                    return Action::Continue;
+                }
+
+                // If the token is invalid, redirect to OIDC provider.
+                Err(err) => {
+                    info!("Access denied: {}", err);
+                    self.send_http_response(
+                        401,
+                        vec![("location", &HttpAuth.redirect_to_oidc())],
+                        None,
+                    );
+                    return Action::Pause;
+                }
+            },
+
+            // If the token is not found, redirect to OIDC provider.
+            None => {
+                info!("Access denied: No token found.");
+                // Redirect to OIDC provider.
+                self.send_http_response(302, vec![("location", &HttpAuth.redirect_to_oidc())], None);
+                return Action::Pause;
+            }
+        };
+    }
+}
+
+impl Context for OIDCFlow {
+    fn on_http_call_response(&mut self, _: u32, _: usize, _body_size: usize, _: usize) {
+        info!("Access granted.");
+        self.resume_http_request();
+        return;
     }
 }

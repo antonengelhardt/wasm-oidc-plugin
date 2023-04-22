@@ -1,0 +1,9 @@
+# This is where is store my personal notes
+notes
+
+# rust
+target
+Cargo.lock
+
+# env (secrets)
+.env
