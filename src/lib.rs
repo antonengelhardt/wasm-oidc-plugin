@@ -13,16 +13,11 @@
 // limitations under the License.
 
 // log
-use log::info;
+// use log::info;
+use log::debug;
 
 // base64
 use base64::{engine::general_purpose, Engine as _};
-
-// jsonwebtoken
-// use jsonwebtoken::{decode, DecodingKey, Validation};
-
-// dotenv
-// use dotenv::dotenv;
 
 // duration
 use std::time::Duration;
@@ -63,7 +58,8 @@ impl OIDCFlow {
     // Validate the token using the JWT library.
     fn validate_token(&self, _token: &str) -> Result<(), String> {
         let _issuer_url = "https://auth.k8s.wwu.de";
-        // TODO: Validate the token using the JWT library
+        // TODO: Validate the token using the JWT library, check for signature.
+        // TODO: Check for aud (audience) and iss (issuer)
         Ok(())
     }
 
@@ -91,6 +87,7 @@ impl OIDCFlow {
         return url.to_string();
     }
 
+    // Get the header of the HTTP request
     fn _get_header(&self, name: &str) -> String {
         let headers = self.get_http_request_headers();
         for (key, _value) in headers.iter() {
@@ -101,6 +98,7 @@ impl OIDCFlow {
         return "".to_owned();
     }
 
+    // Get the cookie of the HTTP request
     fn get_cookie(&self, name: &str) -> String {
         let headers = self.get_http_request_headers();
         for (key, value) in headers.iter() {
@@ -121,49 +119,54 @@ impl OIDCFlow {
 
     // Build the Set-Cookie header to set the token in the browser.
     fn to_set_cookie_header(&self, t: TokenResponse) -> String {
-        return format!("{}={}", "id-token", t.id_token);
+        // TODO: HTTP Only, Secure, Max-Age
+        return format!("{}={}; Path=/", "id-token", t.id_token);
     }
 }
 
 impl HttpContext for OIDCFlow {
     // This function is called when the request headers are received.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
-
-        // If the requester passes a cookie, this filter sets the header and passes the request
+        // If the requester passes a cookie, this filter passes the request
         let token = self.get_cookie("id-token");
         if token != "" {
-            info!("Cookie found, passing request");
+            debug!("Cookie found, passing request");
+
+            // TODO: Decode cookie
 
             self.resume_http_request();
             return Action::Continue;
         }
 
-        // If the request is for the OIDC callback, continue the request.
+        // If the request is for the OIDC callback, e.g the code is returned, this filter
+        // exchanges the code for a token. The response is caught in on_http_call_response.
         let path = self.get_http_request_header(":path").unwrap_or_default();
         if path.starts_with("/oidc/callback") {
-
-            // Extract code
+            // Extract code from the url
             let code = path.split("=").last().unwrap_or_default();
-            info!("Code: {}", code);
+            debug!("Code: {}", code);
 
+            // TODO: Make Configurable
+            // Hardcoded values for request to token endpoint
             let client_id = "wasm-oidc-plugin";
-
-            // dotenv().unwrap();
-            //let client_secret = std::env::var("CLIENT_SECRET").unwrap();
             let client_secret = "redacted";
+            let redirect_uri = "http://localhost:10000/oidc/callback"; // Fixed
+
+            // Encode client_id and client_secret and build the Authorization header
             let encoded = general_purpose::STANDARD_NO_PAD
                 .encode(format!("{}:{}", client_id, client_secret).as_bytes());
             let auth = format!("Basic {}", encoded);
-            let redirect_uri = "http://localhost:10000/oidc/callback";
 
+            // Build the request body
             let data: String = form_urlencoded::Serializer::new(String::new())
                 .append_pair("code", &code)
                 .append_pair("redirect_uri", &redirect_uri)
                 .append_pair("grant_type", "authorization_code")
-                // .append_pair("nonce", handshake.nonce.as_str())
+                // TODO: Nonce
                 .finish();
 
-            info!("Sending data to token endpoint: {}", data);
+            // Dispatch request to token endpoint
+            debug!("Sending data to token endpoint: {}", data);
             let token_request = dispatch_http_call(
                 "oidc",
                 vec![
@@ -178,23 +181,25 @@ impl HttpContext for OIDCFlow {
                 Duration::from_secs(5),
             );
 
+            // Check if the request was dispatched successfully
             match token_request {
                 Ok(_) => {
-                    info!("Token request dispatched successfully.");
+                    debug!("Token request dispatched successfully.");
                 }
-                Err(err) => info!("Token request failed: {:?}", err),
+                Err(err) => debug!("Token request failed: {:?}", err),
             }
             return Action::Pause;
         }
 
-        // Redirect to OIDC provider if no token is found
-        info!("No cookie found, redirecting to OIDC provider.");
+        // Redirect to OIDC provider if no cookie is found
+        debug!("No cookie found, redirecting to OIDC provider.");
         self.send_http_response(
             302,
             vec![
-                ("Set-Cookie", &format!("source={}", path)),
-                ("Location", &OIDCFlow.redirect_to_oidc()),
                 // Set the source url as a cookie to redirect back to it after the callback.
+                ("Set-Cookie", &format!("source={}", path)),
+                // Redirect to OIDC provider
+                ("Location", &OIDCFlow.redirect_to_oidc()),
             ],
             Some(b"Redirecting..."),
         );
@@ -203,67 +208,63 @@ impl HttpContext for OIDCFlow {
 }
 
 impl Context for OIDCFlow {
+    // This function is called when the response headers are received.
     fn on_http_call_response(&mut self, _: u32, _: usize, body_size: usize, _: usize) {
         // Catching token response
-        info!("Token response received.");
+        debug!("Token response received.");
         if let Some(body) = self.get_http_call_response_body(0, body_size) {
+            // Deserialize token response
             match serde_json::from_slice::<TokenResponse>(body.as_slice()) {
+                // If deserialization was successful, set the cookie and resume the request
                 Ok(data) => {
                     // Check for errors.
                     if data.error != "" {
-                        info!("Error: {}", data.error);
+                        debug!("Error: {}", data.error);
                         return;
-                    }
-
-                    // Check for source cookie
-                    let source = self.get_cookie("source");
-                    if source != "" {
-                        info!("Source: {}", source);
                     }
 
                     // Check for ID token.
                     if data.id_token != "" {
-                        info!("ID Token: {}", data.id_token);
+                        debug!("ID Token: {}", data.id_token);
 
-                        // TODO: Login server vertrauen und evtl. hier nicht validieren
                         // Validate the token.
+                        // TODO: Login server vertrauen und evtl. hier nicht validieren
                         match OIDCFlow.validate_token(&data.id_token) {
-                            Ok(_) => info!("Token is valid."),
+                            Ok(_) => debug!("Token is valid."),
                             Err(err) => {
-                                info!("Token is invalid: {}", err);
+                                debug!("Token is invalid: {}", err);
                                 return;
                             }
                         }
 
-                        // TODO: Redirect to the original URL.
-                        self.get_http_request_header("source").unwrap_or_default();
+                        // Check for source cookie to redirect back to the original URL.
+                        let source = self.get_cookie("source");
+                        if source != "" {
+                            debug!("Source Url: {}", source);
+                        }
 
-                        // let source_url = format!("http://localhost:10000{}", source);
-
+                        // Redirect back to the original URL.
                         self.send_http_response(
                             302,
                             vec![
+                                // TODO: Encode cookie
                                 ("Set-Cookie", self.to_set_cookie_header(data).as_str()),
-                                //TODO: This results in a loop.
-                                // ("Location", "http://localhost:10000/"),
-                                ("Location", "/")
-                                // ("id_token", &data.id_token),
-                                // ("Location", &source_url),
+                                ("Location", source.as_str()),
                             ],
                             Some(b"Redirecting..."),
                         );
-
-                        // self.resume_http_request();
                         return;
                     }
                 }
+                // If deserialization failed, log the error.
                 Err(e) => {
-                    info!("Invalid Token Reponse: {}", e);
+                    debug!("Invalid Token Reponse: {}", e);
                     return;
                 }
             }
         } else {
-            info!("No body found. Cannot parse token response.");
+            // If no body was found, log the error.
+            debug!("No body found. Cannot parse token response.");
             return;
         }
     }
@@ -272,9 +273,11 @@ impl Context for OIDCFlow {
 impl Context for OIDCFlowRootContext {}
 
 impl RootContext for OIDCFlowRootContext {
+    // This function is called when the VM is initialized.
     fn on_configure(&mut self, _: usize) -> bool {
-        info!("on_configure");
+        debug!("on_configure");
         true
+        // TODO: Get OpenID Connect configuration
     }
 
     fn create_http_context(&self, _: u32) -> Option<Box<dyn HttpContext>> {
