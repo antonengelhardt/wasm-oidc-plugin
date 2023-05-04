@@ -21,7 +21,10 @@ services:
     volumes:
       - ./envoy.yaml:/etc/envoy/envoy.yaml
       - ./target/wasm32-wasi/release:/etc/envoy/proxy-wasm-plugins
+      # - ./env:/etc/envoy/.env
     networks:
       - envoymesh
+
+    # TODO: Http Bin Local Container
 networks:
   envoymesh: {}
