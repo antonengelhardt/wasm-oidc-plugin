@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use cookie::AuthorizationState;
+
 // log
-// use log::info;
+use log::info;
 use log::debug;
 
 // base64
@@ -27,27 +29,17 @@ use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
 
 // serde
-use serde::Deserialize;
+// use serde::{Deserialize};
 
 // url
 use url::{form_urlencoded, Url};
+
+mod cookie;
 
 proxy_wasm::main! {{
     proxy_wasm::set_log_level(LogLevel::Trace);
     proxy_wasm::set_http_context(|_, _| -> Box<dyn HttpContext> { Box::new(OIDCFlow) });
 }}
-
-#[derive(Deserialize)]
-struct TokenResponse {
-    #[serde(default)]
-    error: String,
-    // #[serde(default)]
-    // error_description: String,
-    #[serde(default)]
-    id_token: String,
-    // #[serde(default)]
-    // expires_in: i64,
-}
 
 struct OIDCFlow;
 
@@ -57,8 +49,11 @@ impl OIDCFlow {
     // Validate the token using the JWT library.
     fn validate_token(&self, _token: &str) -> Result<(), String> {
         let _issuer_url = "https://auth.k8s.wwu.de";
-        // TODO: Validate the token using the JWT library, check for signature.
-        // TODO: Check for aud (audience) and iss (issuer)
+        let _audience = "wasm-oidc-plugin";
+
+        // TODO: Validate the token using the JWT library, check for signature. #5
+        // TODO: Check for aud (audience) and iss (issuer) #5
+
         Ok(())
     }
 
@@ -117,9 +112,9 @@ impl OIDCFlow {
     }
 
     // Build the Set-Cookie header to set the token in the browser.
-    fn to_set_cookie_header(&self, t: TokenResponse) -> String {
+    fn set_state_cookie(&self, a: &AuthorizationState) -> String {
         // TODO: HTTP Only, Secure, Max-Age
-        return format!("{}={}; Path=/", "id-token", t.id_token);
+        return format!("auth={}; Path=/", serde_json::to_string(a).unwrap());
     }
 }
 
@@ -131,7 +126,8 @@ impl HttpContext for OIDCFlow {
         if token != None {
             debug!("Cookie found, passing request");
 
-            // TODO: Decode cookie
+            // Decode cookie
+            let auth_state = cookie::AuthorizationState::parse_cookie(auth_cookie).unwrap();
 
             return Action::Continue;
         }
@@ -144,7 +140,8 @@ impl HttpContext for OIDCFlow {
             let code = path.split("=").last().unwrap_or_default();
             debug!("Code: {}", code);
 
-            // TODO: Make Configurable
+            // TODO: Make Configurable #3
+
             // Hardcoded values for request to token endpoint
             let client_id = "wasm-oidc-plugin";
             let client_secret = "redacted";
@@ -160,7 +157,8 @@ impl HttpContext for OIDCFlow {
                 .append_pair("code", &code)
                 .append_pair("redirect_uri", &redirect_uri)
                 .append_pair("grant_type", "authorization_code")
-                // TODO: Nonce
+                // TODO: PKCE #6
+                // TODO: Nonce #7
                 .finish();
 
             // Dispatch request to token endpoint
@@ -211,57 +209,20 @@ impl Context for OIDCFlow {
         // Catching token response
         debug!("Token response received.");
         if let Some(body) = self.get_http_call_response_body(0, body_size) {
-            // Deserialize token response
-            match serde_json::from_slice::<TokenResponse>(body.as_slice()) {
-                // If deserialization was successful, set the cookie and resume the request
-                Ok(data) => {
-                    // Check for errors.
-                    if data.error != "" {
-                        debug!("Error: {}", data.error);
-                        return;
-                    }
 
-                    // Check for ID token.
-                    if data.id_token != "" {
-                        debug!("ID Token: {}", data.id_token);
+            // Build Cookie using parse_response from cookie.rs
+            let auth_cookie = cookie::AuthorizationState::parse_response(body).unwrap();
 
-                        // Validate the token.
-                        // TODO: Login server vertrauen und evtl. hier nicht validieren
-                        match self.validate_token(&data.id_token) {
-                            Ok(_) => debug!("Token is valid."),
-                            Err(err) => {
-                                debug!("Token is invalid: {}", err);
-                                return;
-                            }
-                        }
-
-                        // Check for source cookie to redirect back to the original URL.
-                        let source = self.get_cookie("source").unwrap_or("/".to_owned());
-                        debug!("Source Url: {}", &source);
-
-                        // Redirect back to the original URL.
-                        self.send_http_response(
-                            302,
-                            vec![
-                                // TODO: Encode cookie
-                                ("Set-Cookie", self.to_set_cookie_header(data).as_str()),
-                                ("Location", &source.as_str()),
-                            ],
-                            Some(b"Redirecting..."),
-                        );
-                        return;
-                    }
-                }
-                // If deserialization failed, log the error.
-                Err(e) => {
-                    debug!("Invalid Token Reponse: {}", e);
-                    return;
-                }
-            }
-        } else {
-            // If no body was found, log the error.
-            debug!("No body found. Cannot parse token response.");
-            return;
+            // Redirect back to the original URL.
+            self.send_http_response(
+                302,
+                vec![
+                    // TODO: Encode cookie #2
+                    ("Set-Cookie", self.set_state_cookie(&auth_cookie).as_str()),
+                    ("Location", "/"),
+                    ],
+                Some(b"Redirecting..."),
+            );
         }
     }
 }
@@ -273,7 +234,7 @@ impl RootContext for OIDCFlowRootContext {
     fn on_configure(&mut self, _: usize) -> bool {
         debug!("on_configure");
         true
-        // TODO: Get OpenID Connect configuration
+        // TODO: Get OpenID Connect configuration #3
     }
 
     fn create_http_context(&self, _: u32) -> Option<Box<dyn HttpContext>> {
