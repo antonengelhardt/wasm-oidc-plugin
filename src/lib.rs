@@ -17,7 +17,7 @@
 use log::debug;
 
 // base64
-use base64::{engine::general_purpose, Engine as _};
+use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as standard};
 
 // duration
 use std::time::Duration;
@@ -88,18 +88,18 @@ impl OIDCFlow {
     }
 
     // Get the header of the HTTP request
-    fn _get_header(&self, name: &str) -> String {
+    fn _get_header(&self, name: &str) -> Option<String> {
         let headers = self.get_http_request_headers();
-        for (key, _value) in headers.iter() {
+        for (key, value) in headers.iter() {
             if key.to_lowercase().trim() == name {
-                return _value.to_owned();
+                return Some(value.to_owned());
             }
         }
-        return "".to_owned();
+        return None;
     }
 
     // Get the cookie of the HTTP request
-    fn get_cookie(&self, name: &str) -> String {
+    fn get_cookie(&self, name: &str) -> Option<String> {
         let headers = self.get_http_request_headers();
         for (key, value) in headers.iter() {
             if key.to_lowercase().trim() == "cookie" {
@@ -108,13 +108,13 @@ impl OIDCFlow {
                     let cookie_name_end = cookie_string.find('=').unwrap_or(0);
                     let cookie_name = &cookie_string[0..cookie_name_end];
                     if cookie_name.trim() == name {
-                        return cookie_string[(cookie_name_end + 1)..cookie_string.len()]
-                            .to_owned();
+                        return Some(cookie_string[(cookie_name_end + 1)..cookie_string.len()]
+                            .to_owned());
                     }
                 }
             }
         }
-        return "".to_owned();
+        return None
     }
 
     // Build the Set-Cookie header to set the token in the browser.
@@ -129,12 +129,11 @@ impl HttpContext for OIDCFlow {
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
         // If the requester passes a cookie, this filter passes the request
         let token = self.get_cookie("id-token");
-        if token != "" {
+        if token != None {
             debug!("Cookie found, passing request");
 
             // TODO: Decode cookie
 
-            self.resume_http_request();
             return Action::Continue;
         }
 
@@ -153,8 +152,8 @@ impl HttpContext for OIDCFlow {
             let redirect_uri = "http://localhost:10000/oidc/callback"; // Fixed
 
             // Encode client_id and client_secret and build the Authorization header
-            let encoded = general_purpose::STANDARD_NO_PAD
-                .encode(format!("{}:{}", client_id, client_secret).as_bytes());
+            let encoded = standard
+                .encode(format!("{client_id}:{client_secret}").as_bytes());
             let auth = format!("Basic {}", encoded);
 
             // Build the request body
@@ -178,7 +177,7 @@ impl HttpContext for OIDCFlow {
                 ],
                 Some(data.as_bytes()),
                 vec![],
-                Duration::from_secs(5),
+                Duration::from_secs(10),
             );
 
             // Check if the request was dispatched successfully
@@ -199,7 +198,7 @@ impl HttpContext for OIDCFlow {
                 // Set the source url as a cookie to redirect back to it after the callback.
                 ("Set-Cookie", &format!("source={}", path)),
                 // Redirect to OIDC provider
-                ("Location", &OIDCFlow.redirect_to_oidc()),
+                ("Location", self.redirect_to_oidc().as_str()),
             ],
             Some(b"Redirecting..."),
         );
@@ -229,7 +228,7 @@ impl Context for OIDCFlow {
 
                         // Validate the token.
                         // TODO: Login server vertrauen und evtl. hier nicht validieren
-                        match OIDCFlow.validate_token(&data.id_token) {
+                        match self.validate_token(&data.id_token) {
                             Ok(_) => debug!("Token is valid."),
                             Err(err) => {
                                 debug!("Token is invalid: {}", err);
@@ -238,10 +237,8 @@ impl Context for OIDCFlow {
                         }
 
                         // Check for source cookie to redirect back to the original URL.
-                        let source = self.get_cookie("source");
-                        if source != "" {
-                            debug!("Source Url: {}", source);
-                        }
+                        let source = self.get_cookie("source").unwrap();
+                        debug!("Source Url: {}", &source);
 
                         // Redirect back to the original URL.
                         self.send_http_response(
@@ -249,7 +246,7 @@ impl Context for OIDCFlow {
                             vec![
                                 // TODO: Encode cookie
                                 ("Set-Cookie", self.to_set_cookie_header(data).as_str()),
-                                ("Location", source.as_str()),
+                                ("Location", &source.as_str()),
                             ],
                             Some(b"Redirecting..."),
                         );
