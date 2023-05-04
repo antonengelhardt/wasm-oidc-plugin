@@ -12,10 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use cookie::AuthorizationState;
-
 // log
-use log::info;
 use log::debug;
 
 // base64
@@ -35,23 +32,46 @@ use proxy_wasm::types::*;
 use url::{form_urlencoded, Url};
 
 mod cookie;
+use cookie::AuthorizationState;
+
+mod config;
+use config::FilterConfig;
 
 proxy_wasm::main! {{
     proxy_wasm::set_log_level(LogLevel::Trace);
-    proxy_wasm::set_http_context(|_, _| -> Box<dyn HttpContext> { Box::new(OIDCFlow) });
+    proxy_wasm::set_http_context(|_, _| -> Box<dyn HttpContext> { Box::new(OIDCFlow{
+        config: FilterConfig {
+            // TODO: Get OpenID Connect configuration #3
+            cookie_name: "oidcSession".to_owned(),
+
+            auth_endpoint: Url::parse("https://auth.k8s.wwu.de/saml2/oidc/authorization").unwrap(),
+            redirect_uri: Url::parse("http://localhost:10000/oidc/callback").unwrap(),
+            response_type: "code".to_owned(),
+            client_id: "wasm-oidc-plugin".to_owned(),
+            scope: "openid email".to_owned(),
+            claims: r#"{"id_token":{"username":null,"groups":null}}"#.to_owned(),
+
+            token_endpoint: Url::parse("https://auth.k8s.wwu.de/oidc/token").unwrap(),
+            grant_type: "authorization_code".to_owned(),
+            client_secret: "redacted".to_owned(),
+            audience: "wasm-oidc-plugin".to_owned(),
+            issuer: "https://auth.k8s.wwu.de".to_owned(),
+        }
+    })});
 }}
 
-struct OIDCFlow;
-
-struct OIDCFlowRootContext {}
+struct OIDCFlow {
+    config: FilterConfig,
+}
 
 impl OIDCFlow {
     // Validate the token using the JWT library.
     fn validate_token(&self, _token: &str) -> Result<(), String> {
-        let _issuer_url = "https://auth.k8s.wwu.de";
-        let _audience = "wasm-oidc-plugin";
+        let _issuer_url = self.config.issuer.to_string();
+        let _audience = self.config.audience.to_string();
 
         // TODO: Validate the token using the JWT library, check for signature. #5
+
         // TODO: Check for aud (audience) and iss (issuer) #5
 
         Ok(())
@@ -59,15 +79,15 @@ impl OIDCFlow {
 
     // Build the URL to redirect to the OIDC provider along with the required parameters.
     fn redirect_to_oidc(&self) -> String {
-        let auth_endpoint = "https://auth.k8s.wwu.de/saml2/oidc/authorization";
-        let redirect_uri = "http://localhost:10000/oidc/callback";
-        let response_type = "code";
-        let client_id = "wasm-oidc-plugin";
-        let scope = "openid account";
-        let claims = r#"{"id_token":{"username":null,"groups":null}}"#;
+        let auth_endpoint = self.config.auth_endpoint.to_string();
+        let redirect_uri = self.config.redirect_uri.to_string();
+        let response_type = self.config.response_type.to_string();
+        let client_id = self.config.client_id.to_string();
+        let scope = self.config.scope.to_string();
+        let claims = self.config.claims.to_string();
 
         let url = Url::parse_with_params(
-            auth_endpoint,
+            &auth_endpoint,
             &[
                 ("redirect_uri", redirect_uri),
                 ("response_type", response_type),
@@ -112,9 +132,11 @@ impl OIDCFlow {
     }
 
     // Build the Set-Cookie header to set the token in the browser.
-    fn set_state_cookie(&self, a: &AuthorizationState) -> String {
+    fn set_state_cookie(&self, auth_state: &AuthorizationState) -> String {
         // TODO: HTTP Only, Secure, Max-Age
-        return format!("auth={}; Path=/", serde_json::to_string(a).unwrap());
+        return format!("{}={}; Path=/",
+            self.config.cookie_name.to_string(),
+            serde_json::to_string(auth_state).unwrap());
     }
 }
 
@@ -122,8 +144,8 @@ impl HttpContext for OIDCFlow {
     // This function is called when the request headers are received.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
         // If the requester passes a cookie, this filter passes the request
-        let token = self.get_cookie("id-token");
-        if token != None {
+        let auth_cookie = self.get_cookie(&self.config.cookie_name);
+        if auth_cookie != "" {
             debug!("Cookie found, passing request");
 
             // Decode cookie
@@ -143,9 +165,10 @@ impl HttpContext for OIDCFlow {
             // TODO: Make Configurable #3
 
             // Hardcoded values for request to token endpoint
-            let client_id = "wasm-oidc-plugin";
-            let client_secret = "redacted";
-            let redirect_uri = "http://localhost:10000/oidc/callback"; // Fixed
+            let client_id = self.config.client_id.to_string();
+            let client_secret = self.config.client_secret.to_string();
+            let redirect_uri = self.config.redirect_uri.to_string();
+            let grant_type = self.config.grant_type.to_string();
 
             // Encode client_id and client_secret and build the Authorization header
             let encoded = base64encoder
@@ -156,7 +179,7 @@ impl HttpContext for OIDCFlow {
             let data: String = form_urlencoded::Serializer::new(String::new())
                 .append_pair("code", &code)
                 .append_pair("redirect_uri", &redirect_uri)
-                .append_pair("grant_type", "authorization_code")
+                .append_pair("grant_type", &grant_type)
                 // TODO: PKCE #6
                 // TODO: Nonce #7
                 .finish();
@@ -210,7 +233,7 @@ impl Context for OIDCFlow {
         debug!("Token response received.");
         if let Some(body) = self.get_http_call_response_body(0, body_size) {
 
-            // Build Cookie using parse_response from cookie.rs
+            // Build Cookie Struct using parse_response from cookie.rs
             let auth_cookie = cookie::AuthorizationState::parse_response(body).unwrap();
 
             // Redirect back to the original URL.
@@ -224,20 +247,5 @@ impl Context for OIDCFlow {
                 Some(b"Redirecting..."),
             );
         }
-    }
-}
-
-impl Context for OIDCFlowRootContext {}
-
-impl RootContext for OIDCFlowRootContext {
-    // This function is called when the VM is initialized.
-    fn on_configure(&mut self, _: usize) -> bool {
-        debug!("on_configure");
-        true
-        // TODO: Get OpenID Connect configuration #3
-    }
-
-    fn create_http_context(&self, _: u32) -> Option<Box<dyn HttpContext>> {
-        Some(Box::new(OIDCFlow))
     }
 }
