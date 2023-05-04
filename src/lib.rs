@@ -23,7 +23,6 @@ use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as standard};
 use std::time::Duration;
 
 // proxy-wasm
-use proxy_wasm::hostcalls::*;
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
 
@@ -166,7 +165,7 @@ impl HttpContext for OIDCFlow {
 
             // Dispatch request to token endpoint
             debug!("Sending data to token endpoint: {}", data);
-            let token_request = dispatch_http_call(
+            let token_request = self.dispatch_http_call(
                 "oidc",
                 vec![
                     (":method", "POST"),
@@ -196,7 +195,7 @@ impl HttpContext for OIDCFlow {
             302,
             vec![
                 // Set the source url as a cookie to redirect back to it after the callback.
-                ("Set-Cookie", &format!("source={}", path)),
+                // ("Set-Cookie", &format!("source={}", path)),
                 // Redirect to OIDC provider
                 ("Location", self.redirect_to_oidc().as_str()),
             ],
@@ -237,7 +236,7 @@ impl Context for OIDCFlow {
                         }
 
                         // Check for source cookie to redirect back to the original URL.
-                        let source = self.get_cookie("source").unwrap();
+                        let source = self.get_cookie("source").unwrap_or("/".to_owned());
                         debug!("Source Url: {}", &source);
 
                         // Redirect back to the original URL.
