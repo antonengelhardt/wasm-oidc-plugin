@@ -145,11 +145,11 @@ impl HttpContext for OIDCFlow {
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
         // If the requester passes a cookie, this filter passes the request
         let auth_cookie = self.get_cookie(&self.config.cookie_name);
-        if auth_cookie != "" {
+        if auth_cookie != None {
             debug!("Cookie found, passing request");
 
             // Decode cookie
-            let auth_state = cookie::AuthorizationState::parse_cookie(auth_cookie).unwrap();
+            let auth_state = cookie::AuthorizationState::parse_cookie(auth_cookie.unwrap()).unwrap();
 
             return Action::Continue;
         }
@@ -236,13 +236,16 @@ impl Context for OIDCFlow {
             // Build Cookie Struct using parse_response from cookie.rs
             let auth_cookie = cookie::AuthorizationState::parse_response(body).unwrap();
 
+            // Get Source cookie
+            let source_cookie = self.get_cookie("source");
+
             // Redirect back to the original URL.
             self.send_http_response(
                 302,
                 vec![
                     // TODO: Encode cookie #2
                     ("Set-Cookie", self.set_state_cookie(&auth_cookie).as_str()),
-                    ("Location", "/"),
+                    ("Location", &source_cookie.unwrap_or("/".to_owned())),
                     ],
                 Some(b"Redirecting..."),
             );
