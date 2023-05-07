@@ -17,7 +17,7 @@
 use log::debug;
 
 // base64
-use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as standard};
+use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as base64encoder};
 
 // duration
 use std::time::Duration;
@@ -151,7 +151,7 @@ impl HttpContext for OIDCFlow {
             let redirect_uri = "http://localhost:10000/oidc/callback"; // Fixed
 
             // Encode client_id and client_secret and build the Authorization header
-            let encoded = standard
+            let encoded = base64encoder
                 .encode(format!("{client_id}:{client_secret}").as_bytes());
             let auth = format!("Basic {}", encoded);
 
