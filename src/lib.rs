@@ -44,6 +44,7 @@ proxy_wasm::main! {{
             // TODO: Get OpenID Connect configuration #3
             cookie_name: "oidcSession".to_owned(),
 
+            // Relevant for the Authorization Code Flow
             auth_endpoint: Url::parse("https://auth.k8s.wwu.de/saml2/oidc/authorization").unwrap(),
             redirect_uri: Url::parse("http://localhost:10000/oidc/callback").unwrap(),
             response_type: "code".to_owned(),
@@ -51,6 +52,7 @@ proxy_wasm::main! {{
             scope: "openid email".to_owned(),
             claims: r#"{"id_token":{"username":null,"groups":null}}"#.to_owned(),
 
+            // Relevant for the Token Endpoint
             token_endpoint: Url::parse("https://auth.k8s.wwu.de/oidc/token").unwrap(),
             grant_type: "authorization_code".to_owned(),
             client_secret: "redacted".to_owned(),
@@ -67,8 +69,8 @@ struct OIDCFlow {
 impl OIDCFlow {
     // Validate the token using the JWT library.
     fn validate_token(&self, _token: &str) -> Result<(), String> {
-        let _issuer_url = self.config.issuer.to_string();
-        let _audience = self.config.audience.to_string();
+        let _issuer_url = self.config.issuer.as_str();
+        let _audience = self.config.audience.as_str();
 
         // TODO: Validate the token using the JWT library, check for signature. #5
 
@@ -79,21 +81,16 @@ impl OIDCFlow {
 
     // Build the URL to redirect to the OIDC provider along with the required parameters.
     fn redirect_to_oidc(&self) -> String {
-        let auth_endpoint = self.config.auth_endpoint.to_string();
-        let redirect_uri = self.config.redirect_uri.to_string();
-        let response_type = self.config.response_type.to_string();
-        let client_id = self.config.client_id.to_string();
-        let scope = self.config.scope.to_string();
-        let claims = self.config.claims.to_string();
 
+        // Build URL
         let url = Url::parse_with_params(
-            &auth_endpoint,
+            &self.config.auth_endpoint.as_str(),
             &[
-                ("redirect_uri", redirect_uri),
-                ("response_type", response_type),
-                ("client_id", client_id),
-                ("scope", scope),
-                ("claims", claims),
+                ("redirect_uri", self.config.redirect_uri.as_str()),
+                ("response_type", self.config.response_type.as_str()),
+                ("client_id", &self.config.client_id),
+                ("scope", &self.config.scope),
+                ("claims", &self.config.claims),
             ],
         )
         .unwrap();
@@ -135,7 +132,7 @@ impl OIDCFlow {
     fn set_state_cookie(&self, auth_state: &AuthorizationState) -> String {
         // TODO: HTTP Only, Secure, Max-Age
         return format!("{}={}; Path=/",
-            self.config.cookie_name.to_string(),
+            self.config.cookie_name,
             serde_json::to_string(auth_state).unwrap());
     }
 }
@@ -143,16 +140,28 @@ impl OIDCFlow {
 impl HttpContext for OIDCFlow {
     // This function is called when the request headers are received.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
+
         // If the requester passes a cookie, this filter passes the request
-        let auth_cookie = self.get_cookie(&self.config.cookie_name);
-        if auth_cookie != None {
+        if let Some(auth_cookie) = self.get_cookie(&self.config.cookie_name) {
             debug!("Cookie found, passing request");
 
             // Decode cookie
-            let auth_state = cookie::AuthorizationState::parse_cookie(auth_cookie.unwrap()).unwrap();
+            let auth_state = cookie::AuthorizationState::parse_cookie(auth_cookie).unwrap();
 
-            return Action::Continue;
+            // Validate token
+            let validation_result = self.validate_token(&auth_state.id_token);
+            match validation_result {
+                Ok(_) => {
+                    debug!("Token is valid");
+                    return Action::Continue;
+                }
+                Err(_) => {
+                    debug!("Token is invalid");
+                    return Action::Pause;
+                }
+            }
         }
+
 
         // If the request is for the OIDC callback, e.g the code is returned, this filter
         // exchanges the code for a token. The response is caught in on_http_call_response.
@@ -162,13 +171,9 @@ impl HttpContext for OIDCFlow {
             let code = path.split("=").last().unwrap_or_default();
             debug!("Code: {}", code);
 
-            // TODO: Make Configurable #3
-
             // Hardcoded values for request to token endpoint
-            let client_id = self.config.client_id.to_string();
-            let client_secret = self.config.client_secret.to_string();
-            let redirect_uri = self.config.redirect_uri.to_string();
-            let grant_type = self.config.grant_type.to_string();
+            let client_id = &self.config.client_id;
+            let client_secret = &self.config.client_secret;
 
             // Encode client_id and client_secret and build the Authorization header
             let encoded = base64encoder
@@ -178,8 +183,8 @@ impl HttpContext for OIDCFlow {
             // Build the request body
             let data: String = form_urlencoded::Serializer::new(String::new())
                 .append_pair("code", &code)
-                .append_pair("redirect_uri", &redirect_uri)
-                .append_pair("grant_type", &grant_type)
+                .append_pair("redirect_uri", &self.config.redirect_uri.as_str())
+                .append_pair("grant_type", &self.config.grant_type.as_str())
                 // TODO: PKCE #6
                 // TODO: Nonce #7
                 .finish();
@@ -216,7 +221,7 @@ impl HttpContext for OIDCFlow {
             302,
             vec![
                 // Set the source url as a cookie to redirect back to it after the callback.
-                // ("Set-Cookie", &format!("source={}", path)),
+                ("Set-Cookie", &format!("source={}", path)),
                 // Redirect to OIDC provider
                 ("Location", self.redirect_to_oidc().as_str()),
             ],
@@ -232,23 +237,31 @@ impl Context for OIDCFlow {
         // Catching token response
         debug!("Token response received.");
         if let Some(body) = self.get_http_call_response_body(0, body_size) {
-
             // Build Cookie Struct using parse_response from cookie.rs
-            let auth_cookie = cookie::AuthorizationState::parse_response(body).unwrap();
+            match cookie::AuthorizationState::parse_response(body.as_slice()) {
+                Ok(auth_cookie) => {
+                    debug!("Cookie: {:?}", &auth_cookie);
 
-            // Get Source cookie
-            let source_cookie = self.get_cookie("source");
+                    // Get Source cookie
+                    let source_cookie = self.get_cookie("source");
 
-            // Redirect back to the original URL.
-            self.send_http_response(
-                302,
-                vec![
-                    // TODO: Encode cookie #2
-                    ("Set-Cookie", self.set_state_cookie(&auth_cookie).as_str()),
-                    ("Location", &source_cookie.unwrap_or("/".to_owned())),
-                    ],
-                Some(b"Redirecting..."),
-            );
+                    // Redirect back to the original URL.
+                    self.send_http_response(
+                        302,
+                        vec![
+                            // TODO: Encode cookie #2
+                            ("Set-Cookie", self.set_state_cookie(&auth_cookie).as_str()),
+                            ("Location", &source_cookie.unwrap_or("/".to_owned())),
+                        ],
+                        Some(b"Redirecting..."),
+                    );
+                }
+                Err(e) => {
+                    debug!("Error: {}", e);
+                }
+            }
+        } else {
+            debug!("No body found.");
         }
     }
 }

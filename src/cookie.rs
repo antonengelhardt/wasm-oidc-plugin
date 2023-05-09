@@ -22,22 +22,15 @@ pub struct AuthorizationState {
 impl AuthorizationState {
 
     // Create a new cookie from the response coming from the Token Endpoint
-    pub fn parse_response(res: Vec<u8>) -> Result<AuthorizationState, serde_json::Error> {
+    pub fn parse_response(res: &[u8]) -> Result<AuthorizationState, serde_json::Error> {
 
         // Format the response into a slice and parse it in a struct
-        let res_sliced = res.as_slice();
-        match serde_json::from_slice::<AuthorizationState>(res_sliced) {
+
+        match serde_json::from_slice::<AuthorizationState>(res) {
 
             // If deserialization was successful, set the cookie and resume the request
             Ok(state) => {
-                return Ok(AuthorizationState {
-                    access_token: state.access_token,
-                    token_type: state.token_type,
-                    expires_in: state.expires_in,
-                    refresh_token: state.refresh_token,
-                    id_token: state.id_token,
-                    // source: state.source,
-                })
+                return Ok(state)
             },
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
@@ -60,14 +53,8 @@ impl AuthorizationState {
 
             // If deserialization was successful, set the cookie and resume the request
             Ok(state) => {
-                return Ok(AuthorizationState {
-                    access_token: state.access_token,
-                    token_type: state.token_type,
-                    expires_in: state.expires_in,
-                    refresh_token: state.refresh_token,
-                    id_token: state.id_token,
+                return Ok(state)
                     // source: "/".to_string(),
-                })
             },
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
