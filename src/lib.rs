@@ -17,12 +17,9 @@ use log::debug;
 
 // base64
 use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as base64engine, engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe};
-use log::info;
-use serde::de::Error;
 
 // duration
 use std::time::Duration;
-use std::time::SystemTime;
 
 // proxy-wasm
 use proxy_wasm::traits::*;
@@ -33,8 +30,6 @@ use proxy_wasm::types::*;
 
 // jwt
 use jwt_simple::prelude::*;
-use jwt_simple::claims::*;
-use jwt_simple::algorithms;
 
 // url
 use url::{form_urlencoded, Url};
@@ -50,7 +45,6 @@ proxy_wasm::main! {{
     proxy_wasm::set_log_level(LogLevel::Trace);
     proxy_wasm::set_http_context(|_, _| -> Box<dyn HttpContext> { Box::new(OIDCFlow{
 
-
         config: FilterConfig {
             // TODO: Get OpenID Connect configuration #3
             cookie_name: "oidcSession".to_owned(),
@@ -62,6 +56,7 @@ proxy_wasm::main! {{
             client_id: "wasm-oidc-plugin".to_owned(),
             scope: "openid email".to_owned(),
             claims: r#"{"id_token":{"username":null,"groups":null}}"#.to_owned(),
+            call_back_path: "/oidc/callback".to_owned(),
 
             // Relevant for the Token Endpoint
             token_endpoint: Url::parse("https://auth.k8s.wwu.de/oidc/token").unwrap(),
@@ -71,6 +66,9 @@ proxy_wasm::main! {{
             issuer: "https://auth.k8s.wwu.de".to_owned(),
 
             // Relevant for id_token validation
+            // TODO: Key this from jwks_uri #4
+            public_key_comp_n: "wUF4vL2WhsHyvprBmcrQq6nnRY7xHgq8kKk37rG_52agaTLAApFy9DrvKo3GJpbCQphC0iTfDtNSU4xaHvEIUoDv5i98aDXQ6X5eQwNzLtDKhxEPFFRaSipyOCFCZfEqr6GLWgSaqwXq_ZEpNLlrr_mOaJWxp7fx-MO9gNigODX61-J6-XBsbo9UtSq9cZWCCvbHfL3nBq6fdsm2qgtNgz2EVJQqpi82BFDXPf2G6ezpXqzlpsZgfG27IPq4Cy0e_SS34AeBAhqQmp9UDpHwjAz701aKW1GrdmSzrkuWvHF8u0pmbFSvz9juhJEXLSWzKaNiNvsmMWP4RW31B-vlsTMn0kxYkRsz5MoPefrGWse0nIyDS3jbM4oPF5XeEcxm_8duXlwUrljd-1ij6zlcKFvykMwk9K8XhYtdG8Jxwqun8LKGrrwbGZWOJ4J5NMxW1vadOGtvBcS1oKXBGvsI8rYzK5gQIA3T5VFCoA-S2PHiKpiCU48GWJbwYW4V21o2Ph3Uh11FMAQGYAZVSkmH70hOEfLQhfJHEbACIFDzV20wJ0DCl1KgU-7-s2a7kHJwNXRf1BU5SHgsc1L_XYYM24k1IoutOu5eXimaIk7oF1RYcE62SRrsjFIjtcVJ5wDJ-hP2Tlq7ilnyIC8rMxUe2kibK42XOrBZ5n7FwoZMAicKDgyP8rEiMLPGlmC00ThQUy6CH4jmez6kVw5_qPWBjI4GBvg2uxi5eLEuniB5kmkpUmgVkqlC8arwaCLfH6GFlZtcwdEi79wyLJmYQ_eanrTN8O0k89MJ_Mfu7jLomPGIN8xDORYDZ4D6h-Y9Bs30I9LGVpw_2bRbdi8vU-kJnwv8HsjThEfF_UIeNsKwPfisq_f6_lCJKywbvDhqPrl6f7yq3UCBkdKZEYqX5AY_0KFmJYfqHbdl28J2ZYBGOXYdsPvaHHtysT_GXt8HMqt-RkxAmnixm5jF4ZrX5no6rBLG4Gft_-dkyg7HsQM-2STOEyzgh6jiNTcmQOxSHBQZvqrWTnHotZRJg0No_v_e_x8f5-0pKkQ2PDH3Xn8u05NpgSoGomGY5rsqkMjS4pug3uECpoj9YNZXN9V4FdqPz_e8gRWoEgk4_5W32Q56YynD_uKkot6QzQxAgMVCnYu-iTI3Dmz3w8V5GRgEoQbldsE2B6WM9kby3d75oKLjzHOpJurDo9r-fZTPyJ2iP0esnmQbDig50_99Ur1huzNYeyAoltZBgo-tKyD3zLzqBGeLGeK5bycC7qORxPiJpXURg9GrJ8r44uOXchEp6yINfNuQq5FATe-zmWvvVxcYwr46rWpa-gdPbn1EGCzjhP_WtAT3zWTw8QKdc2UrQTWiaQ".to_owned(),
+            public_key_comp_e: "AQAB".to_owned(),
         }
      })});
 }}
@@ -83,36 +81,45 @@ impl OIDCFlow {
     // Validate the token using the JWT library.
     fn validate_token(&self, token: &str) -> Result<(), String> {
 
-        // TODO: Check for aud (audience) and iss (issuer) #5
+        // Decode and parse the public key
+        let n_dec = base64engine_urlsafe.decode(&self.config.public_key_comp_n).unwrap();
+        let e_dec = base64engine_urlsafe.decode(&self.config.public_key_comp_e).unwrap();
+        let public_key = jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec).unwrap();
 
-        // Extract aud (audience) and iss (issuer) from the token
-        let token_parts = token.split('.').collect::<Vec<&str>>();
-        let token_data = token_parts[1];
+        // Define allowed issuers and audiences
+        let mut allowed_issuers = HashSet::new();
+        allowed_issuers.insert(self.config.issuer.to_string());
+        let mut allowed_audiences = HashSet::new();
+        allowed_audiences.insert(self.config.audience.to_string());
 
-        // Decode and parse the token data
-        let token_data_decoded = base64engine.decode(token_data).unwrap();
-        let token_data_parsed = serde_json::from_slice::<serde_json::Value>(&token_data_decoded).unwrap();
+        // Verify the token
+        let verification_options = VerificationOptions {
+            allowed_issuers: Some(allowed_issuers),
+            allowed_audiences: Some(allowed_audiences),
 
-        // Extract aud and iss from the token data
-        let aud = token_data_parsed["aud"].as_str().unwrap();
-        let iss = token_data_parsed["iss"].as_str().unwrap();
+            reject_before: None,
+            accept_future: false,
+            required_subject: None,
+            required_key_id: None,
+            required_public_key: None,
+            required_nonce: None,
+            time_tolerance: None,
+            max_validity: None,
+            max_header_length: None,
+            max_token_length: None,
+        };
 
-        match aud == self.config.audience.as_str() && iss == self.config.issuer.as_str() {
-            true => {
-                info!("Audience and issuer are valid");
-            }
-            false => {
-                info!("Audience and issuer are invalid");
-                return Err("Audience and issuer are invalid".into());
+        let validation_result = public_key.verify_token::<NoCustomClaims>(&token, Some(verification_options));
+
+        // Check if the token is valid, the aud and iss are correct and the signature is valid.
+        match validation_result {
+            Ok(_) => {
+                return Ok(());
+            },
+            Err(e) => {
+                return Err(e.to_string());
             }
         }
-
-        // TODO: Check for exp (expiration time)
-
-        // TODO: Validate the token using the JWT library #5
-
-        Ok(())
-
     }
 
     // Build the URL to redirect to the OIDC provider along with the required parameters.
@@ -202,7 +209,7 @@ impl HttpContext for OIDCFlow {
         // If the request is for the OIDC callback, e.g the code is returned, this filter
         // exchanges the code for a token. The response is caught in on_http_call_response.
         let path = self.get_http_request_header(":path").unwrap_or_default();
-        if path.starts_with("/oidc/callback") {
+        if path.starts_with(&self.config.call_back_path) {
             // Extract code from the url
             let code = path.split("=").last().unwrap_or_default();
             debug!("Code: {}", code);
