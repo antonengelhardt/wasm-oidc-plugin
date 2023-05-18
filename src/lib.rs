@@ -16,10 +16,13 @@
 use log::debug;
 
 // base64
-use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as base64encoder};
+use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as base64engine, engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe};
+use log::info;
+use serde::de::Error;
 
 // duration
 use std::time::Duration;
+use std::time::SystemTime;
 
 // proxy-wasm
 use proxy_wasm::traits::*;
@@ -27,6 +30,11 @@ use proxy_wasm::types::*;
 
 // serde
 // use serde::{Deserialize};
+
+// jwt
+use jwt_simple::prelude::*;
+use jwt_simple::claims::*;
+use jwt_simple::algorithms;
 
 // url
 use url::{form_urlencoded, Url};
@@ -38,8 +46,11 @@ mod config;
 use config::FilterConfig;
 
 proxy_wasm::main! {{
+
     proxy_wasm::set_log_level(LogLevel::Trace);
     proxy_wasm::set_http_context(|_, _| -> Box<dyn HttpContext> { Box::new(OIDCFlow{
+
+
         config: FilterConfig {
             // TODO: Get OpenID Connect configuration #3
             cookie_name: "oidcSession".to_owned(),
@@ -58,8 +69,10 @@ proxy_wasm::main! {{
             client_secret: "redacted".to_owned(),
             audience: "wasm-oidc-plugin".to_owned(),
             issuer: "https://auth.k8s.wwu.de".to_owned(),
+
+            // Relevant for id_token validation
         }
-    })});
+     })});
 }}
 
 struct OIDCFlow {
@@ -68,15 +81,38 @@ struct OIDCFlow {
 
 impl OIDCFlow {
     // Validate the token using the JWT library.
-    fn validate_token(&self, _token: &str) -> Result<(), String> {
-        let _issuer_url = self.config.issuer.as_str();
-        let _audience = self.config.audience.as_str();
-
-        // TODO: Validate the token using the JWT library, check for signature. #5
+    fn validate_token(&self, token: &str) -> Result<(), String> {
 
         // TODO: Check for aud (audience) and iss (issuer) #5
 
+        // Extract aud (audience) and iss (issuer) from the token
+        let token_parts = token.split('.').collect::<Vec<&str>>();
+        let token_data = token_parts[1];
+
+        // Decode and parse the token data
+        let token_data_decoded = base64engine.decode(token_data).unwrap();
+        let token_data_parsed = serde_json::from_slice::<serde_json::Value>(&token_data_decoded).unwrap();
+
+        // Extract aud and iss from the token data
+        let aud = token_data_parsed["aud"].as_str().unwrap();
+        let iss = token_data_parsed["iss"].as_str().unwrap();
+
+        match aud == self.config.audience.as_str() && iss == self.config.issuer.as_str() {
+            true => {
+                info!("Audience and issuer are valid");
+            }
+            false => {
+                info!("Audience and issuer are invalid");
+                return Err("Audience and issuer are invalid".into());
+            }
+        }
+
+        // TODO: Check for exp (expiration time)
+
+        // TODO: Validate the token using the JWT library #5
+
         Ok(())
+
     }
 
     // Build the URL to redirect to the OIDC provider along with the required parameters.
@@ -176,7 +212,7 @@ impl HttpContext for OIDCFlow {
             let client_secret = &self.config.client_secret;
 
             // Encode client_id and client_secret and build the Authorization header
-            let encoded = base64encoder
+            let encoded = base64engine
                 .encode(format!("{client_id}:{client_secret}").as_bytes());
             let auth = format!("Basic {}", encoded);
 
