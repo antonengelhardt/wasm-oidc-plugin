@@ -25,6 +25,12 @@ services:
     networks:
       - envoymesh
 
-    # TODO: Http Bin Local Container
+  httpbin:
+    image: kennethreitz/httpbin
+    hostname: httpbin
+    ports:
+      - "80:80"
+    networks:
+      - envoymesh
 networks:
   envoymesh: {}

@@ -64,7 +64,7 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: httpbin.org
+                      address: httpbin
                       port_value: 80
                   hostname: "httpbin.org"
     - name: oidc
