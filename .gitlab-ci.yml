@@ -1,0 +1,22 @@
+image: "zivgitlab.wwu.io/m_wiga01/rust-docker-tools/rust-docker-tools:latest"
+
+stages:
+  - test
+  - build
+
+test:
+  stage: test
+  script:
+    - rustc --version && cargo --version
+    - cargo fmt --check
+    - cargo clippy
+    - cargo test --workspace --verbose
+
+build:
+  stage: build
+  script:
+    - cargo build --target wasm32-wasi --release
+  artifacts:
+    paths:
+      - target/wasm32-wasi/release/oidc.wasm
+
