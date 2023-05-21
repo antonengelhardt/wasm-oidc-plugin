@@ -21,9 +21,10 @@ services:
     volumes:
       - ./envoy.yaml:/etc/envoy/envoy.yaml
       - ./target/wasm32-wasi/release:/etc/envoy/proxy-wasm-plugins
-      # - ./env:/etc/envoy/.env
     networks:
       - envoymesh
+    # for debugging - prints full trace of all proxy-wasm calls
+    # command: envoy -c /etc/envoy/envoy.yaml --component-log-level wasm:trace
 
   httpbin:
     image: kennethreitz/httpbin
