@@ -49,6 +49,7 @@ proxy_wasm::main! {{
         config: FilterConfig {
             // TODO: Get OpenID Connect configuration #3
             cookie_name: "oidcSession".to_owned(),
+            cookie_duration: 86400,
 
             // Relevant for the Authorization Code Flow
             auth_endpoint: Url::parse("https://auth.k8s.wwu.de/saml2/oidc/authorization").unwrap(),
@@ -164,9 +165,11 @@ impl OIDCFlow {
     // Build the Set-Cookie header to set the token in the browser.
     fn set_state_cookie(&self, auth_state: &AuthorizationState) -> String {
         // TODO: HTTP Only, Secure
-        return format!("{}={}; Path=/; Max-Age=3600",
+        return format!("{}={}; Path=/; Max-Age={}",
             self.config.cookie_name,
-            serde_json::to_string(auth_state).unwrap());
+            serde_json::to_string(auth_state).unwrap(),
+            self.config.cookie_duration,
+        );
     }
 }
 
