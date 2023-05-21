@@ -14,6 +14,7 @@
 
 // log
 use log::debug;
+use log::info;
 
 // base64
 use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as base64engine, engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe};
@@ -141,17 +142,6 @@ impl OIDCFlow {
         return url.to_string();
     }
 
-    // Get the header of the HTTP request
-    fn _get_header(&self, name: &str) -> Option<String> {
-        let headers = self.get_http_request_headers();
-        for (key, value) in headers.iter() {
-            if key.to_lowercase().trim() == name {
-                return Some(value.to_owned());
-            }
-        }
-        return None;
-    }
-
     // Get the cookie of the HTTP request
     fn get_cookie(&self, name: &str) -> Option<String> {
         let headers = self.get_http_request_headers();
@@ -173,8 +163,8 @@ impl OIDCFlow {
 
     // Build the Set-Cookie header to set the token in the browser.
     fn set_state_cookie(&self, auth_state: &AuthorizationState) -> String {
-        // TODO: HTTP Only, Secure, Max-Age
-        return format!("{}={}; Path=/",
+        // TODO: HTTP Only, Secure
+        return format!("{}={}; Path=/; Max-Age=3600",
             self.config.cookie_name,
             serde_json::to_string(auth_state).unwrap());
     }
@@ -184,32 +174,13 @@ impl HttpContext for OIDCFlow {
     // This function is called when the request headers are received.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
 
-        // If the requester passes a cookie, this filter passes the request
-        if let Some(auth_cookie) = self.get_cookie(&self.config.cookie_name) {
-            debug!("Cookie found, passing request");
-
-            // Decode cookie
-            let auth_state = cookie::AuthorizationState::parse_cookie(auth_cookie).unwrap();
-
-            // Validate token
-            let validation_result = self.validate_token(&auth_state.id_token);
-            match validation_result {
-                Ok(_) => {
-                    debug!("Token is valid");
-                    return Action::Continue;
-                }
-                Err(_) => {
-                    debug!("Token is invalid");
-                    return Action::Pause;
-                }
-            }
-        }
-
-
         // If the request is for the OIDC callback, e.g the code is returned, this filter
         // exchanges the code for a token. The response is caught in on_http_call_response.
         let path = self.get_http_request_header(":path").unwrap_or_default();
         if path.starts_with(&self.config.call_back_path) {
+
+            debug!("Received request for OIDC callback.");
+
             // Extract code from the url
             let code = path.split("=").last().unwrap_or_default();
             debug!("Code: {}", code);
@@ -253,9 +224,42 @@ impl HttpContext for OIDCFlow {
                 Ok(_) => {
                     debug!("Token request dispatched successfully.");
                 }
-                Err(err) => debug!("Token request failed: {:?}", err),
+                Err(err) => {
+                    debug!("Token request failed: {:?}", err);
+                }
             }
             return Action::Pause;
+        }
+
+        // If the requester passes a cookie, this filter passes the request
+        if let Some(auth_cookie) = self.get_cookie(&self.config.cookie_name) {
+            debug!("Cookie found, checking validity.");
+
+            // Decode cookie
+            let auth_state = cookie::AuthorizationState::parse_cookie(auth_cookie).unwrap();
+
+            // Validate token
+            let validation_result = self.validate_token(&auth_state.id_token);
+            match validation_result {
+                // If the token is valid, this filter passes the request
+                Ok(_) => {
+                    debug!("Token is valid, passing request.");
+                    return Action::Continue;
+                }
+                // If the token is invalid, this filter redirects the requester to the OIDC provider
+                Err(_) => {
+                    info!("Token is invalid, redirecting to OIDC provider.");
+
+                    self.send_http_response(
+                        302,
+                        vec![
+                            // Redirect to OIDC provider
+                            ("Location", self.redirect_to_oidc().as_str()),
+                        ],
+                        Some(b"Redirecting..."),
+                    );
+                }
+            }
         }
 
         // Redirect to OIDC provider if no cookie is found
