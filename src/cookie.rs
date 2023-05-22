@@ -3,17 +3,18 @@ use serde_json;
 
 use log::debug;
 
+/// Struct to hold the state cookie
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthorizationState {
-    // Access token to be used for requests to the API
+    /// Access token to be used for requests to the API
     pub access_token: String,
-    // Type of the access token
+    /// Type of the access token
     pub token_type: String,
-    // Time in seconds until the access token expires
+    /// Time in seconds until the access token expires
     pub expires_in: u32,
-    // Refresh token to be used to refresh the access token
+    /// Refresh token to be used to refresh the access token
     pub refresh_token: String,
-    // ID token in JWT format
+    /// ID token in JWT format
     pub id_token: String,
     // Path of the original request
     // pub source: String,
@@ -21,7 +22,7 @@ pub struct AuthorizationState {
 
 impl AuthorizationState {
 
-    // Create a new cookie from the response coming from the Token Endpoint
+    /// Create a new cookie from the response coming from the Token Endpoint
     pub fn parse_response(res: &[u8]) -> Result<AuthorizationState, serde_json::Error> {
 
         // Format the response into a slice and parse it in a struct
@@ -40,13 +41,13 @@ impl AuthorizationState {
         }
     }
 
-    // not used now, but could be used to create a cookie from a response
+    /// not used now, but could be used to create a cookie from a response
     pub fn _create_cookie_str(cookie: AuthorizationState) -> String {
         let cookie_str = serde_json::to_string(&cookie).unwrap();
         return cookie_str;
     }
 
-    // Parse the cookie from the request into a struct
+    /// Parse the cookie from the request into a struct
     pub fn parse_cookie(cookie: String) -> Result<AuthorizationState, serde_json::Error> {
 
         match serde_json::from_str::<AuthorizationState>(&cookie) {

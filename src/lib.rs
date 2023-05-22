@@ -75,12 +75,13 @@ proxy_wasm::main! {{
      })});
 }}
 
+/// The OIDCFlow is the main filter struct.
 struct OIDCFlow {
     config: FilterConfig,
 }
 
 impl OIDCFlow {
-    // Validate the token using the JWT library.
+    /// Validate the token using the JWT library.
     fn validate_token(&self, token: &str) -> Result<(), String> {
 
         // Decode and parse the public key
@@ -124,7 +125,7 @@ impl OIDCFlow {
         }
     }
 
-    // Build the URL to redirect to the OIDC provider along with the required parameters.
+    /// Build the URL to redirect to the OIDC provider along with the required parameters.
     fn redirect_to_oidc(&self) -> String {
 
         // Build URL
@@ -143,7 +144,7 @@ impl OIDCFlow {
         return url.to_string();
     }
 
-    // Get the cookie of the HTTP request
+    /// Get the cookie of the HTTP request by name
     fn get_cookie(&self, name: &str) -> Option<String> {
         let headers = self.get_http_request_headers();
         for (key, value) in headers.iter() {
@@ -162,7 +163,7 @@ impl OIDCFlow {
         return None
     }
 
-    // Build the Set-Cookie header to set the token in the browser.
+    /// Build the Cookie content to set the cookie in the HTTP response.
     fn set_state_cookie(&self, auth_state: &AuthorizationState) -> String {
         // TODO: HTTP Only, Secure
         return format!("{}={}; Path=/; Max-Age={}",
@@ -174,7 +175,10 @@ impl OIDCFlow {
 }
 
 impl HttpContext for OIDCFlow {
-    // This function is called when the request headers are received.
+    /// This function is called when the request headers are received.
+    /// If the request is for the OIDC callback, the request is dispatched to the token endpoint.
+    /// If the request is not for the OIDC callback and contains a cookie, the cookie is validated and the request is forwarded.
+    /// Else, the request is redirected to the OIDC provider.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
 
         // If the request is for the OIDC callback, e.g the code is returned, this filter
@@ -282,11 +286,18 @@ impl HttpContext for OIDCFlow {
 }
 
 impl Context for OIDCFlow {
-    // This function is called when the response headers are received.
+    /// This function catches the response from the token endpoint.
     fn on_http_call_response(&mut self, _: u32, _: usize, body_size: usize, _: usize) {
         // Catching token response
         debug!("Token response received.");
         if let Some(body) = self.get_http_call_response_body(0, body_size) {
+
+            // Check if body is error
+            if body.starts_with(b"{\"error\":") {
+                debug!("Error: {}", String::from_utf8_lossy(body.as_slice()));
+                return;
+            }
+
             // Build Cookie Struct using parse_response from cookie.rs
             match cookie::AuthorizationState::parse_response(body.as_slice()) {
                 Ok(auth_cookie) => {
