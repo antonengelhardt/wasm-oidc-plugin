@@ -290,11 +290,19 @@ impl Context for OIDCFlow {
     fn on_http_call_response(&mut self, _: u32, _: usize, body_size: usize, _: usize) {
 
         // Check if the response is valid
-        let status_code = self.get_http_call_response_header(":status").unwrap();
-        if status_code != "200" {
-            let body = String::from_utf8(self.get_http_call_response_body(0, body_size).unwrap()).unwrap();
-            warn!("Token response is not valid: {:?}", body);
-            return;
+        if self.get_http_call_response_header(":status") != Some("200".to_string()) {
+            if let Some(body) = self.get_http_call_response_body(0, body_size) {
+                if let Ok(decoded) = String::from_utf8(body) {
+                    warn!("Token response is not valid: {:?}", decoded);
+                    return;
+                } else {
+                    warn!("Token response is not valid and error decoding error message.");
+                    return;
+                }
+            } else {
+                warn!("No body in token response with invalid status code.");
+                return;
+            }
         }
 
         // Catching token response
@@ -324,7 +332,7 @@ impl Context for OIDCFlow {
                 }
             }
         } else {
-            warn!("No body found.");
+            warn!("No body found in token response with valid status code.");
         }
     }
 }

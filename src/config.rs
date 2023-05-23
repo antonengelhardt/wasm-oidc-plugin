@@ -38,7 +38,7 @@ pub struct FilterConfig {
     /// The issuer that will be used for the token request
     pub issuer: String,
 
-    /// Relevant for Validation of the ID Token
+    // Relevant for Validation of the ID Token
     /// The public key component n that will be used for the validation of the ID Token
     pub public_key_comp_n: String,
     /// The public key component e that will be used for the validation of the ID Token
