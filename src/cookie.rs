@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-use log::debug;
+use log::warn;
 
 /// Struct to hold the state cookie
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,7 +35,7 @@ impl AuthorizationState {
             },
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
-                debug!("Error occured during creation of State Cookie {}", e);
+                warn!("Error occured during creation of State Cookie {}", e);
                 return Err(e)
             }
         }
@@ -59,7 +59,7 @@ impl AuthorizationState {
             },
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
-                debug!("Error occured during creation of State Cookie {}", e);
+                warn!("Error occured during creation of State Cookie {}", e);
                 return Err(e)
             }
         }

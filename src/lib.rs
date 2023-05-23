@@ -14,7 +14,7 @@
 
 // log
 use log::debug;
-use log::info;
+use log::warn;
 
 // base64
 use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as base64engine, engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe};
@@ -232,7 +232,7 @@ impl HttpContext for OIDCFlow {
                     debug!("Token request dispatched successfully.");
                 }
                 Err(err) => {
-                    debug!("Token request failed: {:?}", err);
+                    warn!("Token request failed: {:?}", err);
                 }
             }
             return Action::Pause;
@@ -255,7 +255,7 @@ impl HttpContext for OIDCFlow {
                 }
                 // If the token is invalid, this filter redirects the requester to the OIDC provider
                 Err(_) => {
-                    info!("Token is invalid, redirecting to OIDC provider.");
+                    warn!("Token is invalid, redirecting to OIDC provider.");
 
                     self.send_http_response(
                         302,
@@ -288,16 +288,18 @@ impl HttpContext for OIDCFlow {
 impl Context for OIDCFlow {
     /// This function catches the response from the token endpoint.
     fn on_http_call_response(&mut self, _: u32, _: usize, body_size: usize, _: usize) {
+
+        // Check if the response is valid
+        let status_code = self.get_http_call_response_header(":status").unwrap();
+        if status_code != "200" {
+            let body = String::from_utf8(self.get_http_call_response_body(0, body_size).unwrap()).unwrap();
+            warn!("Token response is not valid: {:?}", body);
+            return;
+        }
+
         // Catching token response
-        debug!("Token response received.");
         if let Some(body) = self.get_http_call_response_body(0, body_size) {
-
-            // Check if body is error
-            if body.starts_with(b"{\"error\":") {
-                debug!("Error: {}", String::from_utf8_lossy(body.as_slice()));
-                return;
-            }
-
+            debug!("Token response: {:?}", body);
             // Build Cookie Struct using parse_response from cookie.rs
             match cookie::AuthorizationState::parse_response(body.as_slice()) {
                 Ok(auth_cookie) => {
@@ -318,11 +320,11 @@ impl Context for OIDCFlow {
                     );
                 }
                 Err(e) => {
-                    debug!("Error: {}", e);
+                    warn!("Error: {}", e);
                 }
             }
         } else {
-            debug!("No body found.");
+            warn!("No body found.");
         }
     }
 }
