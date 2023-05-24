@@ -17,7 +17,10 @@ use log::debug;
 use log::warn;
 
 // base64
-use base64::{Engine as _, engine::general_purpose::STANDARD_NO_PAD as base64engine, engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe};
+use base64::{
+    engine::general_purpose::STANDARD_NO_PAD as base64engine,
+    engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, Engine as _,
+};
 
 // duration
 use std::time::Duration;
@@ -83,11 +86,15 @@ struct OIDCFlow {
 impl OIDCFlow {
     /// Validate the token using the JWT library.
     fn validate_token(&self, token: &str) -> Result<(), String> {
-
         // Decode and parse the public key
-        let n_dec = base64engine_urlsafe.decode(&self.config.public_key_comp_n).unwrap();
-        let e_dec = base64engine_urlsafe.decode(&self.config.public_key_comp_e).unwrap();
-        let public_key = jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec).unwrap();
+        let n_dec = base64engine_urlsafe
+            .decode(&self.config.public_key_comp_n)
+            .unwrap();
+        let e_dec = base64engine_urlsafe
+            .decode(&self.config.public_key_comp_e)
+            .unwrap();
+        let public_key =
+            jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec).unwrap();
 
         // Define allowed issuers and audiences
         let mut allowed_issuers = HashSet::new();
@@ -112,13 +119,14 @@ impl OIDCFlow {
             max_token_length: None,
         };
 
-        let validation_result = public_key.verify_token::<NoCustomClaims>(&token, Some(verification_options));
+        let validation_result =
+            public_key.verify_token::<NoCustomClaims>(&token, Some(verification_options));
 
         // Check if the token is valid, the aud and iss are correct and the signature is valid.
         match validation_result {
             Ok(_) => {
                 return Ok(());
-            },
+            }
             Err(e) => {
                 return Err(e.to_string());
             }
@@ -127,7 +135,6 @@ impl OIDCFlow {
 
     /// Build the URL to redirect to the OIDC provider along with the required parameters.
     fn redirect_to_oidc(&self) -> String {
-
         // Build URL
         let url = Url::parse_with_params(
             &self.config.auth_endpoint.as_str(),
@@ -154,19 +161,21 @@ impl OIDCFlow {
                     let cookie_name_end = cookie_string.find('=').unwrap_or(0);
                     let cookie_name = &cookie_string[0..cookie_name_end];
                     if cookie_name.trim() == name {
-                        return Some(cookie_string[(cookie_name_end + 1)..cookie_string.len()]
-                            .to_owned());
+                        return Some(
+                            cookie_string[(cookie_name_end + 1)..cookie_string.len()].to_owned(),
+                        );
                     }
                 }
             }
         }
-        return None
+        return None;
     }
 
     /// Build the Cookie content to set the cookie in the HTTP response.
     fn set_state_cookie(&self, auth_state: &AuthorizationState) -> String {
         // TODO: HTTP Only, Secure
-        return format!("{}={}; Path=/; Max-Age={}",
+        return format!(
+            "{}={}; Path=/; Max-Age={}",
             self.config.cookie_name,
             serde_json::to_string(auth_state).unwrap(),
             self.config.cookie_duration,
@@ -180,12 +189,10 @@ impl HttpContext for OIDCFlow {
     /// If the request is not for the OIDC callback and contains a cookie, the cookie is validated and the request is forwarded.
     /// Else, the request is redirected to the OIDC provider.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
-
         // If the request is for the OIDC callback, e.g the code is returned, this filter
         // exchanges the code for a token. The response is caught in on_http_call_response.
         let path = self.get_http_request_header(":path").unwrap_or_default();
         if path.starts_with(&self.config.call_back_path) {
-
             debug!("Received request for OIDC callback.");
 
             // Extract code from the url
@@ -197,8 +204,7 @@ impl HttpContext for OIDCFlow {
             let client_secret = &self.config.client_secret;
 
             // Encode client_id and client_secret and build the Authorization header
-            let encoded = base64engine
-                .encode(format!("{client_id}:{client_secret}").as_bytes());
+            let encoded = base64engine.encode(format!("{client_id}:{client_secret}").as_bytes());
             let auth = format!("Basic {}", encoded);
 
             // Build the request body
@@ -243,28 +249,35 @@ impl HttpContext for OIDCFlow {
             debug!("Cookie found, checking validity.");
 
             // Decode cookie
-            let auth_state = cookie::AuthorizationState::parse_cookie(auth_cookie).unwrap();
+            let auth_state_result = cookie::AuthorizationState::parse_cookie(auth_cookie);
 
-            // Validate token
-            let validation_result = self.validate_token(&auth_state.id_token);
-            match validation_result {
-                // If the token is valid, this filter passes the request
-                Ok(_) => {
-                    debug!("Token is valid, passing request.");
-                    return Action::Continue;
+            match auth_state_result {
+                Ok(auth_state) => {
+                    // Validate token
+                    let validation_result = self.validate_token(&auth_state.id_token);
+                    match validation_result {
+                        // If the token is valid, this filter passes the request
+                        Ok(_) => {
+                            debug!("Token is valid, passing request.");
+                            return Action::Continue;
+                        }
+                        // If the token is invalid, this filter redirects the requester to the OIDC provider
+                        Err(_) => {
+                            warn!("Token is invalid, redirecting to OIDC provider.");
+
+                            self.send_http_response(
+                                302,
+                                vec![
+                                    // Redirect to OIDC provider
+                                    ("Location", self.redirect_to_oidc().as_str()),
+                                ],
+                                Some(b"Redirecting..."),
+                            );
+                        }
+                    }
                 }
-                // If the token is invalid, this filter redirects the requester to the OIDC provider
-                Err(_) => {
-                    warn!("Token is invalid, redirecting to OIDC provider.");
-
-                    self.send_http_response(
-                        302,
-                        vec![
-                            // Redirect to OIDC provider
-                            ("Location", self.redirect_to_oidc().as_str()),
-                        ],
-                        Some(b"Redirecting..."),
-                    );
+                Err(err) => {
+                    warn!("Authorisation state couldn't be loaded from the cookie: {:?}", err);
                 }
             }
         }
@@ -288,7 +301,6 @@ impl HttpContext for OIDCFlow {
 impl Context for OIDCFlow {
     /// This function catches the response from the token endpoint.
     fn on_http_call_response(&mut self, _: u32, _: usize, body_size: usize, _: usize) {
-
         // Check if the response is valid
         if self.get_http_call_response_header(":status") != Some("200".to_string()) {
             if let Some(body) = self.get_http_call_response_body(0, body_size) {

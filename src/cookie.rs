@@ -35,7 +35,7 @@ impl AuthorizationState {
             },
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
-                warn!("Error occured during creation of State Cookie {}", e);
+                warn!("The response is not in the required format {}", e);
                 return Err(e)
             }
         }
@@ -59,7 +59,7 @@ impl AuthorizationState {
             },
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
-                warn!("Error occured during creation of State Cookie {}", e);
+                warn!("The cookie is not matching the required format {}", e);
                 return Err(e)
             }
         }
