@@ -15,8 +15,6 @@ pub struct FilterConfig {
     pub auth_endpoint: Url,
     /// The URL to which the user will be redirected after successful authentication
     pub redirect_uri: Url,
-    /// The response type that will be used for the authentication request
-    pub response_type: String,
     /// The client ID that will be used for the authentication request
     pub client_id: String,
     /// The scope that will be used for the authentication request
@@ -29,8 +27,6 @@ pub struct FilterConfig {
     // Everything relevant for the Token Exchange Flow
     /// The URL of the token endpoint
     pub token_endpoint: Url,
-    /// The grant type that will be used for the token request
-    pub grant_type: String,
     /// The client secret that will be used for the token request
     pub client_secret: String,
     /// The audience that will be used for the token request
@@ -52,13 +48,11 @@ impl FilterConfig {
         cookie_duration: u64,
         auth_endpoint: Url,
         redirect_uri: Url,
-        response_type: String,
         client_id: String,
         scope: String,
         claims: String,
         call_back_path: String,
         token_endpoint: Url,
-        grant_type: String,
         client_secret: String,
         audience: String,
         issuer: String,
@@ -70,13 +64,11 @@ impl FilterConfig {
             cookie_duration,
             auth_endpoint,
             redirect_uri,
-            response_type,
             client_id,
             scope,
             claims,
             call_back_path,
             token_endpoint,
-            grant_type,
             client_secret,
             audience,
             issuer,

@@ -57,7 +57,6 @@ proxy_wasm::main! {{
             // Relevant for the Authorization Code Flow
             auth_endpoint: Url::parse("https://auth.k8s.wwu.de/saml2/oidc/authorization").unwrap(),
             redirect_uri: Url::parse("http://localhost:10000/oidc/callback").unwrap(),
-            response_type: "code".to_owned(),
             client_id: "wasm-oidc-plugin".to_owned(),
             scope: "openid email".to_owned(),
             claims: r#"{"id_token":{"username":null,"groups":null}}"#.to_owned(),
@@ -65,7 +64,6 @@ proxy_wasm::main! {{
 
             // Relevant for the Token Endpoint
             token_endpoint: Url::parse("https://auth.k8s.wwu.de/oidc/token").unwrap(),
-            grant_type: "authorization_code".to_owned(),
             client_secret: "redacted".to_owned(),
             audience: "wasm-oidc-plugin".to_owned(),
             issuer: "https://auth.k8s.wwu.de".to_owned(),
@@ -140,7 +138,7 @@ impl OIDCFlow {
             &self.config.auth_endpoint.as_str(),
             &[
                 ("redirect_uri", self.config.redirect_uri.as_str()),
-                ("response_type", self.config.response_type.as_str()),
+                ("response_type", "code"),
                 ("client_id", &self.config.client_id),
                 ("scope", &self.config.scope),
                 ("claims", &self.config.claims),
@@ -211,7 +209,7 @@ impl HttpContext for OIDCFlow {
             let data: String = form_urlencoded::Serializer::new(String::new())
                 .append_pair("code", &code)
                 .append_pair("redirect_uri", &self.config.redirect_uri.as_str())
-                .append_pair("grant_type", &self.config.grant_type.as_str())
+                .append_pair("grant_type", "authorization_code")
                 // TODO: PKCE #6
                 // TODO: Nonce #7
                 .finish();
