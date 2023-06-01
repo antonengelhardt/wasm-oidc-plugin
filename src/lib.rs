@@ -14,6 +14,7 @@
 
 // log
 use log::debug;
+use log::info;
 use log::warn;
 
 // base64
@@ -44,43 +45,60 @@ use cookie::AuthorizationState;
 mod config;
 use config::FilterConfig;
 
+mod discovery;
+use discovery::{OIDCRoot, OIDCRootMode};
+
 proxy_wasm::main! {{
 
     proxy_wasm::set_log_level(LogLevel::Trace);
-    proxy_wasm::set_http_context(|_, _| -> Box<dyn HttpContext> { Box::new(OIDCFlow{
 
-        config: FilterConfig {
-            // TODO: Get OpenID Connect configuration #3
-            cookie_name: "oidcSession".to_owned(),
-            cookie_duration: 86400,
+    info!("Starting OIDC plugin");
 
-            // Relevant for the Authorization Code Flow
-            auth_endpoint: Url::parse("https://auth.k8s.wwu.de/saml2/oidc/authorization").unwrap(),
-            redirect_uri: Url::parse("http://localhost:10000/oidc/callback").unwrap(),
-            client_id: "wasm-oidc-plugin".to_owned(),
-            scope: "openid email".to_owned(),
-            claims: r#"{"id_token":{"username":null,"groups":null}}"#.to_owned(),
-            call_back_path: "/oidc/callback".to_owned(),
+    // This sets the root context, which is the first context that is called on startup.
+    proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(OIDCRoot {
+        config_endpoint: "https://auth.k8s.wwu.de/.well-known/openid-configuration".parse().ok(),
+        auth_endpoint: None,
+        token_endpoint: None,
+        issuer: "".to_owned(),
+        mode: OIDCRootMode::LoadingConfig,
+        jwks_uri: None,
+        public_key_comp_n: None,
+        public_key_comp_e: None,
+    }) });
 
-            // Relevant for the Token Endpoint
-            token_endpoint: Url::parse("https://auth.k8s.wwu.de/oidc/token").unwrap(),
-            client_secret: "redacted".to_owned(),
-            audience: "wasm-oidc-plugin".to_owned(),
-            issuer: "https://auth.k8s.wwu.de".to_owned(),
+    // This sets the http context, which is called for each http request.
+    // proxy_wasm::set_http_context(|_,_| -> Box<dyn HttpContext> { Box::new(OIDCFlow {
+    //     config: FilterConfig {
+    //         cookie_name: "oidcSession".to_string(),
+    //         cookie_duration: 3600,
 
-            // Relevant for id_token validation
-            // TODO: Key this from jwks_uri #4
-            public_key_comp_n: "wUF4vL2WhsHyvprBmcrQq6nnRY7xHgq8kKk37rG_52agaTLAApFy9DrvKo3GJpbCQphC0iTfDtNSU4xaHvEIUoDv5i98aDXQ6X5eQwNzLtDKhxEPFFRaSipyOCFCZfEqr6GLWgSaqwXq_ZEpNLlrr_mOaJWxp7fx-MO9gNigODX61-J6-XBsbo9UtSq9cZWCCvbHfL3nBq6fdsm2qgtNgz2EVJQqpi82BFDXPf2G6ezpXqzlpsZgfG27IPq4Cy0e_SS34AeBAhqQmp9UDpHwjAz701aKW1GrdmSzrkuWvHF8u0pmbFSvz9juhJEXLSWzKaNiNvsmMWP4RW31B-vlsTMn0kxYkRsz5MoPefrGWse0nIyDS3jbM4oPF5XeEcxm_8duXlwUrljd-1ij6zlcKFvykMwk9K8XhYtdG8Jxwqun8LKGrrwbGZWOJ4J5NMxW1vadOGtvBcS1oKXBGvsI8rYzK5gQIA3T5VFCoA-S2PHiKpiCU48GWJbwYW4V21o2Ph3Uh11FMAQGYAZVSkmH70hOEfLQhfJHEbACIFDzV20wJ0DCl1KgU-7-s2a7kHJwNXRf1BU5SHgsc1L_XYYM24k1IoutOu5eXimaIk7oF1RYcE62SRrsjFIjtcVJ5wDJ-hP2Tlq7ilnyIC8rMxUe2kibK42XOrBZ5n7FwoZMAicKDgyP8rEiMLPGlmC00ThQUy6CH4jmez6kVw5_qPWBjI4GBvg2uxi5eLEuniB5kmkpUmgVkqlC8arwaCLfH6GFlZtcwdEi79wyLJmYQ_eanrTN8O0k89MJ_Mfu7jLomPGIN8xDORYDZ4D6h-Y9Bs30I9LGVpw_2bRbdi8vU-kJnwv8HsjThEfF_UIeNsKwPfisq_f6_lCJKywbvDhqPrl6f7yq3UCBkdKZEYqX5AY_0KFmJYfqHbdl28J2ZYBGOXYdsPvaHHtysT_GXt8HMqt-RkxAmnixm5jF4ZrX5no6rBLG4Gft_-dkyg7HsQM-2STOEyzgh6jiNTcmQOxSHBQZvqrWTnHotZRJg0No_v_e_x8f5-0pKkQ2PDH3Xn8u05NpgSoGomGY5rsqkMjS4pug3uECpoj9YNZXN9V4FdqPz_e8gRWoEgk4_5W32Q56YynD_uKkot6QzQxAgMVCnYu-iTI3Dmz3w8V5GRgEoQbldsE2B6WM9kby3d75oKLjzHOpJurDo9r-fZTPyJ2iP0esnmQbDig50_99Ur1huzNYeyAoltZBgo-tKyD3zLzqBGeLGeK5bycC7qORxPiJpXURg9GrJ8r44uOXchEp6yINfNuQq5FATe-zmWvvVxcYwr46rWpa-gdPbn1EGCzjhP_WtAT3zWTw8QKdc2UrQTWiaQ".to_owned(),
-            public_key_comp_e: "AQAB".to_owned(),
-        }
-     })});
+    //         auth_endpoint: "https://auth.k8s.wwu.de/auth".parse().unwrap(),
+    //         redirect_uri: Url::parse("http://localhost:10000/oidc/callback").unwrap(),
+    //         client_id: "wasm-oidc-plugin".to_string(),
+    //         scope: "openid email".to_string(),
+    //         claims: r#"{"id_token":{"username":null,"groups":null}}"#.to_owned(),
+    //         call_back_path: "/oidc/callback".to_string(),
+
+    //         token_endpoint: "https://auth.k8s.wwu.de/token".parse().unwrap(),
+    //         client_secret: "redacted".to_string(),
+    //         audience: "wasm-oidc-plugin".to_string(),
+    //         issuer: "https://auth.k8s.wwu.de".to_owned(),
+
+    //         public_key_comp_n: "".to_owned(),
+    //         public_key_comp_e: "AQAB".to_owned(),
+    //     }
+    // })});
+
 }}
+
+/// This context is responsible for getting the OIDC configuration and setting the http context.
 
 /// The OIDCFlow is the main filter struct.
 struct OIDCFlow {
     config: FilterConfig,
 }
 
+/// Helper functions for the OIDCFlow struct.
 impl OIDCFlow {
     /// Validate the token using the JWT library.
     fn validate_token(&self, token: &str) -> Result<(), String> {
@@ -181,12 +199,15 @@ impl OIDCFlow {
     }
 }
 
+/// The context is used to process HTTP requests.
 impl HttpContext for OIDCFlow {
+
     /// This function is called when the request headers are received.
     /// If the request is for the OIDC callback, the request is dispatched to the token endpoint.
     /// If the request is not for the OIDC callback and contains a cookie, the cookie is validated and the request is forwarded.
     /// Else, the request is redirected to the OIDC provider.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
+
         // If the request is for the OIDC callback, e.g the code is returned, this filter
         // exchanges the code for a token. The response is caught in on_http_call_response.
         let path = self.get_http_request_header(":path").unwrap_or_default();
@@ -201,11 +222,11 @@ impl HttpContext for OIDCFlow {
             let client_id = &self.config.client_id;
             let client_secret = &self.config.client_secret;
 
-            // Encode client_id and client_secret and build the Authorization header
+            // Encode client_id and client_secret and build the Authorization header using base64encoding
             let encoded = base64engine.encode(format!("{client_id}:{client_secret}").as_bytes());
             let auth = format!("Basic {}", encoded);
 
-            // Build the request body
+            // Build the request body for the token endpoint
             let data: String = form_urlencoded::Serializer::new(String::new())
                 .append_pair("code", &code)
                 .append_pair("redirect_uri", &self.config.redirect_uri.as_str())
@@ -214,9 +235,9 @@ impl HttpContext for OIDCFlow {
                 // TODO: Nonce #7
                 .finish();
 
-            // Dispatch request to token endpoint
+            // Dispatch request to token endpoint using built-in envoy function
             debug!("Sending data to token endpoint: {}", data);
-            let token_request = self.dispatch_http_call(
+            match self.dispatch_http_call(
                 "oidc",
                 vec![
                     (":method", "POST"),
@@ -228,13 +249,12 @@ impl HttpContext for OIDCFlow {
                 Some(data.as_bytes()),
                 vec![],
                 Duration::from_secs(10),
-            );
-
-            // Check if the request was dispatched successfully
-            match token_request {
+             ) {
+                // If the request is dispatched successfully, this filter pauses the request
                 Ok(_) => {
                     debug!("Token request dispatched successfully.");
                 }
+                // If the request fails, this filter logs the error and pauses the request
                 Err(err) => {
                     warn!("Token request failed: {:?}", err);
                 }
@@ -246,14 +266,14 @@ impl HttpContext for OIDCFlow {
         if let Some(auth_cookie) = self.get_cookie(&self.config.cookie_name) {
             debug!("Cookie found, checking validity.");
 
-            // Decode cookie
-            let auth_state_result = cookie::AuthorizationState::parse_cookie(auth_cookie);
+            // Try to parse the cookie and handle the result
+            match cookie::AuthorizationState::parse_cookie(auth_cookie) {
 
-            match auth_state_result {
+                // If the cookie can be parsed, this filter validates the token
                 Ok(auth_state) => {
+
                     // Validate token
-                    let validation_result = self.validate_token(&auth_state.id_token);
-                    match validation_result {
+                    match self.validate_token(&auth_state.id_token) {
                         // If the token is valid, this filter passes the request
                         Ok(_) => {
                             debug!("Token is valid, passing request.");
@@ -263,6 +283,8 @@ impl HttpContext for OIDCFlow {
                         Err(_) => {
                             warn!("Token is invalid, redirecting to OIDC provider.");
 
+                            // TODO: Delete cookie
+                            // TODO: Is this needed? The last case will redirect anyway.
                             self.send_http_response(
                                 302,
                                 vec![
@@ -274,13 +296,15 @@ impl HttpContext for OIDCFlow {
                         }
                     }
                 }
+                // If the cookie cannot be parsed, this filter redirects the requester to the OIDC provider
                 Err(err) => {
-                    warn!("Authorisation state couldn't be loaded from the cookie: {:?}", err);
+                    warn!("Authorisation state couldn't be loaded from the cookie: {:?}",err);
                 }
             }
         }
 
-        // Redirect to OIDC provider if no cookie is found
+        // Redirect to OIDC provider if no cookie is found. As all cases will have returned by now,
+        // this is the last case and the request will be paused.
         debug!("No cookie found, redirecting to OIDC provider.");
         self.send_http_response(
             302,
@@ -296,19 +320,30 @@ impl HttpContext for OIDCFlow {
     }
 }
 
+/// This context is used to process HTTP responses from the token endpoint.
 impl Context for OIDCFlow {
     /// This function catches the response from the token endpoint.
+    ///
     fn on_http_call_response(&mut self, _: u32, _: usize, body_size: usize, _: usize) {
+
         // Check if the response is valid
         if self.get_http_call_response_header(":status") != Some("200".to_string()) {
+
+            // Get body of response
             if let Some(body) = self.get_http_call_response_body(0, body_size) {
+
+                // Decode body
                 if let Ok(decoded) = String::from_utf8(body) {
                     warn!("Token response is not valid: {:?}", decoded);
                     return;
+
+                // If decoding fails, log the error
                 } else {
                     warn!("Token response is not valid and error decoding error message.");
                     return;
                 }
+
+            // If no body is found, log the error
             } else {
                 warn!("No body in token response with invalid status code.");
                 return;
@@ -318,6 +353,7 @@ impl Context for OIDCFlow {
         // Catching token response
         if let Some(body) = self.get_http_call_response_body(0, body_size) {
             debug!("Token response: {:?}", body);
+
             // Build Cookie Struct using parse_response from cookie.rs
             match cookie::AuthorizationState::parse_response(body.as_slice()) {
                 Ok(auth_cookie) => {
@@ -341,6 +377,7 @@ impl Context for OIDCFlow {
                     warn!("Error: {}", e);
                 }
             }
+        // If no body is found, log the error
         } else {
             warn!("No body found in token response with valid status code.");
         }

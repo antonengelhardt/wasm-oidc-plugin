@@ -1,3 +1,4 @@
+// url
 use url::{Url};
 
 /// Struct that holds the configuration for the filter
