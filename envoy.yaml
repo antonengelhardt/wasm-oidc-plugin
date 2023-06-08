@@ -39,16 +39,33 @@ static_resources:
               http_filters:
                 - name: envoy.filters.http.wasm
                   typed_config:
-                    "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-                    type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
-                    value:
-                      config:
-                        name: "oidc-wasm-plugin"
-                        vm_config:
-                          runtime: "envoy.wasm.runtime.v8"
-                          code:
-                            local:
-                              filename: "/etc/envoy/proxy-wasm-plugins/wasm_oidc_plugin.wasm"
+                    "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+                    config:
+                      name: "oidc-wasm-plugin"
+                      configuration:
+                        "@type": "type.googleapis.com/google.protobuf.StringValue"
+                        value: |
+                          {
+                            "config_endpoint": "https://auth.k8s.wwu.de/.well-known/openid-configuration",
+
+                            "cookie_name": "oidcSession",
+                            "cookie_duration": 86400,
+
+                            "authority": "auth.k8s.wwu.de",
+                            "redirect_uri": "http://localhost:10000/oidc/callback",
+                            "client_id": "wasm-oidc-plugin",
+                            "scope": "openid email",
+                            "claims": "{\"id_token\":{\"email\":null}}",
+
+                            "call_back_path": "/oidc/callback",
+                            "client_secret": "redacted",
+                            "audience": "wasm-oidc-plugin"
+                          }
+                      vm_config:
+                        runtime: "envoy.wasm.runtime.v8"
+                        code:
+                          local:
+                            filename: "/etc/envoy/proxy-wasm-plugins/wasm_oidc_plugin.wasm"
                 - name: envoy.filters.http.router
                   typed_config:
                     "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router

@@ -56,7 +56,7 @@ proxy_wasm::main! {{
 
     // This sets the root context, which is the first context that is called on startup.
     proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(OIDCRoot {
-        config_endpoint: "https://auth.k8s.wwu.de/.well-known/openid-configuration".parse().ok(),
+        plugin_config: None,
         auth_endpoint: None,
         token_endpoint: None,
         issuer: "".to_owned(),
@@ -65,33 +65,7 @@ proxy_wasm::main! {{
         public_key_comp_n: None,
         public_key_comp_e: None,
     }) });
-
-    // This sets the http context, which is called for each http request.
-    // proxy_wasm::set_http_context(|_,_| -> Box<dyn HttpContext> { Box::new(OIDCFlow {
-    //     config: FilterConfig {
-    //         cookie_name: "oidcSession".to_string(),
-    //         cookie_duration: 3600,
-
-    //         auth_endpoint: "https://auth.k8s.wwu.de/auth".parse().unwrap(),
-    //         redirect_uri: Url::parse("http://localhost:10000/oidc/callback").unwrap(),
-    //         client_id: "wasm-oidc-plugin".to_string(),
-    //         scope: "openid email".to_string(),
-    //         claims: r#"{"id_token":{"username":null,"groups":null}}"#.to_owned(),
-    //         call_back_path: "/oidc/callback".to_string(),
-
-    //         token_endpoint: "https://auth.k8s.wwu.de/token".parse().unwrap(),
-    //         client_secret: "redacted".to_string(),
-    //         audience: "wasm-oidc-plugin".to_string(),
-    //         issuer: "https://auth.k8s.wwu.de".to_owned(),
-
-    //         public_key_comp_n: "".to_owned(),
-    //         public_key_comp_e: "AQAB".to_owned(),
-    //     }
-    // })});
-
 }}
-
-/// This context is responsible for getting the OIDC configuration and setting the http context.
 
 /// The OIDCFlow is the main filter struct.
 struct OIDCFlow {
@@ -242,7 +216,7 @@ impl HttpContext for OIDCFlow {
                 vec![
                     (":method", "POST"),
                     (":path", "/oidc/token"),
-                    (":authority", "auth.k8s.wwu.de"),
+                    (":authority", &self.config.authority),
                     ("Authorization", &auth),
                     ("Content-Type", "application/x-www-form-urlencoded"),
                 ],

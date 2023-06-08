@@ -12,11 +12,14 @@ use url::Url;
 use std::time::Duration;
 
 // crate
+use crate::config::PluginConfiguration;
 use crate::{FilterConfig, OIDCFlow};
 
+/// This context is responsible for getting the OIDC configuration and setting the http context.
 pub struct OIDCRoot {
-    /// The Config endpoint
-    pub config_endpoint: Option<Url>,
+    /// Plugin config
+    pub plugin_config: Option<PluginConfiguration>,
+
     /// The authorization endpoint
     pub auth_endpoint: Option<Url>,
     /// The token endpoint
@@ -46,9 +49,11 @@ pub enum OIDCRootMode {
 
 /// The root context is used to create new HTTP contexts and load configuration.
 impl RootContext for OIDCRoot {
-    /// Called when the VM is created, allowing the plugin to load configuration.
+    /// Called when the VM is created, allowing to start the ticking of the plugin.
     fn on_vm_start(&mut self, _vm_configuration_size: usize) -> bool {
-        info!("on_vm_start");
+
+        info!("VM started");
+
         // Start ticking every 2 seconds.
         self.set_tick_period(Duration::from_secs(2));
 
@@ -58,10 +63,34 @@ impl RootContext for OIDCRoot {
     /// Called when the configuration is loaded.
     fn on_configure(&mut self, _plugin_configuration_size: usize) -> bool {
         // TODO: Load configuration from plugin configuration such as cookie settings, etc.
-        true
+
+        info!("Pluin is configuring");
+
+        // Load the configuration from the plugin configuration.
+        match self.get_plugin_configuration() {
+            Some(config_bytes) => {
+                debug!("got plugin configuration");
+
+                match serde_json::from_slice(&config_bytes) {
+                    Ok(parsed) => {
+                        debug!("parsed plugin configuration");
+
+                        // Set the plugin configuration.
+                        self.plugin_config = Some(parsed);
+
+                        return true;
+                    }
+                    Err(e) => warn!("error parsing plugin configuration: {:?}", e),
+                }
+            }
+            None => warn!("no plugin configuration"),
+        }
+
+        false
     }
 
     fn on_tick(&mut self) {
+
         debug!("tick");
 
         // If the configuration is not yet loaded, try to load it.
@@ -71,14 +100,14 @@ impl RootContext for OIDCRoot {
                     "oidc",
                     vec![
                         (":method", "GET"),
-                        (":path", self.config_endpoint.as_ref().unwrap().as_str()),
-                        (":authority", "auth.k8s.wwu.de"),
+                        (":path", self.plugin_config.as_ref().unwrap().config_endpoint.as_str()),
+                        (":authority", self.plugin_config.as_ref().unwrap().authority.as_str()),
                     ],
                     None,
                     vec![],
                     Duration::from_secs(5),
                 ) {
-                    Ok(_) => info!("dispatched openid config call"),
+                    Ok(_) => debug!("dispatched openid config call"),
                     Err(e) => warn!("error dispatching oidc call: {:?}", e),
                 }
                 return;
@@ -91,29 +120,21 @@ impl RootContext for OIDCRoot {
                 match self.dispatch_http_call(
                     "oidc",
                     vec![
-                        (":path", &jwks_uri),
                         (":method", "GET"),
-                        (":authority", "auth.k8s.wwu.de"),
+                        (":path", &jwks_uri),
+                        (":authority", self.plugin_config.as_ref().unwrap().authority.as_str()),
                     ],
                     None,
                     vec![],
                     Duration::from_secs(5),
                 ) {
-                    Ok(_) => info!("dispatched jwks call"),
+                    Ok(_) => debug!("dispatched jwks call"),
                     Err(e) => warn!("error dispatching jwks call: {:?}", e),
                 }
             }
             OIDCRootMode::Ready => {
                 // If the configuration is loaded, create the http context.
                 debug!("All configuration loaded. Creating http context.");
-
-                debug!("PRINTING CONFIGURATION");
-                debug!("auth_endpoint: {:?}", self.auth_endpoint);
-                debug!("token_endpoint: {:?}", self.token_endpoint);
-                debug!("issuer: {:?}", self.issuer);
-                debug!("jwks_uri: {:?}", self.jwks_uri);
-                debug!("public_key_comp_n: {:?}", self.public_key_comp_n);
-                debug!("public_key_comp_e: {:?}", self.public_key_comp_e);
 
                 // Set the http context.
                 self.create_http_context(0);
@@ -123,25 +144,26 @@ impl RootContext for OIDCRoot {
         }
     }
 
-    /// Creates the http context with the information from the root context.
+    /// Creates the http context with the information from the root context and the plugin configuration.
     fn create_http_context(&self, _context_id: u32) -> Option<Box<dyn HttpContext>> {
         info!("Creating http context with root context information.");
 
         // Create the filter config.
         let filter_config = FilterConfig{
-            cookie_name: "oidcSession".to_owned(),
-            cookie_duration: 3600,
+            cookie_name: self.plugin_config.as_ref().unwrap().cookie_name.clone(),
+            cookie_duration: self.plugin_config.as_ref().unwrap().cookie_duration.clone(),
 
             auth_endpoint: self.auth_endpoint.clone().unwrap(),
-            redirect_uri: Url::parse("http://localhost:10000/oidc/callback").unwrap(),
-            client_id: "wasm-oidc-plugin".to_owned(),
-            scope: "openid email".to_string(),
-            claims: r#"{"id_token":{"username":null,"groups":null}}"#.to_owned(),
+            redirect_uri: Url::parse(self.plugin_config.as_ref().unwrap().redirect_uri.as_str()).unwrap(),
+            client_id: self.plugin_config.as_ref().unwrap().client_id.clone(),
+            scope: self.plugin_config.as_ref().unwrap().scope.clone(),
+            claims: self.plugin_config.as_ref().unwrap().claims.clone(),
 
-            call_back_path: "/oidc/callback".to_string(),
+            call_back_path: self.plugin_config.as_ref().unwrap().call_back_path.clone(),
             token_endpoint: self.token_endpoint.clone().unwrap(),
-            client_secret: "redacted".to_string(),
-            audience: "wasm-oidc-plugin".to_string(),
+            authority: self.plugin_config.as_ref().unwrap().authority.clone(),
+            client_secret: self.plugin_config.as_ref().unwrap().client_secret.clone(),
+            audience:self.plugin_config.as_ref().unwrap().audience.clone(),
             issuer: self.issuer.to_owned(),
 
             public_key_comp_n: self.public_key_comp_n.clone().unwrap(),
@@ -170,7 +192,7 @@ impl Context for OIDCRoot {
     ) {
         // If the configuration is not yet loaded, try to load it.
         if self.mode == OIDCRootMode::LoadingConfig {
-            info!("loading config");
+            debug!("loading config");
 
             // Output body
             let body = self.get_http_call_response_body(0, _body_size).unwrap();
@@ -178,7 +200,7 @@ impl Context for OIDCRoot {
             // Parse body
             match serde_json::from_slice::<serde_json::Value>(&body) {
                 Ok(parsed) => {
-                    info!("parsed config response: {:?}", parsed);
+                    debug!("parsed config response: {:?}", parsed);
 
                     let auth_endpoint = parsed["authorization_endpoint"]
                         .as_str()
@@ -202,7 +224,7 @@ impl Context for OIDCRoot {
 
         // If the configuration is loaded, try to load the jwks.
         } else if self.mode == OIDCRootMode::LoadingJwks {
-            info!("loading jwks");
+            debug!("loading jwks");
 
             // Output body
             let body = self.get_http_call_response_body(0, _body_size).unwrap();
@@ -210,7 +232,7 @@ impl Context for OIDCRoot {
             // Parse body
             match serde_json::from_slice::<serde_json::Value>(&body) {
                 Ok(parsed) => {
-                    info!("parsed jwks body: {:?}", parsed);
+                    debug!("parsed jwks body: {:?}", parsed);
 
                     // Extract public key components
                     let public_key_comp_n = parsed["keys"][0]["n"].as_str().unwrap().to_owned();

@@ -1,3 +1,6 @@
+// serde
+use serde::Deserialize;
+
 // url
 use url::{Url};
 
@@ -28,6 +31,8 @@ pub struct FilterConfig {
     // Everything relevant for the Token Exchange Flow
     /// The URL of the token endpoint
     pub token_endpoint: Url,
+    /// Authority
+    pub authority: String,
     /// The client secret that will be used for the token request
     pub client_secret: String,
     /// The audience that will be used for the token request
@@ -54,6 +59,7 @@ impl FilterConfig {
         claims: String,
         call_back_path: String,
         token_endpoint: Url,
+        authority: String,
         client_secret: String,
         audience: String,
         issuer: String,
@@ -70,6 +76,7 @@ impl FilterConfig {
             claims,
             call_back_path,
             token_endpoint,
+            authority,
             client_secret,
             audience,
             issuer,
@@ -79,73 +86,68 @@ impl FilterConfig {
     }
 }
 
-// #[derive(Clone, Debug, serde::Deserialize, serde::Serialize)]
-// pub struct ProviderMetadata {
-//     issuer: Url,
-//     authorization_endpoint: Url,
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     token_endpoint: Option<Url>,
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     userinfo_endpoint: Option<Url>,
-//     jwks_uri: Url,
-//     #[serde(skip_serializing_if = "Option::is_none")]
-//     scopes_supported: Option<Vec<String>>,
-//     response_types_supported: Vec<String>,
-//     subject_types_supported: Vec<String>,
-//     id_token_signing_alg_values_supported: Vec<String>,
-// }
+/// Struct that holds the configuration for the plugin
+#[derive(Clone, Debug, Deserialize)]
+pub struct PluginConfiguration {
 
-// impl ProviderMetadata
-// {
-//     pub fn _new(
-//         issuer: Url,
-//         authorization_endpoint: Url,
-//         token_endpoint: Option<Url>,
-//         userinfo_endpoint: Option<Url>,
-//         jwks_uri: Url,
-//         scopes_supported: Option<Vec<String>>,
-//         response_types_supported: Vec<String>,
-//         subject_types_supported: Vec<String>,
-//         id_token_signing_alg_values_supported: Vec<String>,
-//     ) -> Self {
-//         Self {
-//             issuer,
-//             authorization_endpoint,
-//             token_endpoint,
-//             userinfo_endpoint,
-//             jwks_uri,
-//             scopes_supported,
-//             response_types_supported,
-//             subject_types_supported,
-//             id_token_signing_alg_values_supported,
-//         }
-//     }
+    /// Config endpoint
+    pub config_endpoint: String,
 
-//     pub fn get_issuer(&self) -> &Url {
-//         &self.issuer
-//     }
+    // Cookie settings
+    /// The cookie name
+    pub cookie_name: String,
+    /// The cookie duration
+    pub cookie_duration: u64,
 
-//     pub fn get_authorization_endpoint(&self) -> &Url {
-//         &self.authorization_endpoint
-//     }
+    // Everything relevant for the Code Flow
+    /// The authority
+    pub authority: String,
+    /// The redirect uri
+    pub redirect_uri: String,
+    /// The client id
+    pub client_id: String,
+    /// The scope
+    pub scope: String,
+    /// The claims
+    pub claims: String,
 
-//     pub fn get_token_endpoint(&self) -> Option<&Url> {
-//         self.token_endpoint.as_ref()
-//     }
+    // Everything relevant for the Token Exchange Flow
+    /// Call back path
+    pub call_back_path: String,
+    /// The client secret
+    pub client_secret: String,
+    /// The audience
+    pub audience: String,
+}
 
-//     pub fn get_userinfo_endpoint(&self) -> Option<&Url> {
-//         self.userinfo_endpoint.as_ref()
-//     }
-
-//     pub fn get_jwks_uri(&self) -> &Url {
-//         &self.jwks_uri
-//     }
-
-//     pub fn from_bytes(bytes: &Vec<u8>) -> Result<ProviderMetadata, Error> {
-//         match serde_json::from_slice::<ProviderMetadata>(bytes.as_slice()) {
-//             Ok(metadata) => Ok(metadata),
-//             Err(e) => Err(e),
-//         }
-
-//     }
-// }
+/// Implementation of the PluginConfiguration
+impl PluginConfiguration {
+    /// Creates a new PluginConfiguration
+    pub fn _new(
+        config_endpoint: String,
+        cookie_name: String,
+        cookie_duration: u64,
+        authority: String,
+        redirect_uri: String,
+        client_id: String,
+        scope: String,
+        claims: String,
+        call_back_path: String,
+        client_secret: String,
+        audience: String,
+    ) -> Self {
+        Self {
+            config_endpoint,
+            cookie_name,
+            cookie_duration,
+            authority,
+            redirect_uri,
+            client_id,
+            scope,
+            claims,
+            call_back_path,
+            client_secret,
+            audience,
+        }
+    }
+}
