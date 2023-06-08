@@ -18,10 +18,7 @@ use log::info;
 use log::warn;
 
 // base64
-use base64::{
-    engine::general_purpose::STANDARD_NO_PAD as base64engine,
-    engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, Engine as _,
-};
+use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
 
 // duration
 use std::time::Duration;
@@ -62,8 +59,7 @@ proxy_wasm::main! {{
         issuer: "".to_owned(),
         mode: OIDCRootMode::LoadingConfig,
         jwks_uri: None,
-        public_key_comp_n: None,
-        public_key_comp_e: None,
+        public_key: None,
     }) });
 }}
 
@@ -76,15 +72,8 @@ struct OIDCFlow {
 impl OIDCFlow {
     /// Validate the token using the JWT library.
     fn validate_token(&self, token: &str) -> Result<(), String> {
-        // Decode and parse the public key
-        let n_dec = base64engine_urlsafe
-            .decode(&self.config.public_key_comp_n)
-            .unwrap();
-        let e_dec = base64engine_urlsafe
-            .decode(&self.config.public_key_comp_e)
-            .unwrap();
-        let public_key =
-            jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec).unwrap();
+        // Get public key from the config
+        let public_key = &self.config.public_key;
 
         // Define allowed issuers and audiences
         let mut allowed_issuers = HashSet::new();

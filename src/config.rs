@@ -41,10 +41,8 @@ pub struct FilterConfig {
     pub issuer: String,
 
     // Relevant for Validation of the ID Token
-    /// The public key component n that will be used for the validation of the ID Token
-    pub public_key_comp_n: String,
-    /// The public key component e that will be used for the validation of the ID Token
-    pub public_key_comp_e: String,
+    /// The public key that will be used for the validation of the ID Token
+    pub public_key: jwt_simple::algorithms::RS256PublicKey,
 }
 
 impl FilterConfig {
@@ -63,8 +61,7 @@ impl FilterConfig {
         client_secret: String,
         audience: String,
         issuer: String,
-        public_key_comp_n: String,
-        public_key_comp_e: String,
+        public_key: jwt_simple::algorithms::RS256PublicKey,
     ) -> Self {
         Self {
             cookie_name,
@@ -80,8 +77,7 @@ impl FilterConfig {
             client_secret,
             audience,
             issuer,
-            public_key_comp_n,
-            public_key_comp_e,
+            public_key
         }
     }
 }

@@ -3,10 +3,13 @@ use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
 
 // log
-use log::{info, warn, debug};
+use log::{debug, info, warn};
 
 // url
 use url::Url;
+
+// base64
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, Engine as _};
 
 // duration
 use std::time::Duration;
@@ -30,10 +33,8 @@ pub struct OIDCRoot {
     pub mode: OIDCRootMode,
     /// The url from which the public key can be retrieved
     pub jwks_uri: Option<Url>,
-    /// The public key modulus
-    pub public_key_comp_n: Option<String>,
-    /// The public key exponent
-    pub public_key_comp_e: Option<String>,
+    /// The public key
+    pub public_key: Option<jwt_simple::algorithms::RS256PublicKey>,
 }
 
 /// The mode of the root context
@@ -51,7 +52,6 @@ pub enum OIDCRootMode {
 impl RootContext for OIDCRoot {
     /// Called when the VM is created, allowing to start the ticking of the plugin.
     fn on_vm_start(&mut self, _vm_configuration_size: usize) -> bool {
-
         info!("VM started");
 
         // Start ticking every 2 seconds.
@@ -90,7 +90,6 @@ impl RootContext for OIDCRoot {
     }
 
     fn on_tick(&mut self) {
-
         debug!("tick");
 
         // If the configuration is not yet loaded, try to load it.
@@ -100,8 +99,18 @@ impl RootContext for OIDCRoot {
                     "oidc",
                     vec![
                         (":method", "GET"),
-                        (":path", self.plugin_config.as_ref().unwrap().config_endpoint.as_str()),
-                        (":authority", self.plugin_config.as_ref().unwrap().authority.as_str()),
+                        (
+                            ":path",
+                            self.plugin_config
+                                .as_ref()
+                                .unwrap()
+                                .config_endpoint
+                                .as_str(),
+                        ),
+                        (
+                            ":authority",
+                            self.plugin_config.as_ref().unwrap().authority.as_str(),
+                        ),
                     ],
                     None,
                     vec![],
@@ -122,7 +131,10 @@ impl RootContext for OIDCRoot {
                     vec![
                         (":method", "GET"),
                         (":path", &jwks_uri),
-                        (":authority", self.plugin_config.as_ref().unwrap().authority.as_str()),
+                        (
+                            ":authority",
+                            self.plugin_config.as_ref().unwrap().authority.as_str(),
+                        ),
                     ],
                     None,
                     vec![],
@@ -149,12 +161,13 @@ impl RootContext for OIDCRoot {
         info!("Creating http context with root context information.");
 
         // Create the filter config.
-        let filter_config = FilterConfig{
+        let filter_config = FilterConfig {
             cookie_name: self.plugin_config.as_ref().unwrap().cookie_name.clone(),
             cookie_duration: self.plugin_config.as_ref().unwrap().cookie_duration.clone(),
 
             auth_endpoint: self.auth_endpoint.clone().unwrap(),
-            redirect_uri: Url::parse(self.plugin_config.as_ref().unwrap().redirect_uri.as_str()).unwrap(),
+            redirect_uri: Url::parse(self.plugin_config.as_ref().unwrap().redirect_uri.as_str())
+                .unwrap(),
             client_id: self.plugin_config.as_ref().unwrap().client_id.clone(),
             scope: self.plugin_config.as_ref().unwrap().scope.clone(),
             claims: self.plugin_config.as_ref().unwrap().claims.clone(),
@@ -163,15 +176,14 @@ impl RootContext for OIDCRoot {
             token_endpoint: self.token_endpoint.clone().unwrap(),
             authority: self.plugin_config.as_ref().unwrap().authority.clone(),
             client_secret: self.plugin_config.as_ref().unwrap().client_secret.clone(),
-            audience:self.plugin_config.as_ref().unwrap().audience.clone(),
+            audience: self.plugin_config.as_ref().unwrap().audience.clone(),
             issuer: self.issuer.to_owned(),
 
-            public_key_comp_n: self.public_key_comp_n.clone().unwrap(),
-            public_key_comp_e: self.public_key_comp_e.clone().unwrap(),
+            public_key: self.public_key.as_ref().unwrap().clone(),
         };
 
         // Return the http context.
-        return Some(Box::new(OIDCFlow{
+        return Some(Box::new(OIDCFlow {
             config: filter_config,
         }));
     }
@@ -238,9 +250,19 @@ impl Context for OIDCRoot {
                     let public_key_comp_n = parsed["keys"][0]["n"].as_str().unwrap().to_owned();
                     let public_key_comp_e = parsed["keys"][0]["e"].as_str().unwrap().to_owned();
 
-                    // Give the public key to the filter
-                    self.public_key_comp_n = Some(public_key_comp_n);
-                    self.public_key_comp_e = Some(public_key_comp_e);
+                    // Decode and parse the public key
+                    let n_dec = base64engine_urlsafe
+                        .decode(public_key_comp_n)
+                        .unwrap();
+                    let e_dec = base64engine_urlsafe
+                        .decode(public_key_comp_e)
+                        .unwrap();
+                    let public_key =
+                        jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
+                            .unwrap();
+
+                    // Save the public key to the filter config
+                    self.public_key = Some(public_key);
 
                     self.mode = OIDCRootMode::Ready;
                 }
