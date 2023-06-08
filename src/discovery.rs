@@ -1,8 +1,9 @@
 // proxy-wasm
 use proxy_wasm::traits::*;
+use proxy_wasm::types::*;
 
 // log
-use log::{info, warn};
+use log::{info, warn, debug};
 
 // url
 use url::Url;
@@ -48,18 +49,20 @@ impl RootContext for OIDCRoot {
     /// Called when the VM is created, allowing the plugin to load configuration.
     fn on_vm_start(&mut self, _vm_configuration_size: usize) -> bool {
         info!("on_vm_start");
-
-        // TODO: Load configuration from VM configuration.
-        // let vm_config = self.get_plugin_configuration();
-
         // Start ticking every 2 seconds.
         self.set_tick_period(Duration::from_secs(2));
 
         true
     }
 
+    /// Called when the configuration is loaded.
+    fn on_configure(&mut self, _plugin_configuration_size: usize) -> bool {
+        // TODO: Load configuration from plugin configuration such as cookie settings, etc.
+        true
+    }
+
     fn on_tick(&mut self) {
-        info!("tick");
+        debug!("tick");
 
         // If the configuration is not yet loaded, try to load it.
         match self.mode {
@@ -102,52 +105,57 @@ impl RootContext for OIDCRoot {
             }
             OIDCRootMode::Ready => {
                 // If the configuration is loaded, create the http context.
-                info!("All configuration loaded. Creating http context.");
+                debug!("All configuration loaded. Creating http context.");
 
-                info!("PRINTING CONFIGURATION");
-                info!("auth_endpoint: {:?}", self.auth_endpoint);
-                info!("token_endpoint: {:?}", self.token_endpoint);
-                info!("issuer: {:?}", self.issuer);
-                info!("jwks_uri: {:?}", self.jwks_uri);
-                info!("public_key_comp_n: {:?}", self.public_key_comp_n);
-                info!("public_key_comp_e: {:?}", self.public_key_comp_e);
-
-                // TODO: Set the http context for each request. Not working yet.
+                debug!("PRINTING CONFIGURATION");
+                debug!("auth_endpoint: {:?}", self.auth_endpoint);
+                debug!("token_endpoint: {:?}", self.token_endpoint);
+                debug!("issuer: {:?}", self.issuer);
+                debug!("jwks_uri: {:?}", self.jwks_uri);
+                debug!("public_key_comp_n: {:?}", self.public_key_comp_n);
+                debug!("public_key_comp_e: {:?}", self.public_key_comp_e);
 
                 // Set the http context.
                 self.create_http_context(0);
+                // And stop ticking.
                 self.set_tick_period(Duration::from_secs(0));
-
-                // Close the root context.
-                self.done();
             }
         }
     }
 
+    /// Creates the http context with the information from the root context.
     fn create_http_context(&self, _context_id: u32) -> Option<Box<dyn HttpContext>> {
-        info!("creating http context");
+        info!("Creating http context with root context information.");
 
-        Some(Box::new(OIDCFlow {
-            config: FilterConfig {
-                cookie_name: "oidcSession".to_string(),
-                cookie_duration: 3600,
+        // Create the filter config.
+        let filter_config = FilterConfig{
+            cookie_name: "oidcSession".to_owned(),
+            cookie_duration: 3600,
 
-                auth_endpoint: self.auth_endpoint.clone().unwrap(),
-                redirect_uri: Url::parse("http://localhost:10000/oidc/callback").unwrap(),
-                client_id: "wasm-oidc-plugin".to_string(),
-                scope: "openid email".to_string(),
-                claims: r#"{"id_token":{"username":null,"groups":null}}"#.to_owned(),
-                call_back_path: "/oidc/callback".to_string(),
+            auth_endpoint: self.auth_endpoint.clone().unwrap(),
+            redirect_uri: Url::parse("http://localhost:10000/oidc/callback").unwrap(),
+            client_id: "wasm-oidc-plugin".to_owned(),
+            scope: "openid email".to_string(),
+            claims: r#"{"id_token":{"username":null,"groups":null}}"#.to_owned(),
 
-                token_endpoint: self.token_endpoint.clone().unwrap(),
-                client_secret: "redacted".to_string(),
-                audience: "wasm-oidc-plugin".to_string(),
-                issuer: self.issuer.to_owned(),
+            call_back_path: "/oidc/callback".to_string(),
+            token_endpoint: self.token_endpoint.clone().unwrap(),
+            client_secret: "redacted".to_string(),
+            audience: "wasm-oidc-plugin".to_string(),
+            issuer: self.issuer.to_owned(),
 
-                public_key_comp_n: self.public_key_comp_n.clone().unwrap(),
-                public_key_comp_e: self.public_key_comp_e.clone().unwrap(),
-            },
-        }))
+            public_key_comp_n: self.public_key_comp_n.clone().unwrap(),
+            public_key_comp_e: self.public_key_comp_e.clone().unwrap(),
+        };
+
+        // Return the http context.
+        return Some(Box::new(OIDCFlow{
+            config: filter_config,
+        }));
+    }
+
+    fn get_type(&self) -> Option<proxy_wasm::types::ContextType> {
+        Some(ContextType::HttpContext)
     }
 }
 
