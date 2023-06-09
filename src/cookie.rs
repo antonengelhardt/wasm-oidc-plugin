@@ -25,7 +25,7 @@ pub struct AuthorizationState {
 impl AuthorizationState {
 
     /// Create a new cookie from the response coming from the Token Endpoint
-    pub fn parse_response(res: &[u8]) -> Result<AuthorizationState, serde_json::Error> {
+    pub fn create_cookie_from_response(res: &[u8]) -> Result<AuthorizationState, serde_json::Error> {
 
         // Format the response into a slice and parse it in a struct
 

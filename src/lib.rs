@@ -52,25 +52,32 @@ proxy_wasm::main! {{
     info!("Starting OIDC plugin");
 
     // This sets the root context, which is the first context that is called on startup.
+    // The root context is used to initialize the plugin and load the configuration from the
+    // plugin config and the discovery endpoints.
+    // Here, we set all values to empty or None, so that the plugin can be initialized.
+    // The mode is set to LoadingConfig, so that the plugin knows that it is still loading the
+    // configuration.
     proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(OIDCRoot {
         plugin_config: None,
         auth_endpoint: None,
         token_endpoint: None,
-        issuer: "".to_owned(),
+        issuer: None,
         mode: OIDCRootMode::LoadingConfig,
         jwks_uri: None,
         public_key: None,
     }) });
 }}
 
-/// The OIDCFlow is the main filter struct.
+/// The OIDCFlow is the main filter struct and responsible for the OIDC authentication flow.
 struct OIDCFlow {
+    /// The configuration of the filter which is loaded from the plugin config & discovery endpoints.
     config: FilterConfig,
 }
 
 /// Helper functions for the OIDCFlow struct.
 impl OIDCFlow {
     /// Validate the token using the JWT library.
+    /// This function checks for the correct issuer and audience and verifies the signature.
     fn validate_token(&self, token: &str) -> Result<(), String> {
         // Get public key from the config
         let public_key = &self.config.public_key;
@@ -98,6 +105,7 @@ impl OIDCFlow {
             max_token_length: None,
         };
 
+        // Perform the validation
         let validation_result =
             public_key.verify_token::<NoCustomClaims>(&token, Some(verification_options));
 
@@ -131,6 +139,7 @@ impl OIDCFlow {
     }
 
     /// Get the cookie of the HTTP request by name
+    /// If the cookie is not found, None is returned.
     fn get_cookie(&self, name: &str) -> Option<String> {
         let headers = self.get_http_request_headers();
         for (key, value) in headers.iter() {
@@ -162,12 +171,13 @@ impl OIDCFlow {
     }
 }
 
-/// The context is used to process HTTP requests.
+/// The context is used to process incoming HTTP requests.
 impl HttpContext for OIDCFlow {
 
     /// This function is called when the request headers are received.
     /// If the request is for the OIDC callback, the request is dispatched to the token endpoint.
-    /// If the request is not for the OIDC callback and contains a cookie, the cookie is validated and the request is forwarded.
+    /// If the request is not for the OIDC callback and contains a cookie, the cookie is validated
+    /// and the request is forwarded.
     /// Else, the request is redirected to the OIDC provider.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
 
@@ -225,7 +235,7 @@ impl HttpContext for OIDCFlow {
             return Action::Pause;
         }
 
-        // If the requester passes a cookie, this filter passes the request
+        // If the requester passes a cookie, this filter passes the request depending on the validity of the cookie.
         if let Some(auth_cookie) = self.get_cookie(&self.config.cookie_name) {
             debug!("Cookie found, checking validity.");
 
@@ -286,7 +296,6 @@ impl HttpContext for OIDCFlow {
 /// This context is used to process HTTP responses from the token endpoint.
 impl Context for OIDCFlow {
     /// This function catches the response from the token endpoint.
-    ///
     fn on_http_call_response(&mut self, _: u32, _: usize, body_size: usize, _: usize) {
 
         // Check if the response is valid
@@ -313,12 +322,13 @@ impl Context for OIDCFlow {
             }
         }
 
-        // Catching token response
+        // Catching token response from token endpoint. Previously we checked for the status code and
+        // the body, so we can assume that the response is valid.
         if let Some(body) = self.get_http_call_response_body(0, body_size) {
             debug!("Token response: {:?}", body);
 
             // Build Cookie Struct using parse_response from cookie.rs
-            match cookie::AuthorizationState::parse_response(body.as_slice()) {
+            match cookie::AuthorizationState::create_cookie_from_response(body.as_slice()) {
                 Ok(auth_cookie) => {
                     debug!("Cookie: {:?}", &auth_cookie);
 
@@ -330,7 +340,9 @@ impl Context for OIDCFlow {
                         302,
                         vec![
                             // TODO: Encode cookie #2
+                            // Set the cookie
                             ("Set-Cookie", self.set_state_cookie(&auth_cookie).as_str()),
+                            // Redirect to source
                             ("Location", &source_cookie.unwrap_or("/".to_owned())),
                         ],
                         Some(b"Redirecting..."),

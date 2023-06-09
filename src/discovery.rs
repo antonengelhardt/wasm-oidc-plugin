@@ -28,7 +28,7 @@ pub struct OIDCRoot {
     /// The token endpoint
     pub token_endpoint: Option<Url>,
     /// The issuer
-    pub issuer: String,
+    pub issuer: Option<String>,
     /// Mode of the root context
     pub mode: OIDCRootMode,
     /// The url from which the public key can be retrieved
@@ -60,11 +60,12 @@ impl RootContext for OIDCRoot {
         true
     }
 
-    /// Called when the configuration is loaded.
+    /// Called when proxy is being configured.
+    /// This is where the plugin configuration is loaded.
     fn on_configure(&mut self, _plugin_configuration_size: usize) -> bool {
         // TODO: Load configuration from plugin configuration such as cookie settings, etc.
 
-        info!("Pluin is configuring");
+        info!("Plugin is configuring");
 
         // Load the configuration from the plugin configuration.
         match self.get_plugin_configuration() {
@@ -89,28 +90,24 @@ impl RootContext for OIDCRoot {
         false
     }
 
+    /// The root context is ticking every 2 seconds as long as the configuration is not loaded yet.
+    /// On every tick, the mode is checked and the corresponding action is taken.
+    /// 1. If the mode is `LoadingConfig`, the configuration is loaded from the openid configuration endpoint.
+    /// 2. If the mode is `LoadingJwks`, the public key is loaded from the jwks endpoint.
+    /// 3. If the mode is `Ready`, the http context is created.
     fn on_tick(&mut self) {
         debug!("tick");
 
-        // If the configuration is not yet loaded, try to load it.
+        // If the open id configuration is not yet loaded, try to load it.
         match self.mode {
             OIDCRootMode::LoadingConfig => {
+                // Make call to openid configuration endpoint
                 match self.dispatch_http_call(
                     "oidc",
                     vec![
                         (":method", "GET"),
-                        (
-                            ":path",
-                            self.plugin_config
-                                .as_ref()
-                                .unwrap()
-                                .config_endpoint
-                                .as_str(),
-                        ),
-                        (
-                            ":authority",
-                            self.plugin_config.as_ref().unwrap().authority.as_str(),
-                        ),
+                        (":path", self.plugin_config.as_ref().unwrap().config_endpoint.as_str()),
+                        (":authority", self.plugin_config.as_ref().unwrap().authority.as_str()),
                     ],
                     None,
                     vec![],
@@ -125,16 +122,13 @@ impl RootContext for OIDCRoot {
                 // Extract path from jwks_uri
                 let jwks_uri = self.jwks_uri.as_ref().unwrap().as_str();
 
-                // TODO: Make call to jwks endpoint and load public key
+                // Make call to jwks endpoint and load public key
                 match self.dispatch_http_call(
                     "oidc",
                     vec![
                         (":method", "GET"),
                         (":path", &jwks_uri),
-                        (
-                            ":authority",
-                            self.plugin_config.as_ref().unwrap().authority.as_str(),
-                        ),
+                        (":authority", self.plugin_config.as_ref().unwrap().authority.as_str()),
                     ],
                     None,
                     vec![],
@@ -145,40 +139,59 @@ impl RootContext for OIDCRoot {
                 }
             }
             OIDCRootMode::Ready => {
-                // If the configuration is loaded, create the http context.
-                debug!("All configuration loaded. Creating http context.");
+                // If the configuration is loaded, set the tick period to 0.
+                debug!("All configuration loaded. Setting tick period to 0.");
 
-                // Set the http context.
-                self.create_http_context(0);
-                // And stop ticking.
                 self.set_tick_period(Duration::from_secs(0));
             }
         }
     }
 
     /// Creates the http context with the information from the root context and the plugin configuration.
+    /// This is called whenever a new http context is created by the proxy.
     fn create_http_context(&self, _context_id: u32) -> Option<Box<dyn HttpContext>> {
+
         info!("Creating http context with root context information.");
 
-        // Create the filter config.
+        // Check if the root context is ready.
+        if self.mode != OIDCRootMode::Ready {
+            warn!("Http context is not ready yet.");
+            return None;
+        }
+
+        // Create the filter config with information from the root context and the plugin configuration.
         let filter_config = FilterConfig {
+            // The Cookie name is the retrieved from the plugin configuration.
             cookie_name: self.plugin_config.as_ref().unwrap().cookie_name.clone(),
+            // The cookie duration is retrieved from the plugin configuration.
             cookie_duration: self.plugin_config.as_ref().unwrap().cookie_duration.clone(),
 
+            // The auth endpoint is retrieved from the root context.
             auth_endpoint: self.auth_endpoint.clone().unwrap(),
+            // The redirect uri is retrieved from the plugin configuration.
             redirect_uri: Url::parse(self.plugin_config.as_ref().unwrap().redirect_uri.as_str())
                 .unwrap(),
+            // The client id is retrieved from the plugin configuration.
             client_id: self.plugin_config.as_ref().unwrap().client_id.clone(),
+            // The scope is retrieved from the plugin configuration.
             scope: self.plugin_config.as_ref().unwrap().scope.clone(),
+            // The claims are retrieved from the plugin configuration.
             claims: self.plugin_config.as_ref().unwrap().claims.clone(),
 
+            // The call back path is retrieved from the plugin configuration.
             call_back_path: self.plugin_config.as_ref().unwrap().call_back_path.clone(),
+            // The token endpoint is retrieved from the root context.
             token_endpoint: self.token_endpoint.clone().unwrap(),
+            // The authority is retrieved from the plugin configuration.
             authority: self.plugin_config.as_ref().unwrap().authority.clone(),
+            // The client secret is retrieved from the plugin configuration.
             client_secret: self.plugin_config.as_ref().unwrap().client_secret.clone(),
+            // The audience is retrieved from the plugin configuration.
             audience: self.plugin_config.as_ref().unwrap().audience.clone(),
-            issuer: self.issuer.to_owned(),
+            // The issuer is retrieved from the root context.
+            issuer: self.issuer.to_owned().unwrap(),
 
+            // The public key is retrieved from the root context.
             public_key: self.public_key.as_ref().unwrap().clone(),
         };
 
@@ -193,7 +206,11 @@ impl RootContext for OIDCRoot {
     }
 }
 
-/// The context is used to process the response from the OIDC config endpoint.
+/// The context is used to process the response from the OIDC config endpoint and the jwks endpoint.
+/// It also utilised the mode enum to determine what to do with the response.
+/// 1. If the mode is `LoadingConfig`, the open id configuration is expected.
+/// 2. If the mode is `LoadingJwks`, the jwks endpoint is expected.
+/// `Ready` is not expected, as the root context doesn't dispatch any calls in that mode.
 impl Context for OIDCRoot {
     fn on_http_call_response(
         &mut self,
@@ -224,7 +241,7 @@ impl Context for OIDCRoot {
 
                     self.auth_endpoint = Some(Url::parse(&auth_endpoint).unwrap());
                     self.token_endpoint = Some(Url::parse(&token_endpoint).unwrap());
-                    self.issuer = issuer;
+                    self.issuer = Some(issuer);
                     self.jwks_uri = Some(Url::parse(&jwks_uri).unwrap());
 
                     self.mode = OIDCRootMode::LoadingJwks;
@@ -264,6 +281,7 @@ impl Context for OIDCRoot {
                     // Save the public key to the filter config
                     self.public_key = Some(public_key);
 
+                    // Set the mode to ready
                     self.mode = OIDCRootMode::Ready;
                 }
                 Err(e) => warn!("error parsing jwks body: {:?}", e),
