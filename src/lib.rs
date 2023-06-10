@@ -13,9 +13,7 @@
 // limitations under the License.
 
 // log
-use log::debug;
-use log::info;
-use log::warn;
+use log::{debug,warn};
 
 // base64
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
@@ -26,9 +24,6 @@ use std::time::Duration;
 // proxy-wasm
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
-
-// serde
-// use serde::{Deserialize};
 
 // jwt
 use jwt_simple::prelude::*;
@@ -43,132 +38,11 @@ mod config;
 use config::FilterConfig;
 
 mod discovery;
-use discovery::{OIDCRoot, OIDCRootMode};
-
-proxy_wasm::main! {{
-
-    proxy_wasm::set_log_level(LogLevel::Trace);
-
-    info!("Starting OIDC plugin");
-
-    // This sets the root context, which is the first context that is called on startup.
-    // The root context is used to initialize the plugin and load the configuration from the
-    // plugin config and the discovery endpoints.
-    // Here, we set all values to empty or None, so that the plugin can be initialized.
-    // The mode is set to LoadingConfig, so that the plugin knows that it is still loading the
-    // configuration.
-    proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(OIDCRoot {
-        plugin_config: None,
-        auth_endpoint: None,
-        token_endpoint: None,
-        issuer: None,
-        mode: OIDCRootMode::LoadingConfig,
-        jwks_uri: None,
-        public_key: None,
-    }) });
-}}
 
 /// The OIDCFlow is the main filter struct and responsible for the OIDC authentication flow.
 struct OIDCFlow {
     /// The configuration of the filter which is loaded from the plugin config & discovery endpoints.
     config: FilterConfig,
-}
-
-/// Helper functions for the OIDCFlow struct.
-impl OIDCFlow {
-    /// Validate the token using the JWT library.
-    /// This function checks for the correct issuer and audience and verifies the signature.
-    fn validate_token(&self, token: &str) -> Result<(), String> {
-        // Get public key from the config
-        let public_key = &self.config.public_key;
-
-        // Define allowed issuers and audiences
-        let mut allowed_issuers = HashSet::new();
-        allowed_issuers.insert(self.config.issuer.to_string());
-        let mut allowed_audiences = HashSet::new();
-        allowed_audiences.insert(self.config.audience.to_string());
-
-        // Verify the token
-        let verification_options = VerificationOptions {
-            allowed_issuers: Some(allowed_issuers),
-            allowed_audiences: Some(allowed_audiences),
-
-            reject_before: None,
-            accept_future: false,
-            required_subject: None,
-            required_key_id: None,
-            required_public_key: None,
-            required_nonce: None,
-            time_tolerance: None,
-            max_validity: None,
-            max_header_length: None,
-            max_token_length: None,
-        };
-
-        // Perform the validation
-        let validation_result =
-            public_key.verify_token::<NoCustomClaims>(&token, Some(verification_options));
-
-        // Check if the token is valid, the aud and iss are correct and the signature is valid.
-        match validation_result {
-            Ok(_) => {
-                return Ok(());
-            }
-            Err(e) => {
-                return Err(e.to_string());
-            }
-        }
-    }
-
-    /// Build the URL to redirect to the OIDC provider along with the required parameters.
-    fn redirect_to_oidc(&self) -> String {
-        // Build URL
-        let url = Url::parse_with_params(
-            &self.config.auth_endpoint.as_str(),
-            &[
-                ("redirect_uri", self.config.redirect_uri.as_str()),
-                ("response_type", "code"),
-                ("client_id", &self.config.client_id),
-                ("scope", &self.config.scope),
-                ("claims", &self.config.claims),
-            ],
-        )
-        .unwrap();
-
-        return url.to_string();
-    }
-
-    /// Get the cookie of the HTTP request by name
-    /// If the cookie is not found, None is returned.
-    fn get_cookie(&self, name: &str) -> Option<String> {
-        let headers = self.get_http_request_headers();
-        for (key, value) in headers.iter() {
-            if key.to_lowercase().trim() == "cookie" {
-                let cookies: Vec<_> = value.split(";").collect();
-                for cookie_string in cookies {
-                    let cookie_name_end = cookie_string.find('=').unwrap_or(0);
-                    let cookie_name = &cookie_string[0..cookie_name_end];
-                    if cookie_name.trim() == name {
-                        return Some(
-                            cookie_string[(cookie_name_end + 1)..cookie_string.len()].to_owned(),
-                        );
-                    }
-                }
-            }
-        }
-        return None;
-    }
-
-    /// Build the Cookie content to set the cookie in the HTTP response.
-    fn set_state_cookie(&self, auth_state: &AuthorizationState) -> String {
-        // TODO: HTTP Only, Secure
-        return format!(
-            "{}={}; Path=/; Max-Age={}",
-            self.config.cookie_name,
-            serde_json::to_string(auth_state).unwrap(),
-            self.config.cookie_duration,
-        );
-    }
 }
 
 /// The context is used to process incoming HTTP requests.
@@ -356,5 +230,102 @@ impl Context for OIDCFlow {
         } else {
             warn!("No body found in token response with valid status code.");
         }
+    }
+}
+
+/// Helper functions for the OIDCFlow struct.
+impl OIDCFlow {
+    /// Validate the token using the JWT library.
+    /// This function checks for the correct issuer and audience and verifies the signature.
+    fn validate_token(&self, token: &str) -> Result<(), String> {
+        // Get public key from the config
+        let public_key = &self.config.public_key;
+
+        // Define allowed issuers and audiences
+        let mut allowed_issuers = HashSet::new();
+        allowed_issuers.insert(self.config.issuer.to_string());
+        let mut allowed_audiences = HashSet::new();
+        allowed_audiences.insert(self.config.audience.to_string());
+
+        // Verify the token
+        let verification_options = VerificationOptions {
+            allowed_issuers: Some(allowed_issuers),
+            allowed_audiences: Some(allowed_audiences),
+
+            reject_before: None,
+            accept_future: false,
+            required_subject: None,
+            required_key_id: None,
+            required_public_key: None,
+            required_nonce: None,
+            time_tolerance: None,
+            max_validity: None,
+            max_header_length: None,
+            max_token_length: None,
+        };
+
+        // Perform the validation
+        let validation_result =
+            public_key.verify_token::<NoCustomClaims>(&token, Some(verification_options));
+
+        // Check if the token is valid, the aud and iss are correct and the signature is valid.
+        match validation_result {
+            Ok(_) => {
+                return Ok(());
+            }
+            Err(e) => {
+                return Err(e.to_string());
+            }
+        }
+    }
+
+    /// Build the URL to redirect to the OIDC provider along with the required parameters.
+    fn redirect_to_oidc(&self) -> String {
+        // Build URL
+        let url = Url::parse_with_params(
+            &self.config.auth_endpoint.as_str(),
+            &[
+                ("redirect_uri", self.config.redirect_uri.as_str()),
+                ("response_type", "code"),
+                ("client_id", &self.config.client_id),
+                ("scope", &self.config.scope),
+                ("claims", &self.config.claims),
+            ],
+        )
+        .unwrap();
+
+        return url.to_string();
+    }
+
+    /// Get the cookie of the HTTP request by name
+    /// If the cookie is not found, None is returned.
+    fn get_cookie(&self, name: &str) -> Option<String> {
+        let headers = self.get_http_request_headers();
+        for (key, value) in headers.iter() {
+            if key.to_lowercase().trim() == "cookie" {
+                let cookies: Vec<_> = value.split(";").collect();
+                for cookie_string in cookies {
+                    let cookie_name_end = cookie_string.find('=').unwrap_or(0);
+                    let cookie_name = &cookie_string[0..cookie_name_end];
+                    if cookie_name.trim() == name {
+                        return Some(
+                            cookie_string[(cookie_name_end + 1)..cookie_string.len()].to_owned(),
+                        );
+                    }
+                }
+            }
+        }
+        return None;
+    }
+
+    /// Build the Cookie content to set the cookie in the HTTP response.
+    fn set_state_cookie(&self, auth_state: &AuthorizationState) -> String {
+        // TODO: HTTP Only, Secure
+        return format!(
+            "{}={}; Path=/; Max-Age={}",
+            self.config.cookie_name,
+            serde_json::to_string(auth_state).unwrap(),
+            self.config.cookie_duration,
+        );
     }
 }

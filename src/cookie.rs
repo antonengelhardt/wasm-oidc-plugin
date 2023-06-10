@@ -43,13 +43,8 @@ impl AuthorizationState {
         }
     }
 
-    /// not used now, but could be used to create a cookie from a response
-    pub fn _create_cookie_str(cookie: AuthorizationState) -> String {
-        let cookie_str = serde_json::to_string(&cookie).unwrap();
-        return cookie_str;
-    }
-
-    /// Parse the cookie from the request into a struct
+    /// Parse the cookie from the request into a struct in order to access the fields and
+    /// validate the ID Token
     pub fn parse_cookie(cookie: String) -> Result<AuthorizationState, serde_json::Error> {
 
         match serde_json::from_str::<AuthorizationState>(&cookie) {

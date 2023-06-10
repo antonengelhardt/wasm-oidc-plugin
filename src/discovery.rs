@@ -18,6 +18,29 @@ use std::time::Duration;
 use crate::config::PluginConfiguration;
 use crate::{FilterConfig, OIDCFlow};
 
+proxy_wasm::main! {{
+
+    proxy_wasm::set_log_level(LogLevel::Trace);
+
+    info!("Starting OIDC plugin");
+
+    // This sets the root context, which is the first context that is called on startup.
+    // The root context is used to initialize the plugin and load the configuration from the
+    // plugin config and the discovery endpoints.
+    // Here, we set all values to None, so that the plugin can be initialized.
+    // The mode is set to LoadingConfig, so that the plugin knows that it is still loading the
+    // configuration.
+    proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(OIDCRoot {
+        plugin_config: None,
+        auth_endpoint: None,
+        token_endpoint: None,
+        issuer: None,
+        mode: OIDCRootMode::LoadingConfig,
+        jwks_uri: None,
+        public_key: None,
+    }) });
+}}
+
 /// This context is responsible for getting the OIDC configuration and setting the http context.
 pub struct OIDCRoot {
     /// Plugin config
@@ -150,7 +173,6 @@ impl RootContext for OIDCRoot {
     /// Creates the http context with the information from the root context and the plugin configuration.
     /// This is called whenever a new http context is created by the proxy.
     fn create_http_context(&self, _context_id: u32) -> Option<Box<dyn HttpContext>> {
-
         info!("Creating http context with root context information.");
 
         // Check if the root context is ready.
@@ -220,71 +242,70 @@ impl Context for OIDCRoot {
         _num_trailers: usize,
     ) {
         // If the configuration is not yet loaded, try to load it.
-        if self.mode == OIDCRootMode::LoadingConfig {
-            debug!("loading config");
+        match self.mode {
+            OIDCRootMode::LoadingConfig => {
+                debug!("loading config");
 
-            // Output body
-            let body = self.get_http_call_response_body(0, _body_size).unwrap();
+                // Output body
+                let body = self.get_http_call_response_body(0, _body_size).unwrap();
 
-            // Parse body
-            match serde_json::from_slice::<serde_json::Value>(&body) {
-                Ok(parsed) => {
-                    debug!("parsed config response: {:?}", parsed);
+                // Parse body
+                match serde_json::from_slice::<serde_json::Value>(&body) {
+                    Ok(parsed) => {
+                        debug!("parsed config response: {:?}", parsed);
 
-                    let auth_endpoint = parsed["authorization_endpoint"]
-                        .as_str()
-                        .unwrap()
-                        .to_owned();
-                    let token_endpoint = parsed["token_endpoint"].as_str().unwrap().to_owned();
-                    let issuer = parsed["issuer"].as_str().unwrap().to_owned();
-                    let jwks_uri = parsed["jwks_uri"].as_str().unwrap().to_owned();
+                        let auth_endpoint = parsed["authorization_endpoint"].as_str().unwrap().to_owned();
+                        let token_endpoint = parsed["token_endpoint"].as_str().unwrap().to_owned();
+                        let issuer = parsed["issuer"].as_str().unwrap().to_owned();
+                        let jwks_uri = parsed["jwks_uri"].as_str().unwrap().to_owned();
 
-                    self.auth_endpoint = Some(Url::parse(&auth_endpoint).unwrap());
-                    self.token_endpoint = Some(Url::parse(&token_endpoint).unwrap());
-                    self.issuer = Some(issuer);
-                    self.jwks_uri = Some(Url::parse(&jwks_uri).unwrap());
+                        self.auth_endpoint = Some(Url::parse(&auth_endpoint).unwrap());
+                        self.token_endpoint = Some(Url::parse(&token_endpoint).unwrap());
+                        self.issuer = Some(issuer);
+                        self.jwks_uri = Some(Url::parse(&jwks_uri).unwrap());
 
-                    self.mode = OIDCRootMode::LoadingJwks;
+                        self.mode = OIDCRootMode::LoadingJwks;
+                    }
+                    Err(e) => {
+                        warn!("error parsing config response: {:?}", e);
+                    }
                 }
-                Err(e) => {
-                    warn!("error parsing config response: {:?}", e);
+
+                // If the configuration is loaded, try to load the jwks.
+            }
+            OIDCRootMode::LoadingJwks => {
+                debug!("loading jwks");
+
+                // Output body
+                let body = self.get_http_call_response_body(0, _body_size).unwrap();
+
+                // Parse body
+                match serde_json::from_slice::<serde_json::Value>(&body) {
+                    Ok(parsed) => {
+                        debug!("parsed jwks body: {:?}", parsed);
+
+                        // Extract public key components
+                        let public_key_comp_n = parsed["keys"][0]["n"].as_str().unwrap().to_owned();
+                        let public_key_comp_e = parsed["keys"][0]["e"].as_str().unwrap().to_owned();
+
+                        // Decode and parse the public key
+                        let n_dec = base64engine_urlsafe.decode(public_key_comp_n).unwrap();
+                        let e_dec = base64engine_urlsafe.decode(public_key_comp_e).unwrap();
+                        let public_key =
+                            jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
+                                .unwrap();
+
+                        // Save the public key to the filter config
+                        self.public_key = Some(public_key);
+
+                        // Set the mode to ready
+                        self.mode = OIDCRootMode::Ready;
+                    }
+                    Err(e) => warn!("error parsing jwks body: {:?}", e),
                 }
             }
-
-        // If the configuration is loaded, try to load the jwks.
-        } else if self.mode == OIDCRootMode::LoadingJwks {
-            debug!("loading jwks");
-
-            // Output body
-            let body = self.get_http_call_response_body(0, _body_size).unwrap();
-
-            // Parse body
-            match serde_json::from_slice::<serde_json::Value>(&body) {
-                Ok(parsed) => {
-                    debug!("parsed jwks body: {:?}", parsed);
-
-                    // Extract public key components
-                    let public_key_comp_n = parsed["keys"][0]["n"].as_str().unwrap().to_owned();
-                    let public_key_comp_e = parsed["keys"][0]["e"].as_str().unwrap().to_owned();
-
-                    // Decode and parse the public key
-                    let n_dec = base64engine_urlsafe
-                        .decode(public_key_comp_n)
-                        .unwrap();
-                    let e_dec = base64engine_urlsafe
-                        .decode(public_key_comp_e)
-                        .unwrap();
-                    let public_key =
-                        jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
-                            .unwrap();
-
-                    // Save the public key to the filter config
-                    self.public_key = Some(public_key);
-
-                    // Set the mode to ready
-                    self.mode = OIDCRootMode::Ready;
-                }
-                Err(e) => warn!("error parsing jwks body: {:?}", e),
+            OIDCRootMode::Ready => {
+                warn!("ready mode is not expected here");
             }
         }
     }
