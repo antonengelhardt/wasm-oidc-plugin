@@ -5,6 +5,9 @@ use proxy_wasm::types::*;
 // log
 use log::{debug, info, warn};
 
+// arc
+use std::sync::Arc;
+
 // url
 use url::Url;
 
@@ -179,7 +182,7 @@ impl RootContext for OIDCRoot {
         }
 
         // Create the filter config with information from the root context and the plugin configuration.
-        let filter_config = FilterConfig {
+        let filter_config = Arc::new(FilterConfig {
             // The Cookie name is the retrieved from the plugin configuration.
             cookie_name: self.plugin_config.as_ref().unwrap().cookie_name.clone(),
             // The cookie duration is retrieved from the plugin configuration.
@@ -212,7 +215,7 @@ impl RootContext for OIDCRoot {
 
             // The public key is retrieved from the root context.
             public_key: self.public_key.as_ref().unwrap().clone(),
-        };
+        });
 
         // Return the http context.
         return Some(Box::new(OIDCFlow {
@@ -300,7 +303,7 @@ impl Context for OIDCRoot {
 
                         // Set the mode to ready and tick again in the configured interval.
                         self.mode = OIDCRootMode::Ready;
-                        self.set_tick_period(Duration::from_secs(self.plugin_config.as_ref().unwrap().reload_interval_in_h * 60 * 60));
+                        self.set_tick_period(Duration::from_secs(self.plugin_config.as_ref().unwrap().reload_interval_in_h * 3600));
 
                         info!("All configuration loaded. Filter is ready. Refreshing config in {} hours. ", self.plugin_config.as_ref().unwrap().reload_interval_in_h);
 

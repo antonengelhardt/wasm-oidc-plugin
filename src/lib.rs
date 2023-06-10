@@ -21,6 +21,9 @@ use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as
 // duration
 use std::time::Duration;
 
+// arc
+use std::sync::Arc;
+
 // proxy-wasm
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
@@ -42,7 +45,7 @@ mod discovery;
 /// The OIDCFlow is the main filter struct and responsible for the OIDC authentication flow.
 struct OIDCFlow {
     /// The configuration of the filter which is loaded from the plugin config & discovery endpoints.
-    config: FilterConfig,
+    config: Arc<FilterConfig>,
 }
 
 /// The context is used to process incoming HTTP requests.
