@@ -73,15 +73,6 @@ pub enum OIDCRootMode {
 
 /// The root context is used to create new HTTP contexts and load configuration.
 impl RootContext for OIDCRoot {
-    /// Called when the VM is created, allowing to start the ticking of the plugin.
-    fn on_vm_start(&mut self, _vm_configuration_size: usize) -> bool {
-        info!("VM started");
-
-        // Start ticking every 2 seconds.
-        self.set_tick_period(Duration::from_secs(2));
-
-        true
-    }
 
     /// Called when proxy is being configured.
     /// This is where the plugin configuration is loaded.
@@ -102,6 +93,9 @@ impl RootContext for OIDCRoot {
                         // Set the plugin configuration.
                         self.plugin_config = Some(parsed);
 
+                        // Tick every 500ms
+                        self.set_tick_period(Duration::from_millis(500));
+
                         return true;
                     }
                     Err(e) => warn!("error parsing plugin configuration: {:?}", e),
@@ -117,7 +111,7 @@ impl RootContext for OIDCRoot {
     /// On every tick, the mode is checked and the corresponding action is taken.
     /// 1. If the mode is `LoadingConfig`, the configuration is loaded from the openid configuration endpoint.
     /// 2. If the mode is `LoadingJwks`, the public key is loaded from the jwks endpoint.
-    /// 3. If the mode is `Ready`, the http context is created.
+    /// 3. If the mode is `Ready`, the configuration is reloaded.
     fn on_tick(&mut self) {
         debug!("tick");
 
@@ -162,10 +156,12 @@ impl RootContext for OIDCRoot {
                 }
             }
             OIDCRootMode::Ready => {
-                // If the configuration is loaded, set the tick period to 0.
-                debug!("All configuration loaded. Setting tick period to 0.");
 
-                self.set_tick_period(Duration::from_secs(0));
+                // If this state is reached, the plugin was ready and needs to reload the configuration.
+                // This is done by setting the mode to `LoadingConfig` again.
+                self.mode = OIDCRootMode::LoadingConfig;
+                self.set_tick_period(Duration::from_millis(500));
+
             }
         }
     }
@@ -244,7 +240,7 @@ impl Context for OIDCRoot {
         // If the configuration is not yet loaded, try to load it.
         match self.mode {
             OIDCRootMode::LoadingConfig => {
-                debug!("loading config");
+                debug!("loading from openid config endpoint");
 
                 // Output body
                 let body = self.get_http_call_response_body(0, _body_size).unwrap();
@@ -254,16 +250,19 @@ impl Context for OIDCRoot {
                     Ok(parsed) => {
                         debug!("parsed config response: {:?}", parsed);
 
+                        // Extract the required fields from the parsed json.
                         let auth_endpoint = parsed["authorization_endpoint"].as_str().unwrap().to_owned();
                         let token_endpoint = parsed["token_endpoint"].as_str().unwrap().to_owned();
                         let issuer = parsed["issuer"].as_str().unwrap().to_owned();
                         let jwks_uri = parsed["jwks_uri"].as_str().unwrap().to_owned();
 
+                        // Set the root context variables.
                         self.auth_endpoint = Some(Url::parse(&auth_endpoint).unwrap());
                         self.token_endpoint = Some(Url::parse(&token_endpoint).unwrap());
                         self.issuer = Some(issuer);
                         self.jwks_uri = Some(Url::parse(&jwks_uri).unwrap());
 
+                        // Set the mode to loading jwks.
                         self.mode = OIDCRootMode::LoadingJwks;
                     }
                     Err(e) => {
@@ -298,8 +297,12 @@ impl Context for OIDCRoot {
                         // Save the public key to the filter config
                         self.public_key = Some(public_key);
 
-                        // Set the mode to ready
+                        // Set the mode to ready and tick again in the configured interval.
                         self.mode = OIDCRootMode::Ready;
+                        self.set_tick_period(Duration::from_secs(self.plugin_config.as_ref().unwrap().reload_interval_in_h * 60 * 60));
+
+                        info!("All configuration loaded. Filter is ready. Refreshing config in {} hours. ", self.plugin_config.as_ref().unwrap().reload_interval_in_h);
+
                     }
                     Err(e) => warn!("error parsing jwks body: {:?}", e),
                 }

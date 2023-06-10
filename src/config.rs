@@ -88,6 +88,8 @@ pub struct PluginConfiguration {
 
     /// Config endpoint
     pub config_endpoint: String,
+    /// Reload interval
+    pub reload_interval_in_h: u64,
 
     // Cookie settings
     /// The cookie name
@@ -121,6 +123,7 @@ impl PluginConfiguration {
     /// Creates a new PluginConfiguration
     pub fn _new(
         config_endpoint: String,
+        reload_interval_in_h: u64,
         cookie_name: String,
         cookie_duration: u64,
         authority: String,
@@ -134,6 +137,7 @@ impl PluginConfiguration {
     ) -> Self {
         Self {
             config_endpoint,
+            reload_interval_in_h,
             cookie_name,
             cookie_duration,
             authority,
