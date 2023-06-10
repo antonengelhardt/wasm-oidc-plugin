@@ -46,7 +46,7 @@ static_resources:
                         "@type": "type.googleapis.com/google.protobuf.StringValue"
                         value: |
                           config_endpoint: "https://auth.k8s.wwu.de/.well-known/openid-configuration"
-                          reload_interval_in_h: 168
+                          reload_interval_in_h: 1
 
                           cookie_name: "oidcSession"
                           cookie_duration: 86400

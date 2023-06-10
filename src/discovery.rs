@@ -97,8 +97,8 @@ impl RootContext for OIDCRoot {
                         // Set the plugin configuration.
                         self.plugin_config = Some(parsed);
 
-                        // Tick every 500ms
-                        self.set_tick_period(Duration::from_millis(500));
+                        // Tick immediately to load the configuration.
+                        self.set_tick_period(Duration::from_millis(1));
 
                         return true;
                     }
@@ -122,6 +122,10 @@ impl RootContext for OIDCRoot {
         // If the open id configuration is not yet loaded, try to load it.
         match self.mode {
             OIDCRootMode::LoadingConfig => {
+
+                // Tick every 400ms
+                self.set_tick_period(Duration::from_millis(400));
+
                 // Make call to openid configuration endpoint
                 match self.dispatch_http_call(
                     "oidc",
@@ -139,24 +143,25 @@ impl RootContext for OIDCRoot {
                 }
                 return;
             }
-            OIDCRootMode::LoadingJwks => {
-                // Extract path from jwks_uri
-                let jwks_uri = self.jwks_uri.as_ref().unwrap().as_str();
+            OIDCRootMode::LoadingJwks  => {
+                // Check if the jwks uri is set
+                if self.jwks_uri.is_some() {
 
-                // Make call to jwks endpoint and load public key
-                match self.dispatch_http_call(
-                    "oidc",
-                    vec![
-                        (":method", "GET"),
-                        (":path", &jwks_uri),
-                        (":authority", self.plugin_config.as_ref().unwrap().authority.as_str()),
-                    ],
-                    None,
-                    vec![],
-                    Duration::from_secs(5),
-                ) {
-                    Ok(_) => debug!("dispatched jwks call"),
-                    Err(e) => warn!("error dispatching jwks call: {:?}", e),
+                    // Make call to jwks endpoint and load public key
+                    match self.dispatch_http_call(
+                        "oidc",
+                        vec![
+                            (":method", "GET"),
+                            (":path", self.jwks_uri.as_ref().unwrap().as_str()),
+                            (":authority", self.plugin_config.as_ref().unwrap().authority.as_str()),
+                        ],
+                        None,
+                        vec![],
+                        Duration::from_secs(5),
+                    ) {
+                        Ok(_) => debug!("dispatched jwks call"),
+                        Err(e) => warn!("error dispatching jwks call: {:?}", e),
+                    }
                 }
             }
             OIDCRootMode::Ready => {
@@ -164,7 +169,7 @@ impl RootContext for OIDCRoot {
                 // If this state is reached, the plugin was ready and needs to reload the configuration.
                 // This is done by setting the mode to `LoadingConfig` again.
                 self.mode = OIDCRootMode::LoadingConfig;
-                self.set_tick_period(Duration::from_millis(500));
+                self.set_tick_period(Duration::from_millis(1));
 
             }
         }
@@ -174,12 +179,6 @@ impl RootContext for OIDCRoot {
     /// This is called whenever a new http context is created by the proxy.
     fn create_http_context(&self, _context_id: u32) -> Option<Box<dyn HttpContext>> {
         info!("Creating http context with root context information.");
-
-        // Check if the root context is ready.
-        if self.mode != OIDCRootMode::Ready {
-            warn!("Http context is not ready yet.");
-            return None;
-        }
 
         // Create the filter config with information from the root context and the plugin configuration.
         let filter_config = Arc::new(FilterConfig {
@@ -305,7 +304,8 @@ impl Context for OIDCRoot {
                         self.mode = OIDCRootMode::Ready;
                         self.set_tick_period(Duration::from_secs(self.plugin_config.as_ref().unwrap().reload_interval_in_h * 3600));
 
-                        info!("All configuration loaded. Filter is ready. Refreshing config in {} hours. ", self.plugin_config.as_ref().unwrap().reload_interval_in_h);
+                        info!("All configuration loaded. Filter is ready. Refreshing config in {} hour(s).",
+                            self.plugin_config.as_ref().unwrap().reload_interval_in_h);
 
                     }
                     Err(e) => warn!("error parsing jwks body: {:?}", e),
