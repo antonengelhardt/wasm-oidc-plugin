@@ -45,22 +45,21 @@ static_resources:
                       configuration:
                         "@type": "type.googleapis.com/google.protobuf.StringValue"
                         value: |
-                          {
-                            "config_endpoint": "https://auth.k8s.wwu.de/.well-known/openid-configuration",
+                          config_endpoint: "https://auth.k8s.wwu.de/.well-known/openid-configuration"
+                          reload_interval_in_h: 168
 
-                            "cookie_name": "oidcSession",
-                            "cookie_duration": 86400,
+                          cookie_name: "oidcSession"
+                          cookie_duration: 86400
 
-                            "authority": "auth.k8s.wwu.de",
-                            "redirect_uri": "http://localhost:10000/oidc/callback",
-                            "client_id": "wasm-oidc-plugin",
-                            "scope": "openid email",
-                            "claims": "{\"id_token\":{\"email\":null}}",
+                          authority: "auth.k8s.wwu.de"
+                          redirect_uri: "http://localhost:10000/oidc/callback"
+                          client_id: "wasm-oidc-plugin"
+                          scope: "openid email"
+                          claims: "{\"id_token\":{\"email\":null}}"
 
-                            "call_back_path": "/oidc/callback",
-                            "client_secret": "redacted",
-                            "audience": "wasm-oidc-plugin"
-                          }
+                          call_back_path: "/oidc/callback"
+                          client_secret: "redacted"
+                          audience: "wasm-oidc-plugin"
                       vm_config:
                         runtime: "envoy.wasm.runtime.v8"
                         code:

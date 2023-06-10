@@ -17,9 +17,10 @@ log = "0.4.17"
 # proxy-wasm
 proxy-wasm = "0.2.1"
 
-# json & url parsing
+# json, yaml & url parsing
 url = "2.3.0"
 serde = { version = "1.0.160", features = ["derive"] }
+serde_yaml = "0.9"
 serde_json = "1.0.96"
 
 # base64

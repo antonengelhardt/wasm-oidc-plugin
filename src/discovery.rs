@@ -86,7 +86,8 @@ impl RootContext for OIDCRoot {
             Some(config_bytes) => {
                 debug!("got plugin configuration");
 
-                match serde_json::from_slice(&config_bytes) {
+                // Parse the configuration in a yaml format.
+                match serde_yaml::from_slice::<PluginConfiguration>(&config_bytes) {
                     Ok(parsed) => {
                         debug!("parsed plugin configuration");
 

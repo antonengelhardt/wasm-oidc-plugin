@@ -86,7 +86,7 @@ impl FilterConfig {
 #[derive(Clone, Debug, Deserialize)]
 pub struct PluginConfiguration {
 
-    /// Config endpoint
+    /// Config endpoint for the plugin. It must include the jwks_uri otherwise the plugin will not work
     pub config_endpoint: String,
     /// Reload interval
     pub reload_interval_in_h: u64,
