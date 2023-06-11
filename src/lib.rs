@@ -46,6 +46,11 @@ mod discovery;
 struct OIDCFlow {
     /// The configuration of the filter which is loaded from the plugin config & discovery endpoints.
     config: Arc<FilterConfig>,
+
+    /// The PKCE challenge which is used to verify the callback.
+    code_challenge: String,
+    /// The PKCE verifier which is used to verify the callback.
+    code_verifier: Vec<u8>,
 }
 
 /// The context is used to process incoming HTTP requests.
@@ -76,12 +81,15 @@ impl HttpContext for OIDCFlow {
             let encoded = base64engine.encode(format!("{client_id}:{client_secret}").as_bytes());
             let auth = format!("Basic {}", encoded);
 
+            // Get code verifier from filter struct
+            let code_verifier = String::from_utf8(self.code_verifier.clone()).unwrap();
+
             // Build the request body for the token endpoint
             let data: String = form_urlencoded::Serializer::new(String::new())
+                .append_pair("grant_type", "authorization_code")
+                .append_pair("code_verifier", &code_verifier)
                 .append_pair("code", &code)
                 .append_pair("redirect_uri", &self.config.redirect_uri.as_str())
-                .append_pair("grant_type", "authorization_code")
-                // TODO: PKCE #6
                 // TODO: Nonce #7
                 .finish();
 
@@ -288,9 +296,11 @@ impl OIDCFlow {
         let url = Url::parse_with_params(
             &self.config.auth_endpoint.as_str(),
             &[
-                ("redirect_uri", self.config.redirect_uri.as_str()),
                 ("response_type", "code"),
+                ("code_challenge", &self.code_challenge),
+                ("code_challenge_method", "S256"),
                 ("client_id", &self.config.client_id),
+                ("redirect_uri", self.config.redirect_uri.as_str()),
                 ("scope", &self.config.scope),
                 ("claims", &self.config.claims),
             ],
