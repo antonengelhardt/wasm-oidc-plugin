@@ -216,21 +216,9 @@ impl RootContext for OIDCRoot {
             public_key: self.public_key.as_ref().unwrap().clone(),
         });
 
-        debug!("Generating PKCE code verifier and challenge.");
-
-         // Generate PKCE code verifier and challenge
-         let pkce_verifier = pkce::code_verifier(128);
-         let pkce_challenge = pkce::code_challenge(&pkce_verifier);
-
-        debug!("Generated PKCE code verifier and challenge.");
-        debug!("Code verifier: {:?}", &pkce_verifier);
-        debug!("Code challenge: {}", &pkce_challenge);
-
         // Return the http context.
         return Some(Box::new(OIDCFlow {
             config: filter_config,
-            code_challenge: pkce_challenge,
-            code_verifier: pkce_verifier,
         }));
     }
 

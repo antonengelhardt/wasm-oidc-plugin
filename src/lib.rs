@@ -46,11 +46,6 @@ mod discovery;
 struct OIDCFlow {
     /// The configuration of the filter which is loaded from the plugin config & discovery endpoints.
     config: Arc<FilterConfig>,
-
-    /// The PKCE challenge which is used to verify the callback.
-    code_challenge: String,
-    /// The PKCE verifier which is used to verify the callback.
-    code_verifier: Vec<u8>,
 }
 
 /// The context is used to process incoming HTTP requests.
@@ -81,8 +76,8 @@ impl HttpContext for OIDCFlow {
             let encoded = base64engine.encode(format!("{client_id}:{client_secret}").as_bytes());
             let auth = format!("Basic {}", encoded);
 
-            // Get code verifier from filter struct
-            let code_verifier = String::from_utf8(self.code_verifier.clone()).unwrap();
+            // Get code verifier from cookie
+            let code_verifier = self.get_cookie("pkce").unwrap_or_default();
 
             // Build the request body for the token endpoint
             let data: String = form_urlencoded::Serializer::new(String::new())
@@ -140,17 +135,8 @@ impl HttpContext for OIDCFlow {
                         // If the token is invalid, this filter redirects the requester to the OIDC provider
                         Err(_) => {
                             warn!("Token is invalid, redirecting to OIDC provider.");
-
-                            // TODO: Delete cookie
-                            // TODO: Is this needed? The last case will redirect anyway.
-                            self.send_http_response(
-                                302,
-                                vec![
-                                    // Redirect to OIDC provider
-                                    ("Location", self.redirect_to_oidc().as_str()),
-                                ],
-                                Some(b"Redirecting..."),
-                            );
+                            
+                            self.redirect_to_authorization_endpoint();
                         }
                     }
                 }
@@ -164,16 +150,9 @@ impl HttpContext for OIDCFlow {
         // Redirect to OIDC provider if no cookie is found. As all cases will have returned by now,
         // this is the last case and the request will be paused.
         debug!("No cookie found, redirecting to OIDC provider.");
-        self.send_http_response(
-            302,
-            vec![
-                // Set the source url as a cookie to redirect back to it after the callback.
-                ("Set-Cookie", &format!("source={}", path)),
-                // Redirect to OIDC provider
-                ("Location", self.redirect_to_oidc().as_str()),
-            ],
-            Some(b"Redirecting..."),
-        );
+
+        self.redirect_to_authorization_endpoint();
+
         return Action::Pause;
     }
 }
@@ -291,13 +270,13 @@ impl OIDCFlow {
     }
 
     /// Build the URL to redirect to the OIDC provider along with the required parameters.
-    fn redirect_to_oidc(&self) -> String {
+    fn build_authorization_url(&self, code_challenge: String) -> String {
         // Build URL
         let url = Url::parse_with_params(
             &self.config.auth_endpoint.as_str(),
             &[
                 ("response_type", "code"),
-                ("code_challenge", &self.code_challenge),
+                ("code_challenge", &code_challenge),
                 ("code_challenge_method", "S256"),
                 ("client_id", &self.config.client_id),
                 ("redirect_uri", self.config.redirect_uri.as_str()),
@@ -308,6 +287,26 @@ impl OIDCFlow {
         .unwrap();
 
         return url.to_string();
+    }
+
+    /// Send 302 redirect to the OIDC provider.
+    fn redirect_to_authorization_endpoint(&self) {
+
+        // Generate PKCE code verifier and challenge
+        let pkce_verifier = pkce::code_verifier(128);
+        let pkce_verifier_string = String::from_utf8(pkce_verifier.clone()).unwrap();
+        let pkce_challenge = pkce::code_challenge(&pkce_verifier);
+
+        self.send_http_response(
+            302,
+            vec![
+                // Set the pkce challenge as a cookie to verify the callback.
+                ("Set-Cookie", &format!("pkce={}", &pkce_verifier_string)),
+                // Redirect to OIDC provider
+                ("Location", self.build_authorization_url(pkce_challenge).as_str()),
+            ],
+            Some(b"Redirecting..."),
+        );
     }
 
     /// Get the cookie of the HTTP request by name
