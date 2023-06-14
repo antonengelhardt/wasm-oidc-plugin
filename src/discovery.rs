@@ -18,9 +18,9 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, E
 use std::time::Duration;
 
 // crate
-use crate::{FilterConfig, OIDCFlow};
+use crate::{OpenIdConfig, OidcAuth};
 use crate::config::PluginConfiguration;
-use crate::responses::{JWKsResponse, OIDCDiscovery};
+use crate::responses::{JWKsResponse, OidcDiscoveryResponse};
 
 proxy_wasm::main! {{
 
@@ -34,25 +34,25 @@ proxy_wasm::main! {{
     // Here, we set all values to None, so that the plugin can be initialized.
     // The mode is set to LoadingConfig, so that the plugin knows that it is still loading the
     // configuration.
-    proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(OIDCRoot {
-        state: OIDCRootState::Unintialized,
+    proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(OidcDiscovery {
+        state: OidcRootState::Uniitialized,
         token_id: None
     }) });
 }}
 
 /// This context is responsible for getting the OIDC configuration and setting the http context.
-pub struct OIDCRoot {
+pub struct OidcDiscovery {
     /// The state of the root context
-    pub state: OIDCRootState,
+    pub state: OidcRootState,
     /// Tokenid of the HttpCalls to verify the call is correct
     token_id: Option<u32>,
 }
 
 /// The mode of the root context
-#[derive(Debug)]
-pub enum OIDCRootState {
+#[derive(Debug, Clone)]
+pub enum OidcRootState {
     // State when the plugin needs to load the plugin configuration
-    Unintialized,
+    Uniitialized,
     /// The root context is loading the configuration from the open id discovery endpoint
     LoadingConfig {
         /// Plugin config
@@ -78,12 +78,12 @@ pub enum OIDCRootState {
         /// Plugin config
         plugin_config: Arc<PluginConfiguration>,
         /// Filter config
-        filter_config: Arc<FilterConfig>,
+        filter_config: Arc<OpenIdConfig>,
     },
 }
 
 /// The root context is used to create new HTTP contexts and load configuration.
-impl RootContext for OIDCRoot {
+impl RootContext for OidcDiscovery {
 
     /// Called when proxy is being configured.
     /// This is where the plugin configuration is loaded.
@@ -103,7 +103,7 @@ impl RootContext for OIDCRoot {
                         debug!("parsed plugin configuration");
 
                         // Set the plugin configuration and mode to LoadingConfig.
-                        self.state = OIDCRootState::LoadingConfig {
+                        self.state = OidcRootState::LoadingConfig {
                             plugin_config: Arc::new(plugin_config),
                         };
 
@@ -133,14 +133,14 @@ impl RootContext for OIDCRoot {
         // See what the current state is.
         match &self.state {
             // This state is not possible, but is here to make the compiler happy.
-            OIDCRootState::Unintialized => {
+            OidcRootState::Uniitialized => {
                 warn!("plugin is not initialized");
 
             }
 
             // If the plugin is in Loading `LoadingConfig` mode, the configuration is loaded from the
             // openid configuration endpoint.
-            OIDCRootState::LoadingConfig{
+            OidcRootState::LoadingConfig{
                 plugin_config,
             } => {
 
@@ -170,12 +170,10 @@ impl RootContext for OIDCRoot {
 
             // If the plugin is in Loading `LoadingJwks` mode, the public key is loaded from the
             // jwks endpoint.
-            OIDCRootState::LoadingJwks{
+            OidcRootState::LoadingJwks{
                 plugin_config,
-                auth_endpoint: _,
-                token_endpoint: _,
-                issuer: _,
                 jwks_uri,
+                ..
             }  => {
 
                 // Make call to jwks endpoint and load public key
@@ -197,7 +195,7 @@ impl RootContext for OIDCRoot {
                     Err(e) => warn!("error dispatching jwks call: {:?}", e),
                 }
             }
-            OIDCRootState::Ready{
+            OidcRootState::Ready{
                 filter_config: _,
                 plugin_config,
             }=> {
@@ -205,7 +203,7 @@ impl RootContext for OIDCRoot {
                 // If this state is reached, the plugin was ready and needs to reload the configuration.
                 // This is controller by `reload_interval_in_h` in the plugin configuration.
                 // This is done by setting the mode to `LoadingConfig` again.
-                self.state = OIDCRootState::LoadingConfig{
+                self.state = OidcRootState::LoadingConfig{
                     plugin_config: plugin_config.clone(),
                 };
                 self.set_tick_period(Duration::from_millis(1));
@@ -220,12 +218,12 @@ impl RootContext for OIDCRoot {
         info!("Creating http context with root context information.");
 
         match &self.state {
-            OIDCRootState::Ready {
+            OidcRootState::Ready {
                 filter_config,
                 plugin_config,
             } => {
                 // Return the http context.
-                return Some(Box::new(OIDCFlow {
+                return Some(Box::new(OidcAuth {
                     filter_config: filter_config.clone(),
                     plugin_config: plugin_config.clone(),
                 }));
@@ -245,25 +243,25 @@ impl RootContext for OIDCRoot {
 
 /// The context is used to process the response from the OIDC config endpoint and the jwks endpoint.
 /// It also utilised the mode enum to determine what to do with the response.
-/// 1. If the mode is `Unititialized`, the plugin is not initialized and the response is ignored.
+/// 1. If the mode is `Uninitialized`, the plugin is not initialized and the response is ignored.
 /// 2. If the mode is `LoadingConfig`, the open id configuration is expected.
 /// 3. If the mode is `LoadingJwks`, the jwks endpoint is expected.
 /// 4. `Ready` is not expected, as the root context doesn't dispatch any calls in that mode.
-impl Context for OIDCRoot {
+impl Context for OidcDiscovery {
     fn on_http_call_response(&mut self, token_id: u32, _num_headers: usize, _body_size: usize, _num_trailers: usize,
     ) {
         // Set the state to the next state, if applicable.
         self.state = match &self.state {
 
             // This state is not possible, but is here to make the compiler happy.
-            OIDCRootState::Unintialized => {
+            OidcRootState::Uniitialized => {
                 warn!("plugin is not initialized");
-                OIDCRootState::Unintialized
+                OidcRootState::Uniitialized
             },
 
             // If the plugin is in Loading `LoadingConfig` mode, the configuration is loaded from the
             // openid configuration endpoint.
-            OIDCRootState::LoadingConfig{
+            OidcRootState::LoadingConfig{
                 plugin_config,
             } => {
                 // If the token id is not the same as the one from the call made in
@@ -280,12 +278,12 @@ impl Context for OIDCRoot {
 
                 // Parse body
                 // TODO: Stuct for config response in `responses.rs`
-                match serde_json::from_slice::<OIDCDiscovery>(&body) {
+                match serde_json::from_slice::<OidcDiscoveryResponse>(&body) {
                     Ok(open_id_response) => {
                         debug!("parsed config response: {:?}", open_id_response);
 
                         // Set the mode to loading jwks.
-                        OIDCRootState::LoadingJwks {
+                        OidcRootState::LoadingJwks {
                             plugin_config: plugin_config.clone(),
                             auth_endpoint: Url::parse(&open_id_response.authorization_endpoint).unwrap(),
                             token_endpoint: Url::parse(&open_id_response.token_endpoint).unwrap(),
@@ -296,14 +294,14 @@ impl Context for OIDCRoot {
                     Err(e) => {
                         warn!("error parsing config response: {:?}", e);
                         // Stay in the same mode.
-                        OIDCRootState::LoadingConfig{
+                        OidcRootState::LoadingConfig{
                             plugin_config: plugin_config.clone(),
                         }
                     }
                 }
             }
             // If the plugin is in `LoadingJwks` mode, the jwks endpoint is expected.
-            OIDCRootState::LoadingJwks{
+            OidcRootState::LoadingJwks{
                 plugin_config,
                 auth_endpoint,
                 token_endpoint,
@@ -334,17 +332,15 @@ impl Context for OIDCRoot {
                             return;
                         }
 
-                        // Check if keytype is RSA
-                        if jwks_response.keys[0].alg != "RS256" {
-                            warn!("keytype is not RS256, retry in 1 minute");
-                            self.set_tick_period(Duration::from_secs(60));
-                            return;
-                        }
+                        // Select the key that is of alg RS256 and the newest.
+                        let jwk = jwks_response.keys.iter()
+                            .filter(|key| key.alg == "RS256")
+                            .last()
+                            .unwrap();
 
                         // Extract public key components
-                        // TODO: Which key is the newest if there are multiple?
-                        let public_key_comp_n = &jwks_response.keys[0].n;
-                        let public_key_comp_e = &jwks_response.keys[0].e;
+                        let public_key_comp_n = &jwk.n;
+                        let public_key_comp_e = &jwk.e;
 
                         // Decode and parse the public key
                         let n_dec = base64engine_urlsafe.decode(public_key_comp_n).unwrap();
@@ -359,8 +355,8 @@ impl Context for OIDCRoot {
                             plugin_config.reload_interval_in_h);
 
                         // Set the mode to ready.
-                        OIDCRootState::Ready {
-                            filter_config: Arc::new(FilterConfig {
+                        OidcRootState::Ready {
+                            filter_config: Arc::new(OpenIdConfig {
                                 auth_endpoint: auth_endpoint.clone(),
                                 token_endpoint: token_endpoint.clone(),
                                 issuer: issuer.clone(),
@@ -372,7 +368,7 @@ impl Context for OIDCRoot {
                     Err(e) =>  {
                         warn!("error parsing jwks body: {:?}", e);
                         // Stay in the same mode.
-                        OIDCRootState::LoadingJwks {
+                        OidcRootState::LoadingJwks {
                             plugin_config: plugin_config.clone(),
                             auth_endpoint: auth_endpoint.clone(),
                             token_endpoint: token_endpoint.clone(),
@@ -383,12 +379,12 @@ impl Context for OIDCRoot {
                 }
             }
             // If the plugin is in `Ready` mode, the response is ignored and the mode is not changed.
-            OIDCRootState::Ready {
+            OidcRootState::Ready {
                 plugin_config,
                 filter_config,
             }=> {
                 warn!("ready mode is not expected here");
-                OIDCRootState::Ready {
+                OidcRootState::Ready {
                     plugin_config: plugin_config.clone(),
                     filter_config: filter_config.clone(),
                 }

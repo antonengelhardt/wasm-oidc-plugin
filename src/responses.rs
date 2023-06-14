@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 /// OpenID Connect Discovery
 #[derive(Deserialize, Debug)]
-pub struct OIDCDiscovery {
+pub struct OidcDiscoveryResponse {
     pub issuer: String,
     pub authorization_endpoint: String,
     pub token_endpoint: String,

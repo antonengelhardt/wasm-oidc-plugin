@@ -38,22 +38,22 @@ mod cookie;
 use cookie::AuthorizationState;
 
 mod config;
-use config::{FilterConfig, PluginConfiguration};
+use config::{OpenIdConfig, PluginConfiguration};
 
 mod discovery;
 
 mod responses;
 
 /// The OIDCFlow is the main filter struct and responsible for the OIDC authentication flow.
-struct OIDCFlow {
+struct OidcAuth {
     /// The configuration of the filter which is loaded from the plugin config & discovery endpoints.
-    filter_config: Arc<FilterConfig>,
+    filter_config: Arc<OpenIdConfig>,
     /// Plugin configuration
     plugin_config: Arc<PluginConfiguration>,
 }
 
 /// The context is used to process incoming HTTP requests.
-impl HttpContext for OIDCFlow {
+impl HttpContext for OidcAuth {
 
     /// This function is called when the request headers are received.
     /// If the request is for the OIDC callback, the request is dispatched to the token endpoint.
@@ -162,7 +162,7 @@ impl HttpContext for OIDCFlow {
 }
 
 /// This context is used to process HTTP responses from the token endpoint.
-impl Context for OIDCFlow {
+impl Context for OidcAuth {
     /// This function catches the response from the token endpoint.
     fn on_http_call_response(&mut self, _: u32, _: usize, body_size: usize, _: usize) {
 
@@ -228,7 +228,7 @@ impl Context for OIDCFlow {
 }
 
 /// Helper functions for the OIDCFlow struct.
-impl OIDCFlow {
+impl OidcAuth {
     /// Validate the token using the JWT library.
     /// This function checks for the correct issuer and audience and verifies the signature.
     fn validate_token(&self, token: &str) -> Result<(), String> {

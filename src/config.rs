@@ -6,7 +6,7 @@ use url::{Url};
 
 /// Struct that holds the configuration for the filter
 #[derive(Clone, Debug)]
-pub struct FilterConfig {
+pub struct OpenIdConfig {
 
     // Everything relevant for the Code Flow
     /// The URL of the authorization endpoint
@@ -23,7 +23,7 @@ pub struct FilterConfig {
     pub public_key: jwt_simple::algorithms::RS256PublicKey,
 }
 
-impl FilterConfig {
+impl OpenIdConfig {
     /// Creates a new FilterConfig
     pub fn _new(
         auth_endpoint: Url,
