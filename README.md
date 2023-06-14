@@ -75,10 +75,11 @@ The plugin is configured via the `envoy.yaml` file. The following configuration 
 
 With these configuration options, the plugin starts and loads more information itself such as the OIDC provider's public keys, issuer, etc.
 
-For that a mode is used, which determines, what to load next. The following modes are available:
+For that a state is used, which determines, what to load next. The following state are possbile and depending on the outcome, the state is changed or not:
 
-| Mode | Description |
+| State | Description |
 | ---- | ----------- |
+| `Uninitialized` | The plugin is not initialized yet. |
 | `LoadingConfig` | The plugin is loading the OIDC configuration from the `config_endpoint`. |
 | `LoadingJwks` | The plugin is loading the OIDC provider's public keys from the `jwks_uri`. |
 | `Ready` | The plugin is ready to handle request and will reload the OIDC configuration after the `reload_interval_in_hours` has passed. |
@@ -89,9 +90,10 @@ When a new request arrives, the root context creates a new http context with the
 
 Then, one of the following cases is handled:
 
-1. The request has the code parameter in the URL query. This means that the user has been redirected back from the OIDC provider after successful authentication. The plugin exchanges the code for a token using the `token_endpoint` and stores the token in the session. Then, the user is redirected back to the original request.
-2. The request has a valid session cookie. The plugin validates the token in the session and passes the request.
-3. The request has no valid session cookie. The plugin redirects the user to the OIDC provider to authenticate. Once, the user returns, the first case is handled.
+1. The filter is not configured yet and still loading the OIDC configuration. The request is therefore returned with a `503 Service Unavailable` status code and a `Retry-After` header.
+2. The request has the code parameter in the URL query. This means that the user has been redirected back from the OIDC provider after successful authentication. The plugin exchanges the code for a token using the `token_endpoint` and stores the token in the session. Then, the user is redirected back to the original request.
+3. The request has a valid session cookie. The plugin validates the token in the session and passes the request.
+4. The request has no valid session cookie. The plugin redirects the user to the OIDC provider to authenticate. Once, the user returns, the first case is handled.
 
 ## Tools
 
