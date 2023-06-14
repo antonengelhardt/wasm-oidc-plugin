@@ -22,6 +22,7 @@ use crate::{OpenIdConfig, OidcAuth};
 use crate::config::PluginConfiguration;
 use crate::responses::{JWKsResponse, OidcDiscoveryResponse};
 
+// This is the initial entry point of the plugin.
 proxy_wasm::main! {{
 
     proxy_wasm::set_log_level(LogLevel::Trace);
@@ -31,9 +32,10 @@ proxy_wasm::main! {{
     // This sets the root context, which is the first context that is called on startup.
     // The root context is used to initialize the plugin and load the configuration from the
     // plugin config and the discovery endpoints.
-    // Here, we set all values to None, so that the plugin can be initialized.
-    // The mode is set to LoadingConfig, so that the plugin knows that it is still loading the
-    // configuration.
+    // Here, we set state to uninitialized, which means that the plugin is not yet configured.
+    // The state will be changed to LoadingConfig when the plugin configuration is loaded.
+    // The token_id is used to verify that the http calls are correct which are sent to the
+    // discovery endpoints.
     proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(OidcDiscovery {
         state: OidcRootState::Uniitialized,
         token_id: None
@@ -46,10 +48,17 @@ pub struct OidcDiscovery {
     pub state: OidcRootState,
     /// Tokenid of the HttpCalls to verify the call is correct
     token_id: Option<u32>,
+    // Queue id for the http queue
+    // http_queue_id: u32,
 }
 
-/// The mode of the root context
-#[derive(Debug, Clone)]
+/// The state of the root context is an enum which has the following variants:
+/// - Uninitialized: The plugin is not yet configured
+/// - LoadingConfig: The plugin configuration is being loaded
+/// - LoadingJwks: The jwks configuration is being loaded
+/// - Ready: The plugin is ready
+/// Each state has a different set of fields which are needed for that specific state.
+#[derive(Debug)]
 pub enum OidcRootState {
     // State when the plugin needs to load the plugin configuration
     Uniitialized,
@@ -85,10 +94,19 @@ pub enum OidcRootState {
 /// The root context is used to create new HTTP contexts and load configuration.
 impl RootContext for OidcDiscovery {
 
+    /// Called when the VM is being started.
+    fn on_vm_start(&mut self, _vm_configuration_size: usize) -> bool {
+        info!("VM started");
+
+        // Register the http queue for requests that arrive during the configuration loading.
+        // self.http_queue_id = self.register_shared_queue("http_queue");
+
+        true
+    }
+
     /// Called when proxy is being configured.
-    /// This is where the plugin configuration is loaded.
+    /// This is where the plugin configuration is loaded and the next state is set.
     fn on_configure(&mut self, _plugin_configuration_size: usize) -> bool {
-        // TODO: Load configuration from plugin configuration such as cookie settings, etc.
 
         info!("Plugin is configuring");
 
@@ -102,12 +120,13 @@ impl RootContext for OidcDiscovery {
                     Ok(plugin_config) => {
                         debug!("parsed plugin configuration");
 
-                        // Set the plugin configuration and mode to LoadingConfig.
+                        // Advance to the next state and store the plugin configuration.
                         self.state = OidcRootState::LoadingConfig {
                             plugin_config: Arc::new(plugin_config),
                         };
 
                         // Tick immediately to load the configuration.
+                        // See `on_tick` for more information.
                         self.set_tick_period(Duration::from_millis(1));
 
                         return true;
@@ -121,6 +140,36 @@ impl RootContext for OidcDiscovery {
         false
     }
 
+    /// Creates the http context with the information from the filter_config and the plugin configuration.
+    /// This is called whenever a new http context is created by the proxy.
+    fn create_http_context(&self, _context_id: u32) -> Option<Box<dyn HttpContext>> {
+        info!("Creating http context with root context information.");
+
+        match &self.state {
+
+            // If the plugin is ready, create the http context in Ready state
+            // with the filter config and the plugin config.
+            OidcRootState::Ready {
+                filter_config,
+                plugin_config,
+            } => {
+                // Return the http context.
+                return Some(Box::new(OidcAuth::Configured {
+                    filter_config: filter_config.clone(),
+                    plugin_config: plugin_config.clone(),
+                }));
+            },
+
+            // If the plugin is not ready, return the http context in Unconfigured state.
+            _ => {
+                // TODO: Able to crash the plugin here during 400ms after startup.
+                warn!("Cannot create http context, as the plugin is not ready.");
+
+                return Some(Box::new(OidcAuth::Unconfigured));
+            }
+        }
+    }
+
     /// The root context is ticking every 2 seconds as long as the configuration is not loaded yet.
     /// On every tick, the mode is checked and the corresponding action is taken.
     /// 1. If the mode is `Uniitialized`, the configuration is loaded from the plugin configuration.
@@ -132,6 +181,7 @@ impl RootContext for OidcDiscovery {
 
         // See what the current state is.
         match &self.state {
+
             // This state is not possible, but is here to make the compiler happy.
             OidcRootState::Uniitialized => {
                 warn!("plugin is not initialized");
@@ -144,10 +194,11 @@ impl RootContext for OidcDiscovery {
                 plugin_config,
             } => {
 
-                // Tick every 400ms
+                // Tick every 400ms to load the configuration.
                 self.set_tick_period(Duration::from_millis(400));
 
                 // Make call to openid configuration endpoint
+                // The reponse is handled in `on_http_call_response`.
                 match self.dispatch_http_call(
                     "oidc",
                     vec![
@@ -177,6 +228,7 @@ impl RootContext for OidcDiscovery {
             }  => {
 
                 // Make call to jwks endpoint and load public key
+                // The reponse is handled in `on_http_call_response`.
                 match self.dispatch_http_call(
                     "oidc",
                     vec![
@@ -201,8 +253,8 @@ impl RootContext for OidcDiscovery {
             }=> {
 
                 // If this state is reached, the plugin was ready and needs to reload the configuration.
-                // This is controller by `reload_interval_in_h` in the plugin configuration.
-                // This is done by setting the mode to `LoadingConfig` again.
+                // This is controlled by `reload_interval_in_h` in the plugin configuration.
+                // The state is set to `LoadingConfig` and the tick period is set to 1ms to load the configuration.
                 self.state = OidcRootState::LoadingConfig{
                     plugin_config: plugin_config.clone(),
                 };
@@ -212,30 +264,8 @@ impl RootContext for OidcDiscovery {
         }
     }
 
-    /// Creates the http context with the information from the filter_config and the plugin configuration.
-    /// This is called whenever a new http context is created by the proxy.
-    fn create_http_context(&self, _context_id: u32) -> Option<Box<dyn HttpContext>> {
-        info!("Creating http context with root context information.");
-
-        match &self.state {
-            OidcRootState::Ready {
-                filter_config,
-                plugin_config,
-            } => {
-                // Return the http context.
-                return Some(Box::new(OidcAuth {
-                    filter_config: filter_config.clone(),
-                    plugin_config: plugin_config.clone(),
-                }));
-            },
-            _ => {
-                // TODO: Able to crash the plugin here during 400ms after startup.
-                warn!("Cannot create http context, as the plugin is not ready.");
-                return None;
-            }
-        }
-    }
-
+    /// This is one of those functions that need to be there for some reason but we are
+    /// not sure why. It just doesnt work without it.
     fn get_type(&self) -> Option<proxy_wasm::types::ContextType> {
         Some(ContextType::HttpContext)
     }
@@ -250,7 +280,7 @@ impl RootContext for OidcDiscovery {
 impl Context for OidcDiscovery {
     fn on_http_call_response(&mut self, token_id: u32, _num_headers: usize, _body_size: usize, _num_trailers: usize,
     ) {
-        // Set the state to the next state, if applicable.
+        // Check for each state what to do with the response.
         self.state = match &self.state {
 
             // This state is not possible, but is here to make the compiler happy.
@@ -259,8 +289,8 @@ impl Context for OidcDiscovery {
                 OidcRootState::Uniitialized
             },
 
-            // If the plugin is in Loading `LoadingConfig` mode, the configuration is loaded from the
-            // openid configuration endpoint.
+            // If the plugin is in Loading `LoadingConfig` mode, the response is expected to be the
+            // openid configuration.
             OidcRootState::LoadingConfig{
                 plugin_config,
             } => {
@@ -273,7 +303,7 @@ impl Context for OidcDiscovery {
 
                 debug!("loading from openid config endpoint");
 
-                // Output body
+                // Parse the response body as json.
                 let body = self.get_http_call_response_body(0, _body_size).unwrap();
 
                 // Parse body
@@ -299,6 +329,7 @@ impl Context for OidcDiscovery {
                     }
                 }
             }
+
             // If the plugin is in `LoadingJwks` mode, the jwks endpoint is expected.
             OidcRootState::LoadingJwks{
                 plugin_config,
@@ -316,10 +347,8 @@ impl Context for OidcDiscovery {
 
                 debug!("loading jwks");
 
-                // Output body
-                let body = self.get_http_call_response_body(0, _body_size).unwrap();
-
                 // Parse body
+                let body = self.get_http_call_response_body(0, _body_size).unwrap();
                 match serde_json::from_slice::<JWKsResponse>(&body) {
                     Ok(jwks_response) => {
                         debug!("parsed jwks body: {:?}", jwks_response);
@@ -348,7 +377,8 @@ impl Context for OidcDiscovery {
                             jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
                                 .unwrap();
 
-                        // Set the tick period to the reload interval.
+                        // Now that we have loaded all the configuration, we can set the tick period
+                        // to the configured value and advance to the ready state.
                         self.set_tick_period(Duration::from_secs(plugin_config.reload_interval_in_h * 3600));
                         info!("All configuration loaded. Filter is ready. Refreshing config in {} hour(s).",
                             plugin_config.reload_interval_in_h);
@@ -377,6 +407,7 @@ impl Context for OidcDiscovery {
                     }
                 }
             }
+
             // If the plugin is in `Ready` mode, the response is ignored and the mode is not changed.
             OidcRootState::Ready {
                 plugin_config,
