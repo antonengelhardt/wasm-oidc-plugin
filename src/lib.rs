@@ -38,14 +38,18 @@ mod cookie;
 use cookie::AuthorizationState;
 
 mod config;
-use config::FilterConfig;
+use config::{FilterConfig, PluginConfiguration};
 
 mod discovery;
+
+mod responses;
 
 /// The OIDCFlow is the main filter struct and responsible for the OIDC authentication flow.
 struct OIDCFlow {
     /// The configuration of the filter which is loaded from the plugin config & discovery endpoints.
-    config: Arc<FilterConfig>,
+    filter_config: Arc<FilterConfig>,
+    /// Plugin configuration
+    plugin_config: Arc<PluginConfiguration>,
 }
 
 /// The context is used to process incoming HTTP requests.
@@ -61,7 +65,7 @@ impl HttpContext for OIDCFlow {
         // If the request is for the OIDC callback, e.g the code is returned, this filter
         // exchanges the code for a token. The response is caught in on_http_call_response.
         let path = self.get_http_request_header(":path").unwrap_or_default();
-        if path.starts_with(&self.config.call_back_path) {
+        if path.starts_with(&self.plugin_config.call_back_path) {
             debug!("Received request for OIDC callback.");
 
             // Extract code from the url
@@ -69,8 +73,8 @@ impl HttpContext for OIDCFlow {
             debug!("Code: {}", code);
 
             // Hardcoded values for request to token endpoint
-            let client_id = &self.config.client_id;
-            let client_secret = &self.config.client_secret;
+            let client_id = &self.plugin_config.client_id;
+            let client_secret = &self.plugin_config.client_secret;
 
             // Encode client_id and client_secret and build the Authorization header using base64encoding
             let encoded = base64engine.encode(format!("{client_id}:{client_secret}").as_bytes());
@@ -84,7 +88,7 @@ impl HttpContext for OIDCFlow {
                 .append_pair("grant_type", "authorization_code")
                 .append_pair("code_verifier", &code_verifier)
                 .append_pair("code", &code)
-                .append_pair("redirect_uri", &self.config.redirect_uri.as_str())
+                .append_pair("redirect_uri", &self.plugin_config.redirect_uri.as_str())
                 // TODO: Nonce #7
                 .finish();
 
@@ -95,7 +99,7 @@ impl HttpContext for OIDCFlow {
                 vec![
                     (":method", "POST"),
                     (":path", "/oidc/token"),
-                    (":authority", &self.config.authority),
+                    (":authority", &self.plugin_config.authority),
                     ("Authorization", &auth),
                     ("Content-Type", "application/x-www-form-urlencoded"),
                 ],
@@ -116,7 +120,7 @@ impl HttpContext for OIDCFlow {
         }
 
         // If the requester passes a cookie, this filter passes the request depending on the validity of the cookie.
-        if let Some(auth_cookie) = self.get_cookie(&self.config.cookie_name) {
+        if let Some(auth_cookie) = self.get_cookie(&self.plugin_config.cookie_name) {
             debug!("Cookie found, checking validity.");
 
             // Try to parse the cookie and handle the result
@@ -135,7 +139,7 @@ impl HttpContext for OIDCFlow {
                         // If the token is invalid, this filter redirects the requester to the OIDC provider
                         Err(_) => {
                             warn!("Token is invalid, redirecting to OIDC provider.");
-                            
+
                             self.redirect_to_authorization_endpoint();
                         }
                     }
@@ -229,13 +233,13 @@ impl OIDCFlow {
     /// This function checks for the correct issuer and audience and verifies the signature.
     fn validate_token(&self, token: &str) -> Result<(), String> {
         // Get public key from the config
-        let public_key = &self.config.public_key;
+        let public_key = &self.filter_config.public_key;
 
         // Define allowed issuers and audiences
         let mut allowed_issuers = HashSet::new();
-        allowed_issuers.insert(self.config.issuer.to_string());
+        allowed_issuers.insert(self.filter_config.issuer.to_string());
         let mut allowed_audiences = HashSet::new();
-        allowed_audiences.insert(self.config.audience.to_string());
+        allowed_audiences.insert(self.plugin_config.audience.to_string());
 
         // Verify the token
         let verification_options = VerificationOptions {
@@ -273,15 +277,15 @@ impl OIDCFlow {
     fn build_authorization_url(&self, code_challenge: String) -> String {
         // Build URL
         let url = Url::parse_with_params(
-            &self.config.auth_endpoint.as_str(),
+            &self.filter_config.auth_endpoint.as_str(),
             &[
                 ("response_type", "code"),
                 ("code_challenge", &code_challenge),
                 ("code_challenge_method", "S256"),
-                ("client_id", &self.config.client_id),
-                ("redirect_uri", self.config.redirect_uri.as_str()),
-                ("scope", &self.config.scope),
-                ("claims", &self.config.claims),
+                ("client_id", &self.plugin_config.client_id),
+                ("redirect_uri", self.plugin_config.redirect_uri.as_str()),
+                ("scope", &self.plugin_config.scope),
+                ("claims", &self.plugin_config.claims),
             ],
         )
         .unwrap();
@@ -335,9 +339,9 @@ impl OIDCFlow {
         // TODO: HTTP Only, Secure
         return format!(
             "{}={}; Path=/; Max-Age={}",
-            self.config.cookie_name,
+            self.plugin_config.cookie_name,
             serde_json::to_string(auth_state).unwrap(),
-            self.config.cookie_duration,
+            self.plugin_config.cookie_duration,
         );
     }
 }

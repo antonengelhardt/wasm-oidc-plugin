@@ -8,35 +8,13 @@ use url::{Url};
 #[derive(Clone, Debug)]
 pub struct FilterConfig {
 
-    // Cookie settings
-    /// Name of the cookie that will be used to store the access token
-    pub cookie_name: String,
-    /// Duration in seconds
-    pub cookie_duration: u64,
-
     // Everything relevant for the Code Flow
     /// The URL of the authorization endpoint
     pub auth_endpoint: Url,
-    /// The URL to which the user will be redirected after successful authentication
-    pub redirect_uri: Url,
-    /// The client ID that will be used for the authentication request
-    pub client_id: String,
-    /// The scope that will be used for the authentication request
-    pub scope: String,
-    /// The claims that will be used for the authentication request
-    pub claims: String,
-    /// The path that will be used for the callback
-    pub call_back_path: String,
 
     // Everything relevant for the Token Exchange Flow
     /// The URL of the token endpoint
     pub token_endpoint: Url,
-    /// Authority
-    pub authority: String,
-    /// The client secret that will be used for the token request
-    pub client_secret: String,
-    /// The audience that will be used for the token request
-    pub audience: String,
     /// The issuer that will be used for the token request
     pub issuer: String,
 
@@ -48,34 +26,14 @@ pub struct FilterConfig {
 impl FilterConfig {
     /// Creates a new FilterConfig
     pub fn _new(
-        cookie_name: String,
-        cookie_duration: u64,
         auth_endpoint: Url,
-        redirect_uri: Url,
-        client_id: String,
-        scope: String,
-        claims: String,
-        call_back_path: String,
         token_endpoint: Url,
-        authority: String,
-        client_secret: String,
-        audience: String,
         issuer: String,
         public_key: jwt_simple::algorithms::RS256PublicKey,
     ) -> Self {
         Self {
-            cookie_name,
-            cookie_duration,
             auth_endpoint,
-            redirect_uri,
-            client_id,
-            scope,
-            claims,
-            call_back_path,
             token_endpoint,
-            authority,
-            client_secret,
-            audience,
             issuer,
             public_key
         }

@@ -23,8 +23,10 @@ services:
       - ./target/wasm32-wasi/release:/etc/envoy/proxy-wasm-plugins
     networks:
       - envoymesh
-    # for debugging - prints full trace of all proxy-wasm calls
-    # command: envoy -c /etc/envoy/envoy.yaml --component-log-level wasm:trace
+    # Additional options:
+    # For debugging add this: --component-log-level wasm:debug
+    # If you want to test with 1 thread, add this: --concurrency 1
+    command: envoy -c /etc/envoy/envoy.yaml
 
   httpbin:
     image: kennethreitz/httpbin
