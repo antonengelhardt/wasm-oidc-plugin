@@ -13,10 +13,11 @@ test:
     - cargo test --workspace --verbose
 
 build:
+  only:
+    - main
   stage: build
   script:
     - cargo build --target wasm32-wasi --release
   artifacts:
     paths:
       - target/wasm32-wasi/release/oidc.wasm
-
