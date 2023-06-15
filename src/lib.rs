@@ -92,13 +92,16 @@ impl HttpContext for OidcAuth {
                 // TODO: Nonce #7
                 .finish();
 
+            // Get path of token endpoint
+            let token_endpoint = &self.filter_config.token_endpoint.path();
+
             // Dispatch request to token endpoint using built-in envoy function
             debug!("Sending data to token endpoint: {}", data);
             match self.dispatch_http_call(
                 "oidc",
                 vec![
                     (":method", "POST"),
-                    (":path", "/oidc/token"),
+                    (":path", &token_endpoint),
                     (":authority", &self.plugin_config.authority),
                     ("Authorization", &auth),
                     ("Content-Type", "application/x-www-form-urlencoded"),

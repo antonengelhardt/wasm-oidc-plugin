@@ -277,7 +277,6 @@ impl Context for OidcDiscovery {
                 let body = self.get_http_call_response_body(0, _body_size).unwrap();
 
                 // Parse body
-                // TODO: Stuct for config response in `responses.rs`
                 match serde_json::from_slice::<OidcDiscoveryResponse>(&body) {
                     Ok(open_id_response) => {
                         debug!("parsed config response: {:?}", open_id_response);
