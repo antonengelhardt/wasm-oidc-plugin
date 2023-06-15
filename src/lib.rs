@@ -117,6 +117,9 @@ impl HttpContext for OidcAuth {
                         // TODO: Nonce #7
                         .finish();
 
+                    // Get path from token endpoint
+                    let token_endpoint = filter_config.token_endpoint.path();
+
                     // Dispatch request to token endpoint using built-in envoy function
                     debug!("Sending data to token endpoint: {}", data);
                     match self.dispatch_http_call(
