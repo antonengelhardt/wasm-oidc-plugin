@@ -27,10 +27,10 @@ build:
     paths:
       - target/wasm32-wasi/release/oidc.wasm
 
-documenation:
+documentation:
   only:
     - main
-  stage: documenation
+  stage: documentation
   script:
     - cargo doc --document-private-items
   artifacts:
