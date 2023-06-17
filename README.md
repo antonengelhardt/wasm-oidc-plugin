@@ -13,11 +13,11 @@ E.g. for Ubuntu this can be achieved by:
 
 ```sh
 # Install Build essentials
-$ apt install build-essential
+apt install build-essential
 # Install Rustup
-$ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 # Enable WASM compilation target
-$ cargo build --target wasm32-wasi --release
+cargo build --target wasm32-wasi --release
 ```
 
 ## Try it out
@@ -90,7 +90,7 @@ When a new request arrives, the root context creates a new http context with the
 
 Then, one of the following cases is handled:
 
-1. The filter is not configured yet and still loading the OIDC configuration. The request is therefore returned with a `503 Service Unavailable` status code and a `Retry-After` header.
+1. The filter is not configured yet and still loading the OIDC configuration. The request paused and queued until the configuration is loaded. Then, the RootContext resumes the request and the Request is redirecting in order to create a new context.
 2. The request has the code parameter in the URL query. This means that the user has been redirected back from the OIDC provider after successful authentication. The plugin exchanges the code for a token using the `token_endpoint` and stores the token in the session. Then, the user is redirected back to the original request.
 3. The request has a valid session cookie. The plugin validates the token in the session and passes the request.
 4. The request has no valid session cookie. The plugin redirects the user to the OIDC provider to authenticate. Once, the user returns, the first case is handled.

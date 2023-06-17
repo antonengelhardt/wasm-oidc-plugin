@@ -1,4 +1,5 @@
 // proxy-wasm
+use proxy_wasm::hostcalls;
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
 
@@ -7,6 +8,7 @@ use log::{debug, info, warn};
 
 // arc
 use std::sync::Arc;
+use std::sync::Mutex;
 
 // url
 use url::Url;
@@ -17,8 +19,9 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, E
 // duration
 use std::time::Duration;
 
+use crate::UnconfiguredOidc;
 // crate
-use crate::{OpenIdConfig, OidcAuth};
+use crate::{OpenIdConfig, ConfiguredOidc};
 use crate::config::PluginConfiguration;
 use crate::responses::{JWKsResponse, OidcDiscoveryResponse};
 
@@ -37,8 +40,9 @@ proxy_wasm::main! {{
     // The token_id is used to verify that the http calls are correct which are sent to the
     // discovery endpoints.
     proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(OidcDiscovery {
-        state: OidcRootState::Uniitialized,
-        token_id: None
+        state: OidcRootState::Uninitialized,
+        token_id: None,
+        waiting: Mutex::new(Vec::new()),
     }) });
 }}
 
@@ -48,8 +52,8 @@ pub struct OidcDiscovery {
     pub state: OidcRootState,
     /// Tokenid of the HttpCalls to verify the call is correct
     token_id: Option<u32>,
-    // Queue id for the http queue
-    // http_queue_id: u32,
+    // Queue of waiting requests
+    waiting: Mutex<Vec<u32>>,
 }
 
 /// The state of the root context is an enum which has the following variants:
@@ -61,7 +65,7 @@ pub struct OidcDiscovery {
 #[derive(Debug)]
 pub enum OidcRootState {
     // State when the plugin needs to load the plugin configuration
-    Uniitialized,
+    Uninitialized,
     /// The root context is loading the configuration from the open id discovery endpoint
     LoadingConfig {
         /// Plugin config
@@ -93,16 +97,6 @@ pub enum OidcRootState {
 
 /// The root context is used to create new HTTP contexts and load configuration.
 impl RootContext for OidcDiscovery {
-
-    /// Called when the VM is being started.
-    fn on_vm_start(&mut self, _vm_configuration_size: usize) -> bool {
-        info!("VM started");
-
-        // Register the http queue for requests that arrive during the configuration loading.
-        // self.http_queue_id = self.register_shared_queue("http_queue");
-
-        true
-    }
 
     /// Called when proxy is being configured.
     /// This is where the plugin configuration is loaded and the next state is set.
@@ -142,8 +136,7 @@ impl RootContext for OidcDiscovery {
 
     /// Creates the http context with the information from the filter_config and the plugin configuration.
     /// This is called whenever a new http context is created by the proxy.
-    fn create_http_context(&self, _context_id: u32) -> Option<Box<dyn HttpContext>> {
-        info!("Creating http context with root context information.");
+    fn create_http_context(&self, context_id: u32) -> Option<Box<dyn HttpContext>> {
 
         match &self.state {
 
@@ -153,19 +146,26 @@ impl RootContext for OidcDiscovery {
                 filter_config,
                 plugin_config,
             } => {
+                debug!("Creating http context with root context information.");
+
                 // Return the http context.
-                return Some(Box::new(OidcAuth::Configured {
+                return Some(Box::new(ConfiguredOidc {
                     filter_config: filter_config.clone(),
                     plugin_config: plugin_config.clone(),
+                    token_id: None,
                 }));
             },
 
-            // If the plugin is not ready, return the http context in Unconfigured state.
+            // If the plugin is not ready, return the http context in Unconfigured state and add the
+            // context id to the waiting queue.
             _ => {
-                // TODO: Able to crash the plugin here during 400ms after startup.
-                warn!("Cannot create http context, as the plugin is not ready.");
+                warn!("Root context is not ready yet. Queueing http context.");
 
-                return Some(Box::new(OidcAuth::Unconfigured));
+                // Add the context id to the waiting queue.
+                self.waiting.lock().unwrap().push(context_id);
+
+                // Return the http context in Unconfigured state.
+                return Some(Box::new(UnconfiguredOidc{}));
             }
         }
     }
@@ -183,7 +183,7 @@ impl RootContext for OidcDiscovery {
         match &self.state {
 
             // This state is not possible, but is here to make the compiler happy.
-            OidcRootState::Uniitialized => {
+            OidcRootState::Uninitialized => {
                 warn!("plugin is not initialized");
 
             }
@@ -284,9 +284,9 @@ impl Context for OidcDiscovery {
         self.state = match &self.state {
 
             // This state is not possible, but is here to make the compiler happy.
-            OidcRootState::Uniitialized => {
+            OidcRootState::Uninitialized => {
                 warn!("plugin is not initialized");
-                OidcRootState::Uniitialized
+                OidcRootState::Uninitialized
             },
 
             // If the plugin is in Loading `LoadingConfig` mode, the response is expected to be the
@@ -396,7 +396,7 @@ impl Context for OidcDiscovery {
                     }
                     Err(e) =>  {
                         warn!("error parsing jwks body: {:?}", e);
-                        // Stay in the same mode.
+                        // Stay in the same mode as the response couldnt be parsed.
                         OidcRootState::LoadingJwks {
                             plugin_config: plugin_config.clone(),
                             auth_endpoint: auth_endpoint.clone(),
@@ -419,6 +419,16 @@ impl Context for OidcDiscovery {
                     filter_config: filter_config.clone(),
                 }
             }
+        };
+        // If the plugin is in `Ready` mode, any request that was sent during the loading phase,
+        // is now resumed.
+        if matches!(self.state, OidcRootState::Ready { .. }) {
+            for context_id in self.waiting.lock().unwrap().drain(..) {
+                info!("resuming queued request with id {}", context_id);
+                hostcalls::set_effective_context(context_id).unwrap();
+                hostcalls::resume_http_request().unwrap();
+            }
+            // hostcalls::set_effective_context(1).unwrap();
         }
     }
 }

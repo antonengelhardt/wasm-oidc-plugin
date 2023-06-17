@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // log
-use log::{debug,warn};
+use log::{debug,warn,info};
 
 // base64
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
@@ -23,6 +23,7 @@ use std::time::Duration;
 
 // arc
 use std::sync::Arc;
+use std::vec;
 
 // proxy-wasm
 use proxy_wasm::traits::*;
@@ -44,19 +45,53 @@ mod discovery;
 
 mod responses;
 
-/// The OIDCFlow is the main filter struct and responsible for the OIDC authentication flow.
-enum OidcAuth {
-    Unconfigured,
-    Configured {
-        /// The configuration of the filter which is loaded from the plugin config & discovery endpoints.
-        filter_config: Arc<OpenIdConfig>,
-        /// Plugin configuration
-        plugin_config: Arc<PluginConfiguration>,
-    },
+/// The UnconfiguredOidc is the filter struct which is used when the filter is not configured.
+struct UnconfiguredOidc;
+
+/// The context is used to process incoming HTTP requests when the filter is not configured.
+impl HttpContext for UnconfiguredOidc {
+
+    /// This function is called when the request headers are received. As the filter is not
+    /// configured, the request is paused and queued by the RootContext. Once the filter is
+    /// configured, the request is resumed by the RootContext.
+    fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
+        warn!("Filter not ready. Pausing request.");
+
+        Action::Pause
+    }
+
+    /// When the filter is configured, this function is called once the root context resumes the
+    /// request. This function sends a redirect to create a new context for the configured filter.
+    fn on_http_response_headers(&mut self, _num_headers: usize, _end_of_stream: bool) -> Action {
+
+        info!("Filter now ready. Sending redirect.");
+
+        self.send_http_response(302,
+            vec![
+            // Redirect to the requested path
+            ("location", "/"),
+            // Disable caching
+            ("Cache-Control", "no-cache"),
+        ],
+        Some(b"Filter is ready now."));
+        Action::Continue
+    }
 }
 
-/// The context is used to process incoming HTTP requests.
-impl HttpContext for OidcAuth {
+impl Context for UnconfiguredOidc {}
+
+/// The ConfiguredOudc is the main filter struct and responsible for the OIDC authentication flow.
+struct ConfiguredOidc {
+    /// The configuration of the filter which is loaded from the plugin config & discovery endpoints.
+    pub filter_config: Arc<OpenIdConfig>,
+    /// Plugin configuration
+    pub plugin_config: Arc<PluginConfiguration>,
+    /// Token id of the current request
+    pub token_id: Option<u32>,
+}
+
+/// The context is used to process incoming HTTP requests when the filter is configured.
+impl HttpContext for ConfiguredOidc {
 
     /// This function is called when the request headers are received.
     /// If the request is for the OIDC callback, the request is dispatched to the token endpoint.
@@ -65,136 +100,119 @@ impl HttpContext for OidcAuth {
     /// Else, the request is redirected to the OIDC provider.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
 
-        match &self {
-            Self::Unconfigured => {
-                warn!("Filter not ready.");
+        // If the request is for the OIDC callback, e.g the code is returned, this filter
+        // exchanges the code for a token. The response is caught in on_http_call_response.
+        let path = self.get_http_request_header(":path").unwrap_or_default();
+        if path.starts_with(&self.plugin_config.call_back_path) {
+            debug!("Received request for OIDC callback.");
 
-                // Tell user client to retry in 1 second
-                self.send_http_response(
-                    503,
-                    vec![
-                        ("Retry-After", "1")
-                    ],
-                    Some(b"Filter not ready."));
-                return Action::Pause;
-            },
+            // Extract code from the url
+            let code = path.split("=").last().unwrap_or_default();
+            debug!("Code: {}", code);
 
-            Self::Configured {
-                filter_config,
-                plugin_config,
-            } => {
+            // Hardcoded values for request to token endpoint
+            let client_id = &self.plugin_config.client_id;
+            let client_secret = &self.plugin_config.client_secret;
 
-                // If the request is for the OIDC callback, e.g the code is returned, this filter
-                // exchanges the code for a token. The response is caught in on_http_call_response.
-                let path = self.get_http_request_header(":path").unwrap_or_default();
-                if path.starts_with(&plugin_config.call_back_path) {
-                    debug!("Received request for OIDC callback.");
+            // Encode client_id and client_secret and build the Authorization header using base64encoding
+            let encoded = base64engine.encode(format!("{client_id}:{client_secret}").as_bytes());
+            let auth = format!("Basic {}", encoded);
 
-                    // Extract code from the url
-                    let code = path.split("=").last().unwrap_or_default();
-                    debug!("Code: {}", code);
+            // Get code verifier from cookie
+            let code_verifier = self.get_cookie("pkce").unwrap_or_default();
 
-                    // Hardcoded values for request to token endpoint
-                    let client_id = &plugin_config.client_id;
-                    let client_secret = &plugin_config.client_secret;
+            // Build the request body for the token endpoint
+            let data: String = form_urlencoded::Serializer::new(String::new())
+                .append_pair("grant_type", "authorization_code")
+                .append_pair("code_verifier", &code_verifier)
+                .append_pair("code", &code)
+                .append_pair("redirect_uri", self.plugin_config.redirect_uri.as_str())
+                // TODO: Nonce #7
+                .finish();
 
-                    // Encode client_id and client_secret and build the Authorization header using base64encoding
-                    let encoded = base64engine.encode(format!("{client_id}:{client_secret}").as_bytes());
-                    let auth = format!("Basic {}", encoded);
+            // Get path from token endpoint
+            let token_endpoint = self.filter_config.token_endpoint.path();
 
-                    // Get code verifier from cookie
-                    let code_verifier = self.get_cookie("pkce").unwrap_or_default();
-
-                    // Get path of token endpoint
-                    let token_endpoint = filter_config.token_endpoint.path();
-
-                    // Build the request body for the token endpoint
-                    let data: String = form_urlencoded::Serializer::new(String::new())
-                        .append_pair("grant_type", "authorization_code")
-                        .append_pair("code_verifier", &code_verifier)
-                        .append_pair("code", &code)
-                        .append_pair("redirect_uri", plugin_config.redirect_uri.as_str())
-                        // TODO: Nonce #7
-                        .finish();
-
-                    // Get path from token endpoint
-                    let token_endpoint = filter_config.token_endpoint.path();
-
-                    // Dispatch request to token endpoint using built-in envoy function
-                    debug!("Sending data to token endpoint: {}", data);
-                    match self.dispatch_http_call(
-                        "oidc",
-                        vec![
-                            (":method", "POST"),
-                            (":path", &token_endpoint),
-                            (":authority", &plugin_config.authority),
-                            ("Authorization", &auth),
-                            ("Content-Type", "application/x-www-form-urlencoded"),
-                        ],
-                        Some(data.as_bytes()),
-                        vec![],
-                        Duration::from_secs(10),
-                    ) {
-                        // If the request is dispatched successfully, this filter pauses the request
-                        Ok(_) => {
-                            debug!("Token request dispatched successfully.");
-                        }
-                        // If the request fails, this filter logs the error and pauses the request
-                        Err(err) => {
-                            warn!("Token request failed: {:?}", err);
-                        }
-                    }
-                    return Action::Pause;
+            // Dispatch request to token endpoint using built-in envoy function
+            debug!("Sending data to token endpoint: {}", data);
+            match self.dispatch_http_call(
+                "oidc",
+                vec![
+                    (":method", "POST"),
+                    (":path", &token_endpoint),
+                    (":authority", &self.plugin_config.authority),
+                    ("Authorization", &auth),
+                    ("Content-Type", "application/x-www-form-urlencoded"),
+                ],
+                Some(data.as_bytes()),
+                vec![],
+                Duration::from_secs(10),
+            ) {
+                // If the request is dispatched successfully, this filter pauses the request
+                Ok(id) => {
+                    self.token_id = Some(id);
+                    debug!("Token request dispatched successfully.");
                 }
-
-                // If the requester passes a cookie, this filter passes the request depending on the validity of the cookie.
-                if let Some(auth_cookie) = self.get_cookie(&plugin_config.cookie_name) {
-                    debug!("Cookie found, checking validity.");
-
-                    // Try to parse the cookie and handle the result
-                    match cookie::AuthorizationState::parse_cookie(auth_cookie) {
-
-                        // If the cookie can be parsed, this filter validates the token
-                        Ok(auth_state) => {
-
-                            // Validate token
-                            match self.validate_token(&auth_state.id_token) {
-                                // If the token is valid, this filter passes the request
-                                Ok(_) => {
-                                    debug!("Token is valid, passing request.");
-                                    return Action::Continue;
-                                }
-                                // If the token is invalid, this filter redirects the requester to the OIDC provider
-                                Err(_) => {
-                                    warn!("Token is invalid, redirecting to OIDC provider.");
-
-                                    self.redirect_to_authorization_endpoint();
-                                }
-                            }
-                        }
-                        // If the cookie cannot be parsed, this filter redirects the requester to the OIDC provider
-                        Err(err) => {
-                            warn!("Authorisation state couldn't be loaded from the cookie: {:?}",err);
-                        }
-                    }
+                // If the request fails, this filter logs the error and pauses the request
+                Err(err) => {
+                    warn!("Token request failed: {:?}", err);
                 }
-
-                // Redirect to OIDC provider if no cookie is found. As all cases will have returned by now,
-                // this is the last case and the request will be paused.
-                debug!("No cookie found, redirecting to OIDC provider.");
-
-                self.redirect_to_authorization_endpoint();
-
-                return Action::Pause;
-            },
+            }
+            return Action::Pause;
         }
+
+        // If the requester passes a cookie, this filter passes the request depending on the validity of the cookie.
+        if let Some(auth_cookie) = self.get_cookie(&self.plugin_config.cookie_name) {
+            debug!("Cookie found, checking validity.");
+
+            // Try to parse the cookie and handle the result
+            match cookie::AuthorizationState::parse_cookie(auth_cookie) {
+
+                // If the cookie can be parsed, this filter validates the token
+                Ok(auth_state) => {
+
+                    // Validate token
+                    match self.validate_token(&auth_state.id_token) {
+                        // If the token is valid, this filter passes the request
+                        Ok(_) => {
+                            debug!("Token is valid, passing request.");
+                            return Action::Continue;
+                        }
+                        // If the token is invalid, this filter redirects the requester to the OIDC provider
+                        Err(_) => {
+                            warn!("Token is invalid, redirecting to OIDC provider.");
+
+                            self.redirect_to_authorization_endpoint();
+                        }
+                    }
+                }
+                // If the cookie cannot be parsed, this filter redirects the requester to the OIDC provider
+                Err(err) => {
+                    warn!("Authorisation state couldn't be loaded from the cookie: {:?}",err);
+                }
+            }
+        }
+
+        // Redirect to OIDC provider if no cookie is found. As all cases will have returned by now,
+        // this is the last case and the request will be paused.
+        debug!("No cookie found, redirecting to OIDC provider.");
+
+        self.redirect_to_authorization_endpoint();
+
+        return Action::Pause;
     }
 }
 
 /// This context is used to process HTTP responses from the token endpoint.
-impl Context for OidcAuth {
+impl Context for ConfiguredOidc {
     /// This function catches the response from the token endpoint.
-    fn on_http_call_response(&mut self, _: u32, _: usize, body_size: usize, _: usize) {
+    fn on_http_call_response(&mut self, token_id: u32, _: usize, body_size: usize, _: usize) {
+
+        // Assess token id
+        if self.token_id != Some(token_id) {
+            warn!("Token id does not match.");
+            return;
+        }
 
         // Check if the response is valid. If its not 200, investigate the response
         // and log the error.
@@ -259,89 +277,53 @@ impl Context for OidcAuth {
 }
 
 /// Helper functions for the OIDCFlow struct.
-impl OidcAuth {
+impl ConfiguredOidc {
     /// Validate the token using the JWT library.
     /// This function checks for the correct issuer and audience and verifies the signature.
     fn validate_token(&self, token: &str) -> Result<(), String> {
 
-        match self {
-            OidcAuth::Unconfigured => {
-                return Err("OIDCFlow is not configured.".to_string());
-            },
-            OidcAuth::Configured { filter_config, plugin_config } => {
-                // Get public key from the config
-                let public_key = &filter_config.public_key;
+        // Get public key from the config
+        let public_key = &self.filter_config.public_key;
 
-                // Define allowed issuers and audiences
-                let mut allowed_issuers = HashSet::new();
-                allowed_issuers.insert(filter_config.issuer.to_string());
-                let mut allowed_audiences = HashSet::new();
-                allowed_audiences.insert(plugin_config.audience.to_string());
+        // Define allowed issuers and audiences
+        let mut allowed_issuers = HashSet::new();
+        allowed_issuers.insert(self.filter_config.issuer.to_string());
+        let mut allowed_audiences = HashSet::new();
+        allowed_audiences.insert(self.plugin_config.audience.to_string());
 
-                // Verify the token
-                let verification_options = VerificationOptions {
-                    allowed_issuers: Some(allowed_issuers),
-                    allowed_audiences: Some(allowed_audiences),
+        // Verify the token
+        let verification_options = VerificationOptions {
+            allowed_issuers: Some(allowed_issuers),
+            allowed_audiences: Some(allowed_audiences),
 
-                    reject_before: None,
-                    accept_future: false,
-                    required_subject: None,
-                    required_key_id: None,
-                    required_public_key: None,
-                    required_nonce: None,
-                    time_tolerance: None,
-                    max_validity: None,
-                    max_header_length: None,
-                    max_token_length: None,
-                };
+            reject_before: None,
+            accept_future: false,
+            required_subject: None,
+            required_key_id: None,
+            required_public_key: None,
+            required_nonce: None,
+            time_tolerance: None,
+            max_validity: None,
+            max_header_length: None,
+            max_token_length: None,
+        };
 
-                // Perform the validation
-                let validation_result =
-                    public_key.verify_token::<NoCustomClaims>(&token, Some(verification_options));
+        // Perform the validation
+        let validation_result =
+            public_key.verify_token::<NoCustomClaims>(&token, Some(verification_options));
 
-                // Check if the token is valid, the aud and iss are correct and the signature is valid.
-                match validation_result {
-                    Ok(_) => {
-                        return Ok(());
-                    }
-                    Err(e) => {
-                        return Err(e.to_string());
-                    }
-                }
+        // Check if the token is valid, the aud and iss are correct and the signature is valid.
+        match validation_result {
+            Ok(_) => {
+                return Ok(());
+            }
+            Err(e) => {
+                return Err(e.to_string());
             }
         }
     }
 
-    /// Build the URL to redirect to the OIDC provider along with the required parameters.
-    fn build_authorization_url(&self, code_challenge: String) -> String {
-
-        match self {
-            OidcAuth::Unconfigured => {
-                return "OIDCFlow is not configured.".to_string();
-            },
-            OidcAuth::Configured { filter_config, plugin_config } => {
-
-                // Build URL
-                let url = Url::parse_with_params(
-                    filter_config.auth_endpoint.as_str(),
-                    &[
-                        ("response_type", "code"),
-                        ("code_challenge", &code_challenge),
-                        ("code_challenge_method", "S256"),
-                        ("client_id", &plugin_config.client_id),
-                        ("redirect_uri",&plugin_config.redirect_uri.as_str()),
-                        ("scope", &plugin_config.scope),
-                        ("claims", &plugin_config.claims),
-                    ],
-                )
-                .unwrap();
-
-                return url.to_string();
-            },
-        }
-    }
-
-    /// Send 302 redirect to the OIDC provider.
+    /// Redirect to the OIDC provider.
     fn redirect_to_authorization_endpoint(&self) {
 
         // Generate PKCE code verifier and challenge
@@ -356,9 +338,30 @@ impl OidcAuth {
                 ("Set-Cookie", &format!("pkce={}", &pkce_verifier_string)),
                 // Redirect to OIDC provider
                 ("Location", self.build_authorization_url(pkce_challenge).as_str()),
+                ],
+                Some(b"Redirecting..."),
+            );
+        }
+
+    /// Build the URL to redirect to the OIDC provider along with the required parameters.
+    fn build_authorization_url(&self, code_challenge: String) -> String {
+
+        // Build URL
+        let url = Url::parse_with_params(
+            self.filter_config.auth_endpoint.as_str(),
+            &[
+                ("response_type", "code"),
+                ("code_challenge", &code_challenge),
+                ("code_challenge_method", "S256"),
+                ("client_id", &self.plugin_config.client_id),
+                ("redirect_uri",&self.plugin_config.redirect_uri.as_str()),
+                ("scope", &self.plugin_config.scope),
+                ("claims", &self.plugin_config.claims),
             ],
-            Some(b"Redirecting..."),
-        );
+        )
+        .unwrap();
+
+        return url.to_string();
     }
 
     /// Get the cookie of the HTTP request by name
@@ -384,21 +387,12 @@ impl OidcAuth {
 
     /// Build the Cookie content to set the cookie in the HTTP response.
     fn set_state_cookie(&self, auth_state: &AuthorizationState) -> String {
-
-        match self {
-            OidcAuth::Unconfigured => {
-                return "OIDCFlow is not configured.".to_string();
-            },
-            OidcAuth::Configured { filter_config: _, plugin_config } => {
-
-                // TODO: HTTP Only, Secure
-                return format!(
-                    "{}={}; Path=/; Max-Age={}",
-                    &plugin_config.cookie_name,
-                    serde_json::to_string(auth_state).unwrap(),
-                    &plugin_config.cookie_duration,
-                );
-            }
-        }
+        // TODO: HTTP Only, Secure
+        return format!(
+            "{}={}; Path=/; Max-Age={}",
+            &self.plugin_config.cookie_name,
+            serde_json::to_string(auth_state).unwrap(),
+            &self.plugin_config.cookie_duration,
+        );
     }
 }
