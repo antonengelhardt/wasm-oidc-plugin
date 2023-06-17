@@ -360,22 +360,25 @@ impl Context for OidcDiscovery {
                             return;
                         }
 
-                        // Select the key that is of alg RS256 and the newest.
-                        let jwk = jwks_response.keys.iter()
-                            .filter(|key| key.alg == "RS256")
-                            .last()
-                            .unwrap();
+                       // For all keys, check if it is a key of alg RS256 and append it to the list of keys.
+                       let mut keys : Vec<jwt_simple::algorithms::RS256PublicKey> = Vec::new();
+                       for key in jwks_response.keys {
+                            if key.kty == "RSA" && key.alg == "RS256" {
+                                // If the key id is present, set the state to ready and return.
+                                // Extract public key components
+                                let public_key_comp_n = &key.n;
+                                let public_key_comp_e = &key.e;
 
-                        // Extract public key components
-                        let public_key_comp_n = &jwk.n;
-                        let public_key_comp_e = &jwk.e;
+                                // Decode and parse the public key
+                                let n_dec = base64engine_urlsafe.decode(public_key_comp_n).unwrap();
+                                let e_dec = base64engine_urlsafe.decode(public_key_comp_e).unwrap();
 
-                        // Decode and parse the public key
-                        let n_dec = base64engine_urlsafe.decode(public_key_comp_n).unwrap();
-                        let e_dec = base64engine_urlsafe.decode(public_key_comp_e).unwrap();
-                        let public_key =
-                            jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
+                                let public_key = jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
                                 .unwrap();
+
+                                keys.push(public_key);
+                            }
+                        }
 
                         // Now that we have loaded all the configuration, we can set the tick period
                         // to the configured value and advance to the ready state.
@@ -389,7 +392,7 @@ impl Context for OidcDiscovery {
                                 auth_endpoint: auth_endpoint.clone(),
                                 token_endpoint: token_endpoint.clone(),
                                 issuer: issuer.clone(),
-                                public_key,
+                                public_keys: keys,
                             }),
                             plugin_config: plugin_config.clone(),
                         }

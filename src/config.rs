@@ -20,7 +20,7 @@ pub struct OpenIdConfig {
 
     // Relevant for Validation of the ID Token
     /// The public key that will be used for the validation of the ID Token
-    pub public_key: jwt_simple::algorithms::RS256PublicKey,
+    pub public_keys: Vec<jwt_simple::algorithms::RS256PublicKey>,
 }
 
 impl OpenIdConfig {
@@ -29,13 +29,13 @@ impl OpenIdConfig {
         auth_endpoint: Url,
         token_endpoint: Url,
         issuer: String,
-        public_key: jwt_simple::algorithms::RS256PublicKey,
+        public_key: Vec<jwt_simple::algorithms::RS256PublicKey>,
     ) -> Self {
         Self {
             auth_endpoint,
             token_endpoint,
             issuer,
-            public_key
+            public_keys: public_key
         }
     }
 }

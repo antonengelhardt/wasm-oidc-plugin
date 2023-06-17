@@ -282,9 +282,6 @@ impl ConfiguredOidc {
     /// This function checks for the correct issuer and audience and verifies the signature.
     fn validate_token(&self, token: &str) -> Result<(), String> {
 
-        // Get public key from the config
-        let public_key = &self.filter_config.public_key;
-
         // Define allowed issuers and audiences
         let mut allowed_issuers = HashSet::new();
         allowed_issuers.insert(self.filter_config.issuer.to_string());
@@ -308,19 +305,24 @@ impl ConfiguredOidc {
             max_token_length: None,
         };
 
-        // Perform the validation
-        let validation_result =
-            public_key.verify_token::<NoCustomClaims>(&token, Some(verification_options));
+        for public_key in &self.filter_config.public_keys {
 
-        // Check if the token is valid, the aud and iss are correct and the signature is valid.
-        match validation_result {
-            Ok(_) => {
-                return Ok(());
-            }
-            Err(e) => {
-                return Err(e.to_string());
+            // Perform the validation
+            let validation_result =
+                public_key.verify_token::<NoCustomClaims>(&token, Some(verification_options.to_owned()));
+
+            // Check if the token is valid, the aud and iss are correct and the signature is valid.
+            match validation_result {
+                Ok(_) => {
+                    return Ok(());
+                }
+                Err(_) => {
+                    continue;
+                }
             }
         }
+        return Err("No key worked".to_string());
+
     }
 
     /// Redirect to the OIDC provider.
