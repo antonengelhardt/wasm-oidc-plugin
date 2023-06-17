@@ -50,7 +50,9 @@ pub struct PluginConfiguration {
     pub reload_interval_in_h: u64,
     /// Exclude hosts like localhost:10000
     pub exclude_hosts: Vec<String>,
-    /// Exclude urls like /health
+    /// Exclude paths like /health
+    pub exclude_paths: Vec<String>,
+    /// Exclude urls like localhost:10000/health
     pub exclude_urls: Vec<String>,
 
     // Cookie settings
@@ -85,6 +87,7 @@ impl PluginConfiguration {
         config_endpoint: String,
         reload_interval_in_h: u64,
         exclude_hosts: Vec<String>,
+        exclude_paths: Vec<String>,
         exclude_urls: Vec<String>,
         cookie_name: String,
         cookie_duration: u64,
@@ -100,6 +103,7 @@ impl PluginConfiguration {
             config_endpoint,
             reload_interval_in_h,
             exclude_hosts,
+            exclude_paths,
             exclude_urls,
             cookie_name,
             cookie_duration,

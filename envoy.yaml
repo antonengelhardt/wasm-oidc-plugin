@@ -47,7 +47,9 @@ static_resources:
                         value: |
                           config_endpoint: "https://auth.k8s.wwu.de/.well-known/openid-configuration"
                           reload_interval_in_h: 1
+
                           exclude_hosts: []
+                          exclude_paths: []
                           exclude_urls: []
 
                           cookie_name: "oidcSession"

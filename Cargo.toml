@@ -26,6 +26,9 @@ serde_json = "1.0.96"
 # base64
 base64 = "0.21.0"
 
+# regex
+regex = "1.4.3"
+
 # jsonwebtoken
 jwt-simple = {git = "https://zivgitlab.uni-muenster.de/m_wiga01/rust-jwt-simple/", rev = "b92ac707dab1f65fae00569a468793d5eb6dab22"}
 

@@ -18,6 +18,9 @@ use log::{debug,warn,info};
 // base64
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
 
+// regex
+use regex::Regex;
+
 // duration
 use std::time::Duration;
 
@@ -100,19 +103,25 @@ impl HttpContext for ConfiguredOidc {
     /// Else, the request is redirected to the OIDC provider.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
 
-        // Get the path of the request
+        // Check if the host regex matches one of the exclude hosts. If so, forward the request.
         let host = self.get_http_request_header(":authority").unwrap_or_default();
-        let path = self.get_http_request_header(":path").unwrap_or_default();
-        let url = format!("{}{}", host, path);
-
-        if self.plugin_config.exclude_hosts.contains(&host) {
+        let host_regex = Regex::new(&host).unwrap();
+        if self.plugin_config.exclude_hosts.iter().any(|x| host_regex.is_match(x)) {
             debug!("Host {} is excluded. Forwarding request.", host);
             return Action::Continue;
         }
 
         // If the path is one of the exclude paths, forward the request
-        if self.plugin_config.exclude_urls.contains(&url) {
-            debug!("Path {} is excluded. Forwarding request.", url);
+        let path = self.get_http_request_header(":path").unwrap_or_default();
+        let path_regex = Regex::new(&path).unwrap();
+        if self.plugin_config.exclude_paths.iter().any(|x| path_regex.is_match(x)) {
+            debug!("Path {} is excluded. Forwarding request.", path);
+            return Action::Continue;
+        }
+
+        let url = Url::parse(&format!("{}{}", host, path)).unwrap();
+        if self.plugin_config.exclude_urls.contains(&url.to_string()) {
+            debug!("Url {} is excluded. Forwarding request.", url);
             return Action::Continue;
         }
 
