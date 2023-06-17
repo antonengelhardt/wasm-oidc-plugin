@@ -48,6 +48,10 @@ pub struct PluginConfiguration {
     pub config_endpoint: String,
     /// Reload interval
     pub reload_interval_in_h: u64,
+    /// Exclude hosts like localhost:10000
+    pub exclude_hosts: Vec<String>,
+    /// Exclude urls like /health
+    pub exclude_urls: Vec<String>,
 
     // Cookie settings
     /// The cookie name
@@ -68,8 +72,6 @@ pub struct PluginConfiguration {
     pub claims: String,
 
     // Everything relevant for the Token Exchange Flow
-    /// Call back path
-    pub call_back_path: String,
     /// The client secret
     pub client_secret: String,
     /// The audience
@@ -82,6 +84,8 @@ impl PluginConfiguration {
     pub fn _new(
         config_endpoint: String,
         reload_interval_in_h: u64,
+        exclude_hosts: Vec<String>,
+        exclude_urls: Vec<String>,
         cookie_name: String,
         cookie_duration: u64,
         authority: String,
@@ -89,13 +93,14 @@ impl PluginConfiguration {
         client_id: String,
         scope: String,
         claims: String,
-        call_back_path: String,
         client_secret: String,
         audience: String,
     ) -> Self {
         Self {
             config_endpoint,
             reload_interval_in_h,
+            exclude_hosts,
+            exclude_urls,
             cookie_name,
             cookie_duration,
             authority,
@@ -103,7 +108,6 @@ impl PluginConfiguration {
             client_id,
             scope,
             claims,
-            call_back_path,
             client_secret,
             audience,
         }

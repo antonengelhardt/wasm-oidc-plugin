@@ -100,10 +100,25 @@ impl HttpContext for ConfiguredOidc {
     /// Else, the request is redirected to the OIDC provider.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
 
+        // Get the path of the request
+        let host = self.get_http_request_header(":authority").unwrap_or_default();
+        let path = self.get_http_request_header(":path").unwrap_or_default();
+        let url = format!("{}{}", host, path);
+
+        if self.plugin_config.exclude_hosts.contains(&host) {
+            debug!("Host {} is excluded. Forwarding request.", host);
+            return Action::Continue;
+        }
+
+        // If the path is one of the exclude paths, forward the request
+        if self.plugin_config.exclude_urls.contains(&url) {
+            debug!("Path {} is excluded. Forwarding request.", url);
+            return Action::Continue;
+        }
+
         // If the request is for the OIDC callback, e.g the code is returned, this filter
         // exchanges the code for a token. The response is caught in on_http_call_response.
-        let path = self.get_http_request_header(":path").unwrap_or_default();
-        if path.starts_with(&self.plugin_config.call_back_path) {
+        if path.starts_with(Url::parse(&self.plugin_config.redirect_uri).unwrap().path()) {
             debug!("Received request for OIDC callback.");
 
             // Extract code from the url

@@ -60,18 +60,21 @@ It is a HTTP Filter, that implements the OIDC Authorization Code Flow. Requests 
 
 The plugin is configured via the `envoy.yaml` file. The following configuration options are required:
 
-| Name | Type | Description |
-| ---- | ---- | ----------- |
-| `config_endpoint` | `string` | The OIDC configuration endpoint. |
-| `reload_interval_in_hours` | `int` | The interval in hours, after which the OIDC configuration is reloaded. |
-| `cookie_name` | `string` | The name of the cookie, that is used to store the session. |
-| `cookie_duration` | `int` | The duration in seconds, after which the session cookie expires. |
-| `authority` | `string` | The authority of the OIDC provider. |
-| `redirect_uri` | `string` | The redirect URI, that is used to redirect the user back to the original request. |
-| `client_id` | `string` | The client ID, that consumes the OIDC plugin. |
-| `scope` | `string` | The scope, to validate |
-| `client_secret` | `string` | The client secret, that is used to authenticate with the OIDC provider. |
-| `audience` | `string` | The audience, that is used to validate the token. |
+| Name | Type | Description | Example |
+| ---- | ---- | ----------- | ------- |
+| `config_endpoint` | `string` | The OIDC configuration endpoint. | `https://accounts.google.com/.well-known/openid-configuration` |
+| `reload_interval_in_hours` | `u64` | The interval in hours, after which the OIDC configuration is reloaded. | `24` |
+| `exclude_hosts` | `Vec<String>` | A comma separated list of hosts, that are excluded from the OIDC authentication. | [`localhost:10000`] |
+| `exclude_urls` | `Vec<String>` | A comma separated list of URLs, that are excluded from the OIDC authentication. | [`localhost:10000/health`] |
+| `cookie_name` | `string` | The name of the cookie, that is used to store the session. | `oidcSession` |
+| `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` |
+| `authority` | `string` | The authority of the OIDC provider. | `accounts.google.com` |
+| `redirect_uri` | `string` | The redirect URI, that is used to redirect the user back to the original request. | `http://localhost:10000/oidc/callback` |
+| `client_id` | `string` | The client ID, that consumes the OIDC plugin. | `wasm-oidc-plugin` |
+| `scope` | `string` | The scope, to validate | `openid email` |
+| `claims` | `string` | The claims, to validate | `{\"id_token\":{\"email\":null}}` |
+| `client_secret` | `string` | The client secret, that is used to authenticate with the OIDC provider. | `secret` |
+| `audience` | `string` | The audience, that is used to validate the token. | `wasm-oidc-plugin` |
 
 With these configuration options, the plugin starts and loads more information itself such as the OIDC provider's public keys, issuer, etc.
 

@@ -47,6 +47,8 @@ static_resources:
                         value: |
                           config_endpoint: "https://auth.k8s.wwu.de/.well-known/openid-configuration"
                           reload_interval_in_h: 1
+                          exclude_hosts: []
+                          exclude_urls: []
 
                           cookie_name: "oidcSession"
                           cookie_duration: 86400
@@ -57,7 +59,6 @@ static_resources:
                           scope: "openid email"
                           claims: "{\"id_token\":{\"email\":null}}"
 
-                          call_back_path: "/oidc/callback"
                           client_secret: "redacted"
                           audience: "wasm-oidc-plugin"
                       vm_config:
