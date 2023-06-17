@@ -3,6 +3,7 @@ image: "zivgitlab.wwu.io/m_wiga01/rust-docker-tools/rust-docker-tools:latest"
 stages:
   - test
   - build
+  - documentation
 
 test:
   stage: test
@@ -21,3 +22,13 @@ build:
   artifacts:
     paths:
       - target/wasm32-wasi/release/oidc.wasm
+
+documenation:
+  only:
+    - main
+  stage: documenation
+  script:
+    - cargo doc --document-private-items
+  artifacts:
+    paths:
+      - target/doc
