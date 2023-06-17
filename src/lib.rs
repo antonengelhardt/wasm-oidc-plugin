@@ -361,7 +361,7 @@ impl ConfiguredOidc {
             302,
             vec![
                 // Set the pkce challenge as a cookie to verify the callback.
-                ("Set-Cookie", &format!("pkce={}", &pkce_verifier_string)),
+                ("Set-Cookie", &format!("pkce={}; Max-Age={}", &pkce_verifier_string, 60)),
                 // Redirect to OIDC provider
                 ("Location", self.build_authorization_url(pkce_challenge).as_str()),
                 ],
