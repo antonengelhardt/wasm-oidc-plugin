@@ -5,6 +5,10 @@ stages:
   - build
   - documentation
 
+cache:
+  paths:
+    - target/
+
 test:
   stage: test
   script:
