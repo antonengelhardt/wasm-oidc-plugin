@@ -19,9 +19,8 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, E
 // duration
 use std::time::Duration;
 
-use crate::UnconfiguredOidc;
 // crate
-use crate::{OpenIdConfig, ConfiguredOidc};
+use crate::{OpenIdConfig, ConfiguredOidc, UnconfiguredOidc};
 use crate::config::PluginConfiguration;
 use crate::responses::{JWKsResponse, OidcDiscoveryResponse};
 
@@ -37,23 +36,28 @@ proxy_wasm::main! {{
     // plugin config and the discovery endpoints.
     // Here, we set state to uninitialized, which means that the plugin is not yet configured.
     // The state will be changed to LoadingConfig when the plugin configuration is loaded.
-    // The token_id is used to verify that the http calls are correct which are sent to the
-    // discovery endpoints.
+    // The token_id is used to verify that the http responses match the dispatches which are
+    // sent to the discovery endpoints.
     proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(OidcDiscovery {
         state: OidcRootState::Uninitialized,
-        token_id: None,
         waiting: Mutex::new(Vec::new()),
+        token_id: None,
     }) });
 }}
 
-/// This context is responsible for getting the OIDC configuration and setting the http context.
+/// This context is responsible for getting the OIDC configuration, jwks keys
+/// and setting the http context.
 pub struct OidcDiscovery {
-    /// The state of the root context
+    /// The state of the root context. This is an enum which has the following variants:
+    /// - Uninitialized: The plugin is not yet configured
+    /// - LoadingConfig: The plugin configuration is being loaded
+    /// - LoadingJwks: The jwks configuration is being loaded
+    /// - Ready: The plugin is ready
     pub state: OidcRootState,
+    /// Queue of waiting requests which are waiting for the configuration to be loaded
+    waiting: Mutex<Vec<u32>>,
     /// Tokenid of the HttpCalls to verify the call is correct
     token_id: Option<u32>,
-    // Queue of waiting requests
-    waiting: Mutex<Vec<u32>>,
 }
 
 /// The state of the root context is an enum which has the following variants:
@@ -64,11 +68,11 @@ pub struct OidcDiscovery {
 /// Each state has a different set of fields which are needed for that specific state.
 #[derive(Debug)]
 pub enum OidcRootState {
-    // State when the plugin needs to load the plugin configuration
+    /// State when the plugin needs to load the plugin configuration
     Uninitialized,
     /// The root context is loading the configuration from the open id discovery endpoint
     LoadingConfig {
-        /// Plugin config
+        /// Plugin config loaded from the envoy configuration
         plugin_config: Arc<PluginConfiguration>,
     },
     /// The root context is loading the jwks configuration
@@ -76,26 +80,32 @@ pub enum OidcRootState {
         /// Plugin config
         plugin_config: Arc<PluginConfiguration>,
 
-        /// The authorization endpoint
+        /// The authorization endpoint to start the code flow
         auth_endpoint: Url,
-        /// The token endpoint
+        /// The token endpoint to exchange the code for a token
         token_endpoint: Url,
         /// The issuer
         issuer: String,
-        /// The url from which the public key can be retrieved
+        /// The url from which the public keys can be retrieved
         jwks_uri: Url,
     },
     /// The root context is ready
     Ready{
-
-        /// Plugin config
+        /// Plugin config loaded from the envoy configuration
         plugin_config: Arc<PluginConfiguration>,
-        /// Filter config
+        /// Filter config loaded from the open id discovery endpoint and the jwks endpoint
         filter_config: Arc<OpenIdConfig>,
     },
 }
 
-/// The root context is used to create new HTTP contexts and load configuration.
+/// The root context is used to create new HTTP contexts and load configuration from the
+/// open id discovery endpoint and the jwks endpoint.
+/// When `on_configure` is called, the plugin configuration is loaded and the state is set to
+/// LoadingConfig. The filter is then ticked immediately to load the configuration.
+/// When `on_http_call_response` is called, the Open ID response is parsed and the state is set to
+/// LoadingJwks.
+/// On the next tick, the jwks endpoint is called and the state is set to Ready once the jwks
+/// response is received and successfully parsed.
 impl RootContext for OidcDiscovery {
 
     /// Called when proxy is being configured.
@@ -136,6 +146,8 @@ impl RootContext for OidcDiscovery {
 
     /// Creates the http context with the information from the filter_config and the plugin configuration.
     /// This is called whenever a new http context is created by the proxy.
+    /// When the plugin is not yet ready, the http context is created in Unconfigured state and the
+    /// context id is added to the waiting queue to be processed later.
     fn create_http_context(&self, context_id: u32) -> Option<Box<dyn HttpContext>> {
 
         match &self.state {
@@ -170,9 +182,9 @@ impl RootContext for OidcDiscovery {
         }
     }
 
-    /// The root context is ticking every 2 seconds as long as the configuration is not loaded yet.
+    /// The root context is ticking every 400 millis as long as the configuration is not loaded yet.
     /// On every tick, the mode is checked and the corresponding action is taken.
-    /// 1. If the mode is `Uniitialized`, the configuration is loaded from the plugin configuration.
+    /// 1. If the mode is `Uninitialized`, the configuration is loaded from the plugin configuration.
     /// 2. If the mode is `LoadingConfig`, the configuration is loaded from the openid configuration endpoint.
     /// 3. If the mode is `LoadingJwks`, the public key is loaded from the jwks endpoint.
     /// 4. If the mode is `Ready`, the configuration is reloaded.
@@ -194,8 +206,8 @@ impl RootContext for OidcDiscovery {
                 plugin_config,
             } => {
 
-                // Tick every 400ms to load the configuration.
-                self.set_tick_period(Duration::from_millis(400));
+                // Tick every 250ms to not overload the openid configuration endpoint.
+                self.set_tick_period(Duration::from_millis(250));
 
                 // Make call to openid configuration endpoint
                 // The reponse is handled in `on_http_call_response`.
@@ -219,7 +231,7 @@ impl RootContext for OidcDiscovery {
                 return;
             }
 
-            // If the plugin is in Loading `LoadingJwks` mode, the public key is loaded from the
+            // If the plugin is in Loading `LoadingJwks` mode, the public keys are loaded from the
             // jwks endpoint.
             OidcRootState::LoadingJwks{
                 plugin_config,

@@ -4,7 +4,8 @@ use serde::Deserialize;
 // url
 use url::{Url};
 
-/// Struct that holds the configuration for the filter
+/// Struct that holds the configuration for the filter and all relevant information for the
+/// OpenID Connect Flow.
 #[derive(Clone, Debug)]
 pub struct OpenIdConfig {
 
@@ -19,7 +20,7 @@ pub struct OpenIdConfig {
     pub issuer: String,
 
     // Relevant for Validation of the ID Token
-    /// The public key that will be used for the validation of the ID Token
+    /// The public keys that will be used for the validation of the ID Token
     pub public_keys: Vec<jwt_simple::algorithms::RS256PublicKey>,
 }
 
@@ -40,31 +41,32 @@ impl OpenIdConfig {
     }
 }
 
-/// Struct that holds the configuration for the plugin
+/// Struct that holds the configuration for the plugin. It is loaded from the config file
+/// `envoy.yaml`
 #[derive(Clone, Debug, Deserialize)]
 pub struct PluginConfiguration {
 
-    /// Config endpoint for the plugin. It must include the jwks_uri otherwise the plugin will not work
+    /// Config endpoint for the plugin.
     pub config_endpoint: String,
-    /// Reload interval
+    /// Reload interval in hours
     pub reload_interval_in_h: u64,
-    /// Exclude hosts like localhost:10000
+    /// Exclude hosts. Example: localhost:10000
     pub exclude_hosts: Vec<String>,
-    /// Exclude paths like /health
+    /// Exclude paths. Example: /health
     pub exclude_paths: Vec<String>,
-    /// Exclude urls like localhost:10000/health
+    /// Exclude urls. Example: localhost:10000/health
     pub exclude_urls: Vec<String>,
 
     // Cookie settings
-    /// The cookie name
+    /// The cookie name that will be used for the session cookie
     pub cookie_name: String,
-    /// The cookie duration
+    /// The cookie duration in seconds
     pub cookie_duration: u64,
 
     // Everything relevant for the Code Flow
-    /// The authority
+    /// The authority that will be used for the dispatch calls
     pub authority: String,
-    /// The redirect uri
+    /// The redirect uri that the authorization endpoint will redirect to and provide the code
     pub redirect_uri: String,
     /// The client id
     pub client_id: String,
@@ -76,7 +78,7 @@ pub struct PluginConfiguration {
     // Everything relevant for the Token Exchange Flow
     /// The client secret
     pub client_secret: String,
-    /// The audience
+    /// The audience. Sometimes its the same as the client id
     pub audience: String,
 }
 

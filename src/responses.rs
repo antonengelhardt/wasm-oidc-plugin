@@ -1,7 +1,7 @@
 // serde
 use serde::Deserialize;
 
-/// OpenID Connect Discovery
+/// [OpenID Connect Discovery Response](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig)
 #[derive(Deserialize, Debug)]
 pub struct OidcDiscoveryResponse {
     pub issuer: String,
@@ -14,7 +14,7 @@ pub struct OidcDiscoveryResponse {
 }
 
 #[derive(Deserialize, Debug)]
-/// The jwks response (see https://tools.ietf.org/html/rfc7517
+/// [JWKs response](https://tools.ietf.org/html/rfc7517)
 pub struct JWKsResponse {
     /// The keys of the jwks response, see `JWK`
     pub keys: Vec<JWK>,

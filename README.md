@@ -1,6 +1,8 @@
 # WASM OIDC Plugin
 
-A plugin for [Envoy](https://www.envoyproxy.io/) written in [Rust](https://www.rust-lang.org/), that implements the OIDC Authorization Code Flow.
+A plugin for [Envoy](https://www.envoyproxy.io/) written in [Rust](https://www.rust-lang.org).
+
+It is a HTTP Filter, that implements the OIDC Authorization Code Flow. Requests sent to the filter are checked for the presence of a valid session cookie. If the cookie is not present, the user is redirected to the OIDC provider to authenticate. After successful authentication, the user is redirected back to the original request.
 
 ## Install
 
@@ -52,9 +54,12 @@ curl localhost:10000
 
 ## Documentation
 
-This plugin is designed to be used with [Envoy](https://www.envoyproxy.io/).
+To generate a detailed documentation, run:
 
-It is a HTTP Filter, that implements the OIDC Authorization Code Flow. Requests sent to the filter are checked for the presence of a valid session cookie. If the cookie is not present, the user is redirected to the OIDC provider to authenticate. After successful authentication, the user is redirected back to the original request.
+```sh
+cargo doc --document-private-items --open
+```
+
 
 ### Configuration
 
