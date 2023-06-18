@@ -2,7 +2,7 @@
 publish = false
 name = "wasm-oidc-plugin"
 version = "0.0.1"
-authors = ["WWU Cloud Developer <cloud@uni-muenster.de"]
+authors = ["WWU Cloud Developer <cloud@uni-muenster.de>, Anton Engelhardt <antoncengelhardt@icloud.com>"]
 description = "WASM OIDC Envoy Plugin"
 license = "Apache-2.0"
 edition = "2018"
@@ -34,9 +34,6 @@ jwt-simple = {git = "https://zivgitlab.uni-muenster.de/m_wiga01/rust-jwt-simple/
 
 # pkce
 pkce = "0.2.0"
-
-# dotenv
-dotenv = "0.15.0"
 
 [profile.release]
 lto = true

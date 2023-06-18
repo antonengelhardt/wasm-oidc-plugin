@@ -40,7 +40,10 @@ mod responses;
 /// The UnconfiguredOidc is the filter struct which is used when the filter is not configured.
 /// All requests are paused and queued by the RootContext. Once the filter is configured, the
 /// request is resumed by the RootContext.
-struct UnconfiguredOidc;
+struct UnconfiguredOidc {
+    /// Original path of the request
+    original_path: Option<String>,
+}
 
 /// The context is used to process incoming HTTP requests when the filter is not configured.
 impl HttpContext for UnconfiguredOidc {
@@ -51,6 +54,9 @@ impl HttpContext for UnconfiguredOidc {
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
         warn!("Filter not ready. Pausing request.");
 
+        // Get the original path from the request headers
+        self.original_path = Some(self.get_http_request_header(":path").unwrap_or("/".to_string()));
+
         Action::Pause
     }
 
@@ -60,10 +66,11 @@ impl HttpContext for UnconfiguredOidc {
 
         info!("Filter now ready. Sending redirect.");
 
+        // Send a redirect to the original path
         self.send_http_response(302,
             vec![
             // Redirect to the requested path
-            ("location", "/"),
+            ("location", self.original_path.as_ref().unwrap()),
             // Disable caching
             ("Cache-Control", "no-cache"),
         ],
