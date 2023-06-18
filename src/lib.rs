@@ -37,16 +37,16 @@ mod discovery;
 /// This module contains the responses for the OIDC discovery and jwks endpoints
 mod responses;
 
-/// The UnconfiguredOidc is the filter struct which is used when the filter is not configured.
+/// The PauseRequests Context is the filter struct which is used when the filter is not configured.
 /// All requests are paused and queued by the RootContext. Once the filter is configured, the
 /// request is resumed by the RootContext.
-struct UnconfiguredOidc {
+struct PauseRequests {
     /// Original path of the request
     original_path: Option<String>,
 }
 
 /// The context is used to process incoming HTTP requests when the filter is not configured.
-impl HttpContext for UnconfiguredOidc {
+impl HttpContext for PauseRequests {
 
     /// This function is called when the request headers are received. As the filter is not
     /// configured, the request is paused and queued by the RootContext. Once the filter is
@@ -79,7 +79,7 @@ impl HttpContext for UnconfiguredOidc {
     }
 }
 
-impl Context for UnconfiguredOidc {}
+impl Context for PauseRequests {}
 
 /// The ConfiguredOudc is the main filter struct and responsible for the OIDC authentication flow.
 /// Requests arriving are checked for a valid cookie. If the cookie is valid, the request is

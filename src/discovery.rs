@@ -20,7 +20,7 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, E
 use std::time::Duration;
 
 // crate
-use crate::{OpenIdConfig, ConfiguredOidc, UnconfiguredOidc};
+use crate::{OpenIdConfig, ConfiguredOidc, PauseRequests};
 use crate::config::PluginConfiguration;
 use crate::responses::{JWKsResponse, OidcDiscoveryResponse};
 
@@ -177,7 +177,7 @@ impl RootContext for OidcDiscovery {
                 self.waiting.lock().unwrap().push(context_id);
 
                 // Return the http context in Unconfigured state.
-                return Some(Box::new(UnconfiguredOidc{
+                return Some(Box::new(PauseRequests{
                     original_path: None,
                 }));
             }
