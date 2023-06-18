@@ -2,7 +2,7 @@
 
 A plugin for [Envoy](https://www.envoyproxy.io/) written in [Rust](https://www.rust-lang.org).
 
-It is a HTTP Filter, that implements the OIDC Authorization Code Flow. Requests sent to the filter are checked for the presence of a valid session cookie. If the cookie is not present, the user is redirected to the OIDC provider to authenticate. After successful authentication, the user is redirected back to the original request.
+It is a HTTP Filter, that implements the OIDC Authorization Code Flow. Requests sent to the filter are checked for the presence of a valid session cookie. If the cookie is not present, the user is redirected to the Authorization endpoint to authenticate. After successful authentication, the user is redirected back to the original request.
 
 ## Install
 
@@ -60,7 +60,6 @@ To generate a detailed documentation, run:
 cargo doc --document-private-items --open
 ```
 
-
 ### Configuration
 
 The plugin is configured via the `envoy.yaml` file. The following configuration options are required:
@@ -82,7 +81,7 @@ The plugin is configured via the `envoy.yaml` file. The following configuration 
 | `client_secret` | `string` | The client secret, that is used to authenticate with the ˋauthorization_endpointˋ. | `secret` |
 | `audience` | `string` | The audience, that is used to validate the token. | `wasm-oidc-plugin` |
 
-With these configuration options, the plugin starts and loads more information itself such as the OIDC provider's public keys, issuer, etc.
+With these configuration options, the plugin starts and loads more information itself such as the OIDC providers public keys, issuer, etc.
 
 For that a state is used, which determines, what to load next. The following states are possbile and depending on the outcome, the state is changed or not:
 

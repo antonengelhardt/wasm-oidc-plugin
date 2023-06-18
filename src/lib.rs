@@ -83,9 +83,9 @@ impl Context for PauseRequests {}
 
 /// The ConfiguredOudc is the main filter struct and responsible for the OIDC authentication flow.
 /// Requests arriving are checked for a valid cookie. If the cookie is valid, the request is
-/// forwarded. If the cookie is not valid, the request is redirected to the OIDC provider.
+/// forwarded. If the cookie is not valid, the request is redirected to the `authorization endpoint`.
 struct ConfiguredOidc {
-    /// The configuration of the filter which mainly contains the OIDC provider configuration and the
+    /// The configuration of the filter which mainly contains the open id configuration and the
     /// keys to validate the JWT
     pub filter_config: Arc<OpenIdConfig>,
     /// Plugin configuration parsed from the envoy configuration
@@ -98,7 +98,7 @@ struct ConfiguredOidc {
 /// 1. Check if the request matches any of the exclude hosts, paths, urls. If so, forward the request.
 /// 2. If the request is for the OIDC callback, dispatch the request to the token endpoint.
 /// 3. If the request contains a cookie, validate the cookie and forward the request.
-/// 4. Else, redirect the request to the OIDC provider.
+/// 4. Else, redirect the request to the `authorization endpoint`.
 impl HttpContext for ConfiguredOidc {
 
     /// This function is called when the request headers are received.
@@ -145,7 +145,7 @@ impl HttpContext for ConfiguredOidc {
             };
         }
 
-        // Redirect to OIDC provider if no cookie is found. As all cases will have returned by now,
+        // Redirect to `authorization endpoint` if no cookie is found. As all cases will have returned by now,
         // this is the last case and the request will be paused.
         self.redirect_to_authorization_endpoint();
 
@@ -191,7 +191,7 @@ impl ConfiguredOidc {
     /// Parse the cookie and validate the token.
     /// The cookie is parsed into the `AuthorizationState` struct. The token is validated using the
     /// `validate_token` function. If the token is valid, this function returns Ok(()). If the token
-    /// is invalid, this function returns Err(String) and redirects the requester to the OIDC provider.
+    /// is invalid, this function returns Err(String) and redirects the requester to the `authorization endpoint`.
     fn parse_and_validate_cookie(&self, cookie: String) -> Result<(), String> {
 
         debug!("Cookie found, checking validity.");
@@ -209,14 +209,14 @@ impl ConfiguredOidc {
                         debug!("Token is valid, passing request.");
                         Ok(())
                     }
-                    // If the token is invalid, this filter redirects the requester to the OIDC provider
+                    // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
                     Err(_) => {
-
+                        self.redirect_to_authorization_endpoint();
                         Err("Token is invalid.".to_string())
                     }
                 }
             }
-            // If the cookie cannot be parsed, this filter redirects the requester to the OIDC provider
+            // If the cookie cannot be parsed, this filter redirects the requester to the `authorization_endpoint`
             Err(err) => {
                 self.redirect_to_authorization_endpoint();
                 return Err(format!("Authorisation state couldn't be loaded from the cookie: {:?}",err));
@@ -275,7 +275,7 @@ impl ConfiguredOidc {
     }
 
     /// Exchange the code for a token using the token endpoint.
-    /// This function is called when the OIDC provider redirects back to the callback URL.
+    /// This function is called when the user is redirected back to the callback URL.
     /// The code is extracted from the URL and exchanged for a token using the token endpoint.
     fn exchange_code_for_token(&mut self, path: String) -> Result<(), String>{
 
@@ -409,13 +409,13 @@ impl ConfiguredOidc {
         }
     }
 
-    /// Redirect to the OIDC provider by sending a HTTP response with a 302 status code.
+    /// Redirect to the` authorization endpoint` by sending a HTTP response with a 302 status code.
     fn redirect_to_authorization_endpoint(&self) -> Action {
 
         // Original path
         let original_path = self.get_http_request_header(":path").unwrap_or_default();
 
-        debug!("No cookie found or invalid, redirecting to OIDC provider.");
+        debug!("No cookie found or invalid, redirecting to authorization endpoint.");
                 // Generate PKCE code verifier and challenge
         let pkce_verifier = pkce::code_verifier(128);
         let pkce_verifier_string = String::from_utf8(pkce_verifier.clone()).unwrap();
@@ -440,11 +440,11 @@ impl ConfiguredOidc {
         self.send_http_response(
             302,
             vec![
-                // Original path
+                // Original path to redirect back to
                 ("Set-Cookie", &format!("original-path={}", &original_path)),
                 // Set the pkce challenge as a cookie to verify the callback.
                 ("Set-Cookie", &format!("pkce-verifier={}; Max-Age={}", &pkce_verifier_string, 60)),
-                // Redirect to OIDC provider
+                // Redirect to `authorization endpoint`
                 ("Location", url.as_str()),
                 ],
                 Some(b"Redirecting..."),
