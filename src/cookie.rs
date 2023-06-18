@@ -41,21 +41,36 @@ impl AuthorizationState {
             },
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
-                warn!("The response is not in the required format {}", e);
+                warn!("The token response is not in the required format: {}", e);
                 return Err(e)
             }
         }
     }
 
-    /// Decodee cookie, parse into a struct in order to access the fields and
+    /// Decode cookie, parse into a struct in order to access the fields and
     /// validate the ID Token
-    pub fn parse_and_decode_cookie(cookie: String) -> Result<AuthorizationState, serde_json::Error> {
+    pub fn parse_and_decode_cookie(cookie: String) -> Result<AuthorizationState, String> {
 
-        // Decode cookie
-        let decoded_cookie = base64engine.decode(cookie.as_bytes()).unwrap();
+        // Decode cookie using base64
+        let decoded_cookie = match base64engine.decode(cookie.as_bytes()) {
+            Ok(s) => s,
+            Err(e) => {
+                warn!("The cookie could not be decoded: {}", e);
+                return Err(e.to_string());
+            }
+        };
+
+        // Format into string
+        let cookie_string = match String::from_utf8(decoded_cookie) {
+            Ok(s) => s,
+            Err(e) => {
+                warn!("The cookie is not a valid utf-8 stream: {}", e);
+                return Err(e.to_string());
+            }
+        };
 
         // Parse cookie into a struct
-        match serde_json::from_str::<AuthorizationState>(&String::from_utf8(decoded_cookie).unwrap()) {
+        match serde_json::from_str::<AuthorizationState>(&cookie_string) {
 
             // If deserialization was successful, set the cookie and resume the request
             Ok(state) => {
@@ -63,8 +78,8 @@ impl AuthorizationState {
             },
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
-                warn!("The cookie is not matching the required format {}", e);
-                return Err(e)
+                warn!("The cookie didnt match the expected format: {}", e);
+                return Err(e.to_string())
             }
         }
     }

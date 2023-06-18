@@ -145,8 +145,8 @@ impl HttpContext for ConfiguredOidc {
             };
         }
 
-        // Redirect to `authorization endpoint` if no cookie is found. As all cases will have returned by now,
-        // this is the last case and the request will be paused.
+        // Redirect to `authorization endpoint` if no cookie is found or previous cases have returned an error.
+        // Pausing the request is necessary to create a new context for the redirect.
         self.redirect_to_authorization_endpoint();
 
         Action::Pause
@@ -211,14 +211,12 @@ impl ConfiguredOidc {
                     }
                     // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
                     Err(_) => {
-                        self.redirect_to_authorization_endpoint();
-                        Err("Token is invalid.".to_string())
+                        Err("Token is invalid:".to_string())
                     }
                 }
             }
             // If the cookie cannot be parsed, this filter redirects the requester to the `authorization_endpoint`
             Err(err) => {
-                self.redirect_to_authorization_endpoint();
                 return Err(format!("Authorisation state couldn't be loaded from the cookie: {:?}",err));
             }
         }
@@ -330,7 +328,7 @@ impl ConfiguredOidc {
             }
             // If the request fails, this filter logs the error and pauses the request
             Err(err) => {
-               return Err(format!("Failed to dispatch HTTP request: {:?}", err));
+               return Err(format!("Failed to dispatch HTTP request to Token Endpoint: {:?}", err));
             }
         }
     }
@@ -375,7 +373,7 @@ impl ConfiguredOidc {
         if let Some(body) = self.get_http_call_response_body(0, body_size) {
             debug!("Token response: {:?}", body);
 
-            // Build Cookie Struct using parse_response from cookie.rs
+            // Build Cookie Struct using create_cookie_from_response from cookie.rs
             match cookie::AuthorizationState::create_cookie_from_response(body.as_slice()) {
                 Ok(auth_cookie) => {
                     debug!("Cookie: {:?}", &auth_cookie);

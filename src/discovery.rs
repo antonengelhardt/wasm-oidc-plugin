@@ -209,7 +209,7 @@ impl RootContext for OidcDiscovery {
             } => {
 
                 // Tick every 250ms to not overload the openid configuration endpoint.
-                self.set_tick_period(Duration::from_millis(3000));
+                self.set_tick_period(Duration::from_millis(250));
 
                 // Make call to openid configuration endpoint
                 // The reponse is handled in `on_http_call_response`.
