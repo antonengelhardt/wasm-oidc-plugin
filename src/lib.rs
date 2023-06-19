@@ -135,7 +135,7 @@ impl HttpContext for ConfiguredOidc {
 
         // If the requester passes a cookie, this filter passes the request depending on the validity of the cookie.
         if let Some(cookie) = self.get_cookie(&self.plugin_config.cookie_name) {
-            match self.parse_and_validate_cookie(cookie) {
+            match self.validate_cookie(cookie) {
                 Ok(_) => {
                     return Action::Continue;
                 },
@@ -192,7 +192,7 @@ impl ConfiguredOidc {
     /// The cookie is parsed into the `AuthorizationState` struct. The token is validated using the
     /// `validate_token` function. If the token is valid, this function returns Ok(()). If the token
     /// is invalid, this function returns Err(String) and redirects the requester to the `authorization endpoint`.
-    fn parse_and_validate_cookie(&self, cookie: String) -> Result<(), String> {
+    fn validate_cookie(&self, cookie: String) -> Result<(), String> {
 
         debug!("Cookie found, checking validity.");
 
