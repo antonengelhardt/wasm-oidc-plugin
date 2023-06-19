@@ -4,9 +4,6 @@ use log::{debug,warn,info};
 // base64
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
 
-// regex
-use regex::Regex;
-
 // duration
 use std::time::Duration;
 
@@ -36,6 +33,7 @@ mod discovery;
 
 /// This module contains the responses for the OIDC discovery and jwks endpoints
 mod responses;
+use responses::Callback;
 
 /// The PauseRequests Context is the filter struct which is used when the filter is not configured.
 /// All requests are paused and queued by the RootContext. Once the filter is configured, the
@@ -106,30 +104,41 @@ impl HttpContext for ConfiguredOidc {
 
         // Check if the host regex matches one of the exclude hosts. If so, forward the request.
         let host = self.get_http_request_header(":authority").unwrap_or_default();
-        let host_regex = Regex::new(&host).unwrap();
-        if self.plugin_config.exclude_hosts.iter().any(|x| host_regex.is_match(x)) {
+        if self.plugin_config.exclude_hosts.iter().any(|x| x.is_match(&host)) {
             debug!("Host {} is excluded. Forwarding request.", host);
             return Action::Continue;
         }
 
         // If the path is one of the exclude paths, forward the request
         let path = self.get_http_request_header(":path").unwrap_or_default();
-        let path_regex = Regex::new(&path).unwrap();
-        if self.plugin_config.exclude_paths.iter().any(|x| path_regex.is_match(x)) {
+        if self.plugin_config.exclude_paths.iter().any(|x| x.is_match(&path)) {
             debug!("Path {} is excluded. Forwarding request.", path);
             return Action::Continue;
         }
 
         let url = Url::parse(&format!("{}{}", host, path)).unwrap();
-        if self.plugin_config.exclude_urls.contains(&url.to_string()) {
-            debug!("Url {} is excluded. Forwarding request.", url);
+        if self.plugin_config.exclude_urls.iter().any(|x| x.is_match(&url.as_str())) {
+            debug!("Url {} is excluded. Forwarding request.", url.as_str());
             return Action::Continue;
         }
 
-        // If the request is for the OIDC callback, e.g the code is returned, this filter
+        // If the request is for the OIDC callback, e.g the code is returned, this step
         // exchanges the code for a token. The response is caught in on_http_call_response.
+        // If the dispatch fails, a 503 is returned.
         if path.starts_with(Url::parse(&self.plugin_config.redirect_uri).unwrap().path()) {
-            self.exchange_code_for_token(path).unwrap();
+            match self.exchange_code_for_token(path) {
+                Ok(_) => {
+                    return Action::Pause;
+                },
+                Err(e) => {
+                    warn!("Token exchange failed: {}", e);
+                    self.send_http_response(503,
+                        vec![
+                            ("Cache-Control", "no-cache"),
+                        ],
+                    Some(b"Token exchange failed."));
+                }
+            }
             return Action::Pause;
         }
 
@@ -211,7 +220,7 @@ impl ConfiguredOidc {
                     }
                     // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
                     Err(_) => {
-                        Err("Token is invalid:".to_string())
+                        return Err(format!("Token validation failed."));
                     }
                 }
             }
@@ -235,21 +244,7 @@ impl ConfiguredOidc {
         allowed_audiences.insert(self.plugin_config.audience.to_string());
 
         // Define verification options
-        let verification_options = VerificationOptions {
-            allowed_issuers: Some(allowed_issuers),
-            allowed_audiences: Some(allowed_audiences),
-
-            reject_before: None,
-            accept_future: false,
-            required_subject: None,
-            required_key_id: None,
-            required_public_key: None,
-            required_nonce: None,
-            time_tolerance: None,
-            max_validity: None,
-            max_header_length: None,
-            max_token_length: None,
-        };
+        let verification_options = VerificationOptions::default();
 
         // Iterate over all public keys
         for public_key in &self.filter_config.public_keys {
@@ -279,8 +274,17 @@ impl ConfiguredOidc {
 
         debug!("Received request for OIDC callback.");
 
+        // Get Query String from URL
+        let query = path.split("?").last().unwrap_or_default();
+
         // Extract code from the url
-        let code = path.split("=").last().unwrap_or_default();
+        let code = match serde_urlencoded::from_str::<Callback>(&query) {
+            Ok(callback) => callback.code,
+            Err(e) => {
+                return Err(e.to_string());
+            }
+        };
+
         debug!("Code: {}", code);
 
         // Hardcoded values for request to token endpoint
@@ -295,7 +299,7 @@ impl ConfiguredOidc {
         let code_verifier = self.get_cookie("pkce-verifier").unwrap_or_default();
 
         // Build the request body for the token endpoint
-        let data: String = form_urlencoded::Serializer::new(String::new())
+        let data = form_urlencoded::Serializer::new(String::new())
             .append_pair("grant_type", "authorization_code")
             .append_pair("code_verifier", &code_verifier)
             .append_pair("code", &code)
@@ -378,7 +382,7 @@ impl ConfiguredOidc {
                 Ok(auth_cookie) => {
                     debug!("Cookie: {:?}", &auth_cookie);
 
-                    // Get Source cookie
+                    // Get original-path cookie
                     let original_path = self.get_cookie("original-path");
 
                     // Redirect back to the original URL and set the cookie.
@@ -414,7 +418,8 @@ impl ConfiguredOidc {
         let original_path = self.get_http_request_header(":path").unwrap_or_default();
 
         debug!("No cookie found or invalid, redirecting to authorization endpoint.");
-                // Generate PKCE code verifier and challenge
+
+        // Generate PKCE code verifier and challenge
         let pkce_verifier = pkce::code_verifier(128);
         let pkce_verifier_string = String::from_utf8(pkce_verifier.clone()).unwrap();
         let pkce_challenge = pkce::code_challenge(&pkce_verifier);
@@ -439,9 +444,9 @@ impl ConfiguredOidc {
             302,
             vec![
                 // Original path to redirect back to
-                ("Set-Cookie", &format!("original-path={}", &original_path)),
+                ("Set-Cookie", &format!("original-path={}; Max-Age={}", &original_path, 180)),
                 // Set the pkce challenge as a cookie to verify the callback.
-                ("Set-Cookie", &format!("pkce-verifier={}; Max-Age={}", &pkce_verifier_string, 60)),
+                ("Set-Cookie", &format!("pkce-verifier={}; Max-Age={}", &pkce_verifier_string, 180)),
                 // Redirect to `authorization endpoint`
                 ("Location", url.as_str()),
                 ],

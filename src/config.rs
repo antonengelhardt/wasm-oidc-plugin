@@ -1,6 +1,9 @@
 // serde
 use serde::Deserialize;
 
+// serde_regex
+use regex::Regex;
+
 // url
 use url::{Url};
 
@@ -51,11 +54,14 @@ pub struct PluginConfiguration {
     /// Reload interval in hours
     pub reload_interval_in_h: u64,
     /// Exclude hosts. Example: localhost:10000
-    pub exclude_hosts: Vec<String>,
+    #[serde(with = "serde_regex")]
+    pub exclude_hosts: Vec<Regex>,
     /// Exclude paths. Example: /health
-    pub exclude_paths: Vec<String>,
+    #[serde(with = "serde_regex")]
+    pub exclude_paths: Vec<Regex>,
     /// Exclude urls. Example: localhost:10000/health
-    pub exclude_urls: Vec<String>,
+    #[serde(with = "serde_regex")]
+    pub exclude_urls: Vec<Regex>,
 
     // Cookie settings
     /// The cookie name that will be used for the session cookie
@@ -88,9 +94,9 @@ impl PluginConfiguration {
     pub fn _new(
         config_endpoint: String,
         reload_interval_in_h: u64,
-        exclude_hosts: Vec<String>,
-        exclude_paths: Vec<String>,
-        exclude_urls: Vec<String>,
+        exclude_hosts: Vec<Regex>,
+        exclude_paths: Vec<Regex>,
+        exclude_urls: Vec<Regex>,
         cookie_name: String,
         cookie_duration: u64,
         authority: String,

@@ -32,3 +32,10 @@ pub struct JWK {
     /// The Public Keys Component e, the exponent
     pub e: String,
 }
+
+/// Struct that defines how the callback looks like
+#[derive(Deserialize, Debug)]
+pub struct Callback {
+    /// The code that is returned from the authorization endpoint
+    pub code: String,
+}
