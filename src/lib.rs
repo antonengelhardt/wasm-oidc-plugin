@@ -65,7 +65,7 @@ impl HttpContext for PauseRequests {
         info!("Filter now ready. Sending redirect.");
 
         // Send a redirect to the original path
-        self.send_http_response(302,
+        self.send_http_response(307,
             vec![
             // Redirect to the requested path
             ("location", self.original_path.as_ref().unwrap()),
@@ -296,12 +296,19 @@ impl ConfiguredOidc {
         let auth = format!("Basic {}", encoded);
 
         // Get code verifier from cookie
-        let code_verifier = self.get_cookie("pkce-verifier").unwrap_or_default();
+        let code_verifier = self.get_cookie("code_verifier").unwrap_or_default();
+        let code_verifier_decoded = match base64engine.decode(code_verifier) {
+            Ok(decoded) => decoded,
+            Err(e) => {
+                return Err(e.to_string());
+            }
+        };
+        let code_verifier_decoded = String::from_utf8(code_verifier_decoded).unwrap();
 
         // Build the request body for the token endpoint
         let data = form_urlencoded::Serializer::new(String::new())
             .append_pair("grant_type", "authorization_code")
-            .append_pair("code_verifier", &code_verifier)
+            .append_pair("code_verifier", &code_verifier_decoded)
             .append_pair("code", &code)
             .append_pair("redirect_uri", self.plugin_config.redirect_uri.as_str())
             // TODO: Nonce #7
@@ -383,11 +390,33 @@ impl ConfiguredOidc {
                     debug!("Cookie: {:?}", &auth_cookie);
 
                     // Get original-path cookie
-                    let original_path = self.get_cookie("original-path");
+                    let original_path_encoded = self.get_cookie("original-path");
+                    let original_path = match original_path_encoded {
+                        Some(original_path_encoded) => {
+                            match base64engine.decode(original_path_encoded) {
+                                Ok(original_path_decoded) => {
+                                    match String::from_utf8(original_path_decoded) {
+                                        Ok(original_path_decoded) => {
+                                            Some(original_path_decoded)
+                                        }
+                                        Err(e) => {
+                                            warn!("Error: {}", e);
+                                            None
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    warn!("Error: {}", e);
+                                    None
+                                }
+                            }
+                        }
+                        None => None
+                    };
 
                     // Redirect back to the original URL and set the cookie.
                     self.send_http_response(
-                        302,
+                        307,
                         vec![
                             // Set the cookie
                             ("Set-Cookie", &format!("{}={}; Path=/; Max-Age={}",
@@ -411,17 +440,19 @@ impl ConfiguredOidc {
         }
     }
 
-    /// Redirect to the` authorization endpoint` by sending a HTTP response with a 302 status code.
+    /// Redirect to the` authorization endpoint` by sending a HTTP response with a 307 status code.
     fn redirect_to_authorization_endpoint(&self) -> Action {
 
         // Original path
         let original_path = self.get_http_request_header(":path").unwrap_or_default();
+        let original_path_encoded = base64engine.encode(original_path.as_bytes());
 
         debug!("No cookie found or invalid, redirecting to authorization endpoint.");
 
         // Generate PKCE code verifier and challenge
         let pkce_verifier = pkce::code_verifier(128);
         let pkce_verifier_string = String::from_utf8(pkce_verifier.clone()).unwrap();
+        let pkce_encoded = base64engine.encode(pkce_verifier_string.as_bytes());
         let pkce_challenge = pkce::code_challenge(&pkce_verifier);
 
         // Build URL
@@ -441,12 +472,12 @@ impl ConfiguredOidc {
 
         // Send HTTP response
         self.send_http_response(
-            302,
+            307,
             vec![
                 // Original path to redirect back to
-                ("Set-Cookie", &format!("original-path={}; Max-Age={}", &original_path, 180)),
+                ("Set-Cookie", &format!("original-path={}; Max-Age={}", &original_path_encoded, 180)),
                 // Set the pkce challenge as a cookie to verify the callback.
-                ("Set-Cookie", &format!("pkce-verifier={}; Max-Age={}", &pkce_verifier_string, 180)),
+                ("Set-Cookie", &format!("code_verifier={}; Max-Age={}", &pkce_encoded, 180)),
                 // Redirect to `authorization endpoint`
                 ("Location", url.as_str()),
                 ],

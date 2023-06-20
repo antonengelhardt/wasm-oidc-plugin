@@ -27,7 +27,7 @@ use crate::responses::{JWKsResponse, OidcDiscoveryResponse};
 // This is the initial entry point of the plugin.
 proxy_wasm::main! {{
 
-    proxy_wasm::set_log_level(LogLevel::Trace);
+    proxy_wasm::set_log_level(LogLevel::Info);
 
     info!("Starting OIDC plugin");
 
