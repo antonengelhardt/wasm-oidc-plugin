@@ -37,6 +37,9 @@ jwt-simple = {git = "https://zivgitlab.uni-muenster.de/m_wiga01/rust-jwt-simple/
 # pkce
 pkce = "0.2.0"
 
+# aes256
+aes-gcm = "0.10.2"
+
 [profile.release]
 lto = true
 opt-level = 3

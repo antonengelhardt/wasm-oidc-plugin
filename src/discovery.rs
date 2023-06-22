@@ -19,6 +19,9 @@ use base64::{engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, E
 // duration
 use std::time::Duration;
 
+// aes256
+use aes_gcm::{Aes256Gcm, KeyInit, aead::OsRng};
+
 // crate
 use crate::{OpenIdConfig, ConfiguredOidc, PauseRequests};
 use crate::config::PluginConfiguration;
@@ -66,7 +69,6 @@ pub struct OidcDiscovery {
 /// - LoadingJwks: The jwks configuration is being loaded
 /// - Ready: The plugin is ready
 /// Each state has a different set of fields which are needed for that specific state.
-#[derive(Debug)]
 pub enum OidcRootState {
     /// State when the plugin needs to load the plugin configuration
     Uninitialized,
@@ -95,6 +97,8 @@ pub enum OidcRootState {
         plugin_config: Arc<PluginConfiguration>,
         /// Filter config loaded from the open id discovery endpoint and the jwks endpoint
         filter_config: Arc<OpenIdConfig>,
+        /// AES256 key used to encrypt the session data
+        cipher: Aes256Gcm,
     },
 }
 
@@ -157,6 +161,7 @@ impl RootContext for OidcDiscovery {
             OidcRootState::Ready {
                 filter_config,
                 plugin_config,
+                cipher,
             } => {
                 debug!("Creating http context with root context information.");
 
@@ -165,6 +170,7 @@ impl RootContext for OidcDiscovery {
                     filter_config: filter_config.clone(),
                     plugin_config: plugin_config.clone(),
                     token_id: None,
+                    cipher: cipher.clone(),
                 }));
             },
 
@@ -264,6 +270,7 @@ impl RootContext for OidcDiscovery {
             OidcRootState::Ready{
                 filter_config: _,
                 plugin_config,
+                ..
             }=> {
 
                 // If this state is reached, the plugin was ready and needs to reload the configuration.
@@ -400,6 +407,10 @@ impl Context for OidcDiscovery {
                         info!("All configuration loaded. Filter is ready. Refreshing config in {} hour(s).",
                             plugin_config.reload_interval_in_h);
 
+                        // Create AES256 Cipher
+                        let aes_key = Aes256Gcm::generate_key(OsRng);
+                        let cipher = Aes256Gcm::new(&aes_key);
+
                         // Set the mode to ready.
                         OidcRootState::Ready {
                             filter_config: Arc::new(OpenIdConfig {
@@ -409,6 +420,7 @@ impl Context for OidcDiscovery {
                                 public_keys: keys,
                             }),
                             plugin_config: plugin_config.clone(),
+                            cipher,
                         }
                     }
                     Err(e) =>  {
@@ -429,11 +441,13 @@ impl Context for OidcDiscovery {
             OidcRootState::Ready {
                 plugin_config,
                 filter_config,
+                cipher,
             }=> {
                 warn!("ready mode is not expected here");
                 OidcRootState::Ready {
                     plugin_config: plugin_config.clone(),
                     filter_config: filter_config.clone(),
+                    cipher: cipher.clone(),
                 }
             }
         };

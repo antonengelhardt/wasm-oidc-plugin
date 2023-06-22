@@ -21,6 +21,11 @@ use jwt_simple::prelude::*;
 // url
 use url::{form_urlencoded, Url};
 
+// aes-256
+use aes_gcm::{
+    Aes256Gcm,
+};
+
 /// This module contains logic to parse and save the current authorization state in a cookie
 mod cookie;
 
@@ -90,6 +95,8 @@ struct ConfiguredOidc {
     pub plugin_config: Arc<PluginConfiguration>,
     /// Token id of the current request
     pub token_id: Option<u32>,
+    /// AES256 Cipher
+    pub cipher: Aes256Gcm,
 }
 
 /// The context is used to process incoming HTTP requests when the filter is configured.
@@ -225,12 +232,14 @@ impl ConfiguredOidc {
 
         debug!("Cookie found, checking validity.");
 
+        // Get Nonce from cookie
+        let nonce = self.get_cookie("nonce").unwrap();
+
         // Try to parse the cookie and handle the result
-        match cookie::AuthorizationState::parse_and_decode_cookie(cookie) {
+        match cookie::AuthorizationState::decode_and_decrypt_cookie(cookie, self.cipher.to_owned(), nonce) {
 
             // If the cookie can be parsed, this filter validates the token
             Ok(auth_state) => {
-
                 // Validate token
                 match self.validate_token(&auth_state.id_token) {
                     // If the token is valid, this filter passes the request
@@ -405,8 +414,12 @@ impl ConfiguredOidc {
             debug!("Token response: {:?}", body);
 
             // Build Cookie Struct using create_cookie_from_response from cookie.rs
-            match cookie::AuthorizationState::create_cookie_from_response(body.as_slice()) {
-                Ok(auth_cookie) => {
+            match cookie::AuthorizationState::create_cookie_from_response(self.cipher.clone(), body.as_slice()) {
+                Ok(res) => {
+
+                    let auth_cookie = res.first().unwrap().to_string();
+                    let nonce = res.last().unwrap().to_string();
+
                     debug!("Cookie: {:?}", &auth_cookie);
 
                     // Get original-path cookie
@@ -417,7 +430,7 @@ impl ConfiguredOidc {
                                 Ok(original_path_decoded) => {
                                     match String::from_utf8(original_path_decoded) {
                                         Ok(original_path_decoded) => {
-                                            Some(original_path_decoded)
+                                            original_path_decoded
                                         }
                                         Err(e) => {
                                             warn!("Error: {}", e);
@@ -452,6 +465,20 @@ impl ConfiguredOidc {
                         cookie_values.push(cookie_value);
                     };
 
+                    // Split every 4000 bytes and push it to the cookie_parts vector
+                    let cookie_parts = auth_cookie
+                    	.as_bytes()
+	                    .chunks(4000)
+	                    .map(|chunk| std::str::from_utf8(chunk).expect("auth_cookie is base64 encoded, which means ASCII, which means one character = one byte, so this is valid"));
+
+
+                    // Iterate over the cookie parts and set the cookie reply headers
+                    let mut cookie_values = vec![];
+                    for (i, cookie_part) in cookie_parts.enumerate() {
+                        let cookie_value = String::from(format!("{}-{}={}; Path=/; HttpOnly; Max-Age={}", self.plugin_config.cookie_name, i, cookie_part, self.plugin_config.cookie_duration));
+                        cookie_values.push(cookie_value);
+                    };
+
                     // Build the cookie headers
                     let mut set_cookie_headers: Vec<(&str,&str)> = cookie_values
                         .iter()
@@ -461,6 +488,20 @@ impl ConfiguredOidc {
                     // Set the location header to the original path
                     let location_header = ("Location", original_path.as_str());
                     set_cookie_headers.push(location_header);
+
+                    // Build the cookie headers
+                    let mut set_cookie_headers: Vec<(&str,&str)> = cookie_values
+                        .iter()
+                        .map(|v| ("Set-Cookie", v.as_str()))
+                        .collect();
+
+                    // Set the location header to the original path
+                    let location_header = ("Location", original_path.as_str());
+                    set_cookie_headers.push(location_header);
+
+                    debug!("Original Path: {:?}", &original_path);
+
+                    debug!("Original Path: {:?}", &original_path);
 
                     // Redirect back to the original URL and set the cookie.
                     self.send_http_response(
