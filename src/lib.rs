@@ -142,17 +142,24 @@ impl HttpContext for ConfiguredOidc {
             return Action::Pause;
         }
 
-        // If the requester passes a cookie, this filter passes the request depending on the validity of the cookie.
-        if let Some(cookie) = self.get_cookie(&self.plugin_config.cookie_name) {
-            match self.validate_cookie(cookie) {
-                Ok(_) => {
-                    return Action::Continue;
-                },
-                Err(e) => {
-                    warn!("Cookie validation failed: {}", e);
-                }
-            };
-        }
+        // Find all cookies that have the cookie name, split them by ; and remove the name from the cookie
+        // as well as the leading =. Then join the cookies together again.
+        let cookie = self.get_http_request_header("cookie").unwrap_or_default();
+        let cookie = cookie.split(";")
+            .filter(|x| x.contains(&self.plugin_config.cookie_name))
+            .map(|x| x.split("=").collect::<Vec<&str>>()[1])
+            .collect::<Vec<&str>>()
+            .join("");
+
+        // Validate the cookie
+        match self.validate_cookie(cookie) {
+            Ok(_) => {
+                return Action::Continue;
+            },
+            Err(e) => {
+                warn!("Cookie validation failed: {}", e);
+            }
+        };
 
         // Redirect to `authorization endpoint` if no cookie is found or previous cases have returned an error.
         // Pausing the request is necessary to create a new context for the redirect.
@@ -244,7 +251,10 @@ impl ConfiguredOidc {
         allowed_audiences.insert(self.plugin_config.audience.to_string());
 
         // Define verification options
-        let verification_options = VerificationOptions::default();
+        let mut verification_options = VerificationOptions::default();
+
+        verification_options.allowed_audiences = Some(allowed_audiences);
+        verification_options.allowed_issuers = Some(allowed_issuers);
 
         // Iterate over all public keys
         for public_key in &self.filter_config.public_keys {
@@ -413,20 +423,39 @@ impl ConfiguredOidc {
                         }
                         None => None
                     };
+                    let original_path = match original_path {
+                        Some(original_path) => original_path,
+                        None => "/".to_string()
+                    };
+
+                    // Split every 4000 bytes and push it to the cookie_parts vector
+                    let cookie_parts = auth_cookie
+                    	.as_bytes()
+	                    .chunks(4000)
+	                    .map(|chunk| std::str::from_utf8(chunk).expect("auth_cookie is base64 encoded, which means ASCII, which means one character = one byte, so this is valid"));
+
+
+                    // Iterate over the cookie parts and set the cookie reply headers
+                    let mut cookie_values = vec![];
+                    for (i, cookie_part) in cookie_parts.enumerate() {
+                        let cookie_value = String::from(format!("{}-{}={}; Path=/; HttpOnly; Max-Age={}", self.plugin_config.cookie_name, i, cookie_part, self.plugin_config.cookie_duration));
+                        cookie_values.push(cookie_value);
+                    };
+
+                    // Build the cookie headers
+                    let mut set_cookie_headers: Vec<(&str,&str)> = cookie_values
+                        .iter()
+                        .map(|v| ("Set-Cookie", v.as_str()))
+                        .collect();
+
+                    // Set the location header to the original path
+                    let location_header = ("Location", original_path.as_str());
+                    set_cookie_headers.push(location_header);
 
                     // Redirect back to the original URL and set the cookie.
                     self.send_http_response(
                         307,
-                        vec![
-                            // Set the cookie
-                            ("Set-Cookie", &format!("{}={}; Path=/; Max-Age={}",
-                                &self.plugin_config.cookie_name,
-                                &auth_cookie,
-                                &self.plugin_config.cookie_duration)),
-                            // Redirect to source
-                            ("Location",
-                                &original_path.unwrap_or("/".to_owned())),
-                        ],
+                        set_cookie_headers,
                         Some(b"Redirecting..."),
                     );
                 }
