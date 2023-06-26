@@ -54,6 +54,7 @@ static_resources:
 
                           cookie_name: "oidcSession"
                           cookie_duration: 86400
+                          aes_key: "SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q"
 
                           authority: "auth.k8s.wwu.de"
                           redirect_uri: "http://localhost:10000/oidc/callback"

@@ -42,12 +42,9 @@ impl AuthorizationState {
             // If deserialization was successful, return the cookie
             Ok(state) => {
 
-                debug!("State: {:?}", state);
-
                 // Generate nonce and encode it
                 let nonce = Aes256Gcm::generate_nonce(OsRng);
                 let encoded_nonce = base64engine.encode(nonce.as_slice());
-                debug!("Nonce: {:?}", nonce);
 
                 // Encrypt cookie
                 let encrypted_cookie = cipher.encrypt(&nonce, serde_json::to_vec(&state).unwrap().as_slice()).unwrap();

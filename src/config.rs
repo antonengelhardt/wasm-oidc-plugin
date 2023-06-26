@@ -68,6 +68,8 @@ pub struct PluginConfiguration {
     pub cookie_name: String,
     /// The cookie duration in seconds
     pub cookie_duration: u64,
+    /// AES Key
+    pub aes_key: String,
 
     // Everything relevant for the Code Flow
     /// The authority that will be used for the dispatch calls
@@ -99,6 +101,7 @@ impl PluginConfiguration {
         exclude_urls: Vec<Regex>,
         cookie_name: String,
         cookie_duration: u64,
+        aes_key: String,
         authority: String,
         redirect_uri: String,
         client_id: String,
@@ -115,6 +118,7 @@ impl PluginConfiguration {
             exclude_urls,
             cookie_name,
             cookie_duration,
+            aes_key,
             authority,
             redirect_uri,
             client_id,

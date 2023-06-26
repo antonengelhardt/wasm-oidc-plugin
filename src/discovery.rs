@@ -14,13 +14,13 @@ use std::sync::Mutex;
 use url::Url;
 
 // base64
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, Engine as _};
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
 
 // duration
 use std::time::Duration;
 
 // aes256
-use aes_gcm::{Aes256Gcm, KeyInit, aead::OsRng};
+use aes_gcm::{Aes256Gcm, KeyInit};
 
 // crate
 use crate::{OpenIdConfig, ConfiguredOidc, PauseRequests};
@@ -399,6 +399,10 @@ impl Context for OidcDiscovery {
 
                                 keys.push(public_key);
                             }
+                            // Possibilty to add more algorithms here
+                            else {
+                                warn!("unsupported algorithm: {}", key.alg);
+                            }
                         }
 
                         // Now that we have loaded all the configuration, we can set the tick period
@@ -407,9 +411,9 @@ impl Context for OidcDiscovery {
                         info!("All configuration loaded. Filter is ready. Refreshing config in {} hour(s).",
                             plugin_config.reload_interval_in_h);
 
-                        // Create AES256 Cipher
-                        let aes_key = Aes256Gcm::generate_key(OsRng);
-                        let cipher = Aes256Gcm::new(&aes_key);
+                        // Create AES256 Cipher from base64 encoded key
+                        let aes_key = base64engine.decode(&plugin_config.aes_key).unwrap();
+                        let cipher = Aes256Gcm::new_from_slice(&aes_key).unwrap();
 
                         // Set the mode to ready.
                         OidcRootState::Ready {

@@ -73,6 +73,7 @@ The plugin is configured via the `envoy.yaml` file. The following configuration 
 | `exclude_urls` | `Vec<Regex>` | A comma separated list of URLs (in Regex expressions), that are excluded from the filter. | ["`localhost:10000/health`"] |
 | `cookie_name` | `string` | The name of the cookie, that is used to store the session. | `oidcSession` |
 | `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` |
+| `aes_key` | `string` | A base64 encoded AES-256 Key | `SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q` |
 | `authority` | `string` | The authority of the ˋauthorization_endpointˋ. | `accounts.google.com` |
 | `redirect_uri` | `string` | The redirect URI, that the ˋauthorization_endpointˋ will redirect to. | `http://localhost:10000/oidc/callback` |
 | `client_id` | `string` | The client ID, for getting and exchanging the code. | `wasm-oidc-plugin` |
@@ -100,7 +101,7 @@ Then, one of the following cases is handled:
 
 1. The filter is not configured yet and still loading the configuration. The request is paused and queued until the configuration is loaded. Then, then, the RootContext resumes the request and the Request is redirected in order to create a new context.
 2. The request has the code parameter in the URL query. This means that the user has been redirected back from the ˋauthorization_endpointˋ after successful authentication. The plugin exchanges the code for a token using the `token_endpoint` and stores the token in the session. Then, the user is redirected back to the original request.
-3. The request has a valid session cookie. The plugin validates the token and passes the request depending on the outcome of the validation.
+3. The request has a valid session cookie. The plugin decoded, decrypts and then validates the cookie and passes the request depending on the outcome of the validation of the token.
 4. The request has no valid session cookie. The plugin redirects the user to the ˋauthorization_endpointˋ to authenticate. Once, the user returns, the second case is handled.
 
 ## Tools
