@@ -143,7 +143,7 @@ impl HttpContext for ConfiguredOidc {
         }
 
         // Find all cookies that have the cookie name, split them by ; and remove the name from the cookie
-        // as well as the leading =. Then join the cookies together again.
+        // as well as the leading =. Then join the cookie values together again.
         let cookie = self.get_http_request_header("cookie").unwrap_or_default();
         let cookie = cookie.split(";")
             .filter(|x| x.contains(&self.plugin_config.cookie_name))
@@ -175,7 +175,20 @@ impl Context for ConfiguredOidc {
     fn on_http_call_response(&mut self, token_id: u32, _: usize, body_size: usize, _: usize) {
 
         // Store the token in the cookie
-        self.store_token_in_cookie(token_id, body_size);
+        match self.store_token_in_cookie(token_id, body_size) {
+            Ok(_) => {
+                debug!("Token stored in cookie.");
+            },
+            Err(e) => {
+                warn!("Storing token in cookie failed: {}", e);
+                // Send a 503 if storing the token in the cookie failed
+                self.send_http_response(503,
+                    vec![
+                        ("Cache-Control", "no-cache"),
+                    ],
+                Some(b"Storing token in cookie failed."));
+            }
+        }
     }
 }
 
@@ -357,11 +370,11 @@ impl ConfiguredOidc {
     /// Store the token from the token response in a cookie.
     /// Parse the token with the `AuthorizationState` struct and store it in an encoded cookie.
     /// Then, redirect the requester to the original URL.
-    fn store_token_in_cookie(&mut self, token_id: u32, body_size: usize) {
+    fn store_token_in_cookie(&mut self, token_id: u32, body_size: usize) -> Result<(), String> {
         // Assess token id
         if self.token_id != Some(token_id) {
             warn!("Token id does not match.");
-            return;
+            return Err("Token id does not match.".to_string());
         }
 
         // Check if the response is valid. If its not 200, investigate the response
@@ -373,19 +386,16 @@ impl ConfiguredOidc {
 
                 // Decode body
                 if let Ok(decoded) = String::from_utf8(body) {
-                    warn!("Token response is not valid: {:?}", decoded);
-                    return;
+                    return Err(format!("Token response is not valid: {:?}", decoded));
 
                 // If decoding fails, log the error
                 } else {
-                    warn!("Token response is not valid and error decoding error message.");
-                    return;
+                    return Err(format!("Token could not be decoded"));
                 }
 
             // If no body is found, log the error
             } else {
-                warn!("No body in token response with invalid status code.");
-                return;
+                return Err(format!("No body in token response with invalid status code."));
             }
         }
 
@@ -458,18 +468,20 @@ impl ConfiguredOidc {
                         set_cookie_headers,
                         Some(b"Redirecting..."),
                     );
+                    Ok(())
                 }
                 Err(e) => {
-                    warn!("Error: {}", e);
+                    Err(format!("Error: {}", e))
                 }
             }
-        // If no body is found, log the error
+        // If no body is found, return the error
         } else {
-            warn!("No body found in token response with valid status code.");
+            Err(format!("No body in token response with invalid status code."))
         }
     }
 
     /// Redirect to the` authorization endpoint` by sending a HTTP response with a 307 status code.
+    /// The original path is encoded and stored in a cookie as well as the PKCE code verifier.
     fn redirect_to_authorization_endpoint(&self) -> Action {
 
         // Original path

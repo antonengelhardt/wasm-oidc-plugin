@@ -68,9 +68,9 @@ The plugin is configured via the `envoy.yaml` file. The following configuration 
 | ---- | ---- | ----------- | ------- |
 | `config_endpoint` | `string` | The open id configuration endpoint. | `https://accounts.google.com/.well-known/openid-configuration` |
 | `reload_interval_in_hours` | `u64` | The interval in hours, after which the OIDC configuration is reloaded. | `24` |
-| `exclude_hosts` | `Vec<Regex>` | A comma separated list Hosts (in Regex expressions), that are excluded from the filtrr. | [`localhost:10000`] |
-| `exclude_paths` | `Vec<Regex>` | A comma separated list of paths (in Regex expressions), that are excluded from the filter. | [`/health`] |
-| `exclude_urls` | `Vec<Regex>` | A comma separated list of URLs (in Regex expressions), that are excluded from the filter. | [`localhost:10000/health`] |
+| `exclude_hosts` | `Vec<Regex>` | A comma separated list Hosts (in Regex expressions), that are excluded from the filtrr. | ["`localhost:10000`"] |
+| `exclude_paths` | `Vec<Regex>` | A comma separated list of paths (in Regex expressions), that are excluded from the filter. | ["`/health`"] |
+| `exclude_urls` | `Vec<Regex>` | A comma separated list of URLs (in Regex expressions), that are excluded from the filter. | ["`localhost:10000/health`"] |
 | `cookie_name` | `string` | The name of the cookie, that is used to store the session. | `oidcSession` |
 | `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` |
 | `authority` | `string` | The authority of the ˋauthorization_endpointˋ. | `accounts.google.com` |

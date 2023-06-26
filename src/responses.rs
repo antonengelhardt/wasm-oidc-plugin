@@ -33,7 +33,7 @@ pub struct JWK {
     pub e: String,
 }
 
-/// Struct that defines how the callback looks like
+/// Struct that defines how the callback looks like to serialize it better
 #[derive(Deserialize, Debug)]
 pub struct Callback {
     /// The code that is returned from the authorization endpoint
