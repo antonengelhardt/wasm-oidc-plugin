@@ -431,31 +431,26 @@ impl ConfiguredOidc {
                     debug!("Nonce: {:?}", &nonce);
 
                     // Get original-path cookie
-                    let original_path_encoded = self.get_cookie("original-path");
-                    let original_path = match original_path_encoded {
+                    let original_path = match self.get_cookie("original-path") {
                         Some(original_path_encoded) => {
                             match base64engine.decode(original_path_encoded) {
                                 Ok(original_path_decoded) => {
                                     match String::from_utf8(original_path_decoded) {
                                         Ok(original_path_decoded) => {
-                                            Some(original_path_decoded)
+                                            original_path_decoded
                                         }
                                         Err(e) => {
                                             warn!("Error: {}", e);
-                                            None
+                                            "/".to_string()
                                         }
                                     }
                                 }
                                 Err(e) => {
                                     warn!("Error: {}", e);
-                                    None
+                                    "/".to_string()
                                 }
                             }
                         }
-                        None => None
-                    };
-                    let original_path = match original_path {
-                        Some(original_path) => original_path,
                         None => "/".to_string()
                     };
                     debug!("Original Path: {:?}", &original_path);
@@ -464,13 +459,18 @@ impl ConfiguredOidc {
                     let cookie_parts = auth_cookie
                     	.as_bytes()
 	                    .chunks(4000)
-	                    .map(|chunk| std::str::from_utf8(chunk).expect("auth_cookie is base64 encoded, which means ASCII, which means one character = one byte, so this is valid"));
+	                    .map(|chunk| std::str::from_utf8(chunk)
+                        .expect("auth_cookie is base64 encoded, which means ASCII, which means one character = one byte, so this is valid"));
 
 
                     // Iterate over the cookie parts and set the cookie reply headers
                     let mut cookie_values = vec![];
                     for (i, cookie_part) in cookie_parts.enumerate() {
-                        let cookie_value = String::from(format!("{}-{}={}; Path=/; HttpOnly; Max-Age={}", self.plugin_config.cookie_name, i, cookie_part, self.plugin_config.cookie_duration));
+                        let cookie_value = String::from(format!("{}-{}={}; Path=/; HttpOnly; Max-Age={}",
+                            self.plugin_config.cookie_name,
+                            i,
+                            cookie_part,
+                            self.plugin_config.cookie_duration));
                         cookie_values.push(cookie_value);
                     };
 
@@ -485,7 +485,8 @@ impl ConfiguredOidc {
                     set_cookie_headers.push(location_header);
 
                     // Set the nonce cookie
-                    let nonce_cookie = format!("{}={}; Path=/; HttpOnly; Max-Age={}", "nonce", nonce, 180);
+                    let nonce_cookie = format!("{}={}; Path=/; HttpOnly; Max-Age={}", "nonce",
+                        nonce, self.plugin_config.cookie_duration);
                     set_cookie_headers.push(("Set-Cookie", nonce_cookie.as_str()));
 
                     // Redirect back to the original URL and set the cookie.
