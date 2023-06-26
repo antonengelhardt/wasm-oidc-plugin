@@ -45,6 +45,7 @@ proxy_wasm::main! {{
         state: OidcRootState::Uninitialized,
         waiting: Mutex::new(Vec::new()),
         token_id: None,
+        cipher: None,
     }) });
 }}
 
@@ -61,6 +62,8 @@ pub struct OidcDiscovery {
     waiting: Mutex<Vec<u32>>,
     /// Tokenid of the HttpCalls to verify the call is correct
     token_id: Option<u32>,
+    /// AES256 key used to encrypt the session data
+    cipher: Option<Aes256Gcm>,
 }
 
 /// The state of the root context is an enum which has the following variants:
@@ -97,8 +100,6 @@ pub enum OidcRootState {
         plugin_config: Arc<PluginConfiguration>,
         /// Filter config loaded from the open id discovery endpoint and the jwks endpoint
         filter_config: Arc<OpenIdConfig>,
-        /// AES256 key used to encrypt the session data
-        cipher: Aes256Gcm,
     },
 }
 
@@ -127,6 +128,11 @@ impl RootContext for OidcDiscovery {
                 match serde_yaml::from_slice::<PluginConfiguration>(&config_bytes) {
                     Ok(plugin_config) => {
                         debug!("parsed plugin configuration");
+
+                        // Create AES256 Cipher from base64 encoded key
+                        let aes_key = base64engine.decode(&plugin_config.aes_key).unwrap();
+                        let cipher = Aes256Gcm::new_from_slice(&aes_key).unwrap();
+                        self.cipher = Some(cipher);
 
                         // Advance to the next state and store the plugin configuration.
                         self.state = OidcRootState::LoadingConfig {
@@ -161,7 +167,6 @@ impl RootContext for OidcDiscovery {
             OidcRootState::Ready {
                 filter_config,
                 plugin_config,
-                cipher,
             } => {
                 debug!("Creating http context with root context information.");
 
@@ -170,7 +175,7 @@ impl RootContext for OidcDiscovery {
                     filter_config: filter_config.clone(),
                     plugin_config: plugin_config.clone(),
                     token_id: None,
-                    cipher: cipher.clone(),
+                    cipher: self.cipher.clone().unwrap(),
                 }));
             },
 
@@ -411,10 +416,6 @@ impl Context for OidcDiscovery {
                         info!("All configuration loaded. Filter is ready. Refreshing config in {} hour(s).",
                             plugin_config.reload_interval_in_h);
 
-                        // Create AES256 Cipher from base64 encoded key
-                        let aes_key = base64engine.decode(&plugin_config.aes_key).unwrap();
-                        let cipher = Aes256Gcm::new_from_slice(&aes_key).unwrap();
-
                         // Set the mode to ready.
                         OidcRootState::Ready {
                             filter_config: Arc::new(OpenIdConfig {
@@ -424,7 +425,6 @@ impl Context for OidcDiscovery {
                                 public_keys: keys,
                             }),
                             plugin_config: plugin_config.clone(),
-                            cipher,
                         }
                     }
                     Err(e) =>  {
@@ -445,13 +445,11 @@ impl Context for OidcDiscovery {
             OidcRootState::Ready {
                 plugin_config,
                 filter_config,
-                cipher,
             }=> {
                 warn!("ready mode is not expected here");
                 OidcRootState::Ready {
                     plugin_config: plugin_config.clone(),
                     filter_config: filter_config.clone(),
-                    cipher: cipher.clone(),
                 }
             }
         };
