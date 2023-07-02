@@ -1,0 +1,69 @@
+name: Test, build and document
+
+on:
+  push:
+    branches:
+      - main
+      - github-action
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: zivgitlab.wwu.io/m_wiga01/rust-docker-tools/rust-docker-tools:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run tests
+        run: |
+          rustc --version && cargo --version
+          cargo clippy
+          cargo test --workspace --verbose
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    container:
+      image: zivgitlab.wwu.io/m_wiga01/rust-docker-tools/rust-docker-tools:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build
+        run: |
+          cargo build --target wasm32-wasi --release
+
+      - name: Archive production artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: oidc.wasm
+          path: target/wasm32-wasi/release/oidc.wasm
+
+  documentation:
+    needs: build
+    runs-on: ubuntu-latest
+    container:
+      image: zivgitlab.wwu.io/m_wiga01/rust-docker-tools/rust-docker-tools:latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Generate documentation
+        run: |
+          cargo doc --document-private-items
+
+      - name: Archive documentation
+        uses: actions/upload-artifact@v2
+        with:
+          name: doc
+          path: target/doc
