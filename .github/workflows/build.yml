@@ -78,3 +78,18 @@ jobs:
         with:
           name: docs
           path: target/doc/docs.zip
+
+      - name: Move documentation to docs dir
+        run: |
+          cargo doc --no-deps
+          rm -rf ./docs
+          echo "<meta http-equiv=\"refresh\" content=\"0; url=build_wheel\">" > target/doc/index.html
+          cp -r target/doc ./docs
+
+      - name: Upload documentation
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: docs
+
+      - name: Deploy documentation
+        uses: actions/deploy-pages@v2
