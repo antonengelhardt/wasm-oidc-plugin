@@ -51,6 +51,14 @@ jobs:
   documentation:
     needs: build
     runs-on: ubuntu-latest
+
+    permissions:
+      pages: write
+
+    environment:
+      name: github-pages
+      url: ${{ steps.pages.outputs.page_url }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -92,4 +100,8 @@ jobs:
           path: docs
 
       - name: Deploy documentation
+        id: pages
         uses: actions/deploy-pages@v2
+
+
+
