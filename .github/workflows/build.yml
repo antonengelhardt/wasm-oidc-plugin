@@ -61,7 +61,7 @@ jobs:
         with:
           toolchain: stable
 
-      - name: Use clippy
+      - name: Generate documentation
         uses: actions-rs/cargo@v1
         with:
           command: doc
@@ -71,11 +71,11 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y zip
           cd target/doc
-          zip -r doc.zip .
+          zip -r docs .
           cd ../..
 
       - name: Archive documentation
         uses: actions/upload-artifact@v2
         with:
-          name: doc.zip
-          path: target/doc/doc.zip
+          name: docs.zip
+          path: target/doc/docs.zip
