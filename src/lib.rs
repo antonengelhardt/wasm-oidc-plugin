@@ -84,13 +84,13 @@ impl HttpContext for PauseRequests {
 
 impl Context for PauseRequests {}
 
-/// The ConfiguredOudc is the main filter struct and responsible for the OIDC authentication flow.
+/// The ConfiguredOidc is the main filter struct and responsible for the OIDC authentication flow.
 /// Requests arriving are checked for a valid cookie. If the cookie is valid, the request is
 /// forwarded. If the cookie is not valid, the request is redirected to the `authorization endpoint`.
 struct ConfiguredOidc {
     /// The configuration of the filter which mainly contains the open id configuration and the
     /// keys to validate the JWT
-    pub filter_config: Arc<OpenIdConfig>,
+    pub open_id_config: Arc<OpenIdConfig>,
     /// Plugin configuration parsed from the envoy configuration
     pub plugin_config: Arc<PluginConfiguration>,
     /// Token id of the current request
@@ -275,7 +275,7 @@ impl ConfiguredOidc {
 
         // Define allowed issuers and audiences
         let mut allowed_issuers = HashSet::new();
-        allowed_issuers.insert(self.filter_config.issuer.to_string());
+        allowed_issuers.insert(self.open_id_config.issuer.to_string());
         let mut allowed_audiences = HashSet::new();
         allowed_audiences.insert(self.plugin_config.audience.to_string());
 
@@ -286,7 +286,7 @@ impl ConfiguredOidc {
         verification_options.allowed_issuers = Some(allowed_issuers);
 
         // Iterate over all public keys
-        for public_key in &self.filter_config.public_keys {
+        for public_key in &self.open_id_config.public_keys {
 
             // Perform the validation
             let validation_result =
@@ -354,7 +354,7 @@ impl ConfiguredOidc {
             .finish();
 
         // Get path from token endpoint
-        let token_endpoint = self.filter_config.token_endpoint.path();
+        let token_endpoint = self.open_id_config.token_endpoint.path();
 
         // Dispatch request to token endpoint using built-in envoy function
         debug!("Sending data to token endpoint: {}", data);
@@ -525,7 +525,7 @@ impl ConfiguredOidc {
 
         // Build URL
         let url = Url::parse_with_params(
-            self.filter_config.auth_endpoint.as_str(),
+            self.open_id_config.auth_endpoint.as_str(),
             &[
                 ("response_type", "code"),
                 ("code_challenge", &pkce_challenge),

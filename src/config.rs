@@ -27,23 +27,6 @@ pub struct OpenIdConfig {
     pub public_keys: Vec<jwt_simple::algorithms::RS256PublicKey>,
 }
 
-impl OpenIdConfig {
-    /// Creates a new FilterConfig
-    pub fn _new(
-        auth_endpoint: Url,
-        token_endpoint: Url,
-        issuer: String,
-        public_key: Vec<jwt_simple::algorithms::RS256PublicKey>,
-    ) -> Self {
-        Self {
-            auth_endpoint,
-            token_endpoint,
-            issuer,
-            public_keys: public_key
-        }
-    }
-}
-
 /// Struct that holds the configuration for the plugin. It is loaded from the config file
 /// `envoy.yaml`
 #[derive(Clone, Debug, Deserialize)]
@@ -88,44 +71,4 @@ pub struct PluginConfiguration {
     pub client_secret: String,
     /// The audience. Sometimes its the same as the client id
     pub audience: String,
-}
-
-/// Implementation of the PluginConfiguration
-impl PluginConfiguration {
-    /// Creates a new PluginConfiguration
-    pub fn _new(
-        config_endpoint: String,
-        reload_interval_in_h: u64,
-        exclude_hosts: Vec<Regex>,
-        exclude_paths: Vec<Regex>,
-        exclude_urls: Vec<Regex>,
-        cookie_name: String,
-        cookie_duration: u64,
-        aes_key: String,
-        authority: String,
-        redirect_uri: String,
-        client_id: String,
-        scope: String,
-        claims: String,
-        client_secret: String,
-        audience: String,
-    ) -> Self {
-        Self {
-            config_endpoint,
-            reload_interval_in_h,
-            exclude_hosts,
-            exclude_paths,
-            exclude_urls,
-            cookie_name,
-            cookie_duration,
-            aes_key,
-            authority,
-            redirect_uri,
-            client_id,
-            scope,
-            claims,
-            client_secret,
-            audience,
-        }
-    }
 }

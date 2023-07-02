@@ -98,8 +98,8 @@ pub enum OidcRootState {
     Ready{
         /// Plugin config loaded from the envoy configuration
         plugin_config: Arc<PluginConfiguration>,
-        /// Filter config loaded from the open id discovery endpoint and the jwks endpoint
-        filter_config: Arc<OpenIdConfig>,
+        /// Open id config loaded from the open id discovery endpoint and the jwks endpoint
+        open_id_config: Arc<OpenIdConfig>,
     },
 }
 
@@ -154,7 +154,7 @@ impl RootContext for OidcDiscovery {
         false
     }
 
-    /// Creates the http context with the information from the filter_config and the plugin configuration.
+    /// Creates the http context with the information from the open_id_config and the plugin configuration.
     /// This is called whenever a new http context is created by the proxy.
     /// When the plugin is not yet ready, the http context is created in Unconfigured state and the
     /// context id is added to the waiting queue to be processed later.
@@ -163,16 +163,16 @@ impl RootContext for OidcDiscovery {
         match &self.state {
 
             // If the plugin is ready, create the http context in Ready state
-            // with the filter config and the plugin config.
+            // with the open-id config and the plugin config.
             OidcRootState::Ready {
-                filter_config,
+                open_id_config,
                 plugin_config,
             } => {
                 debug!("Creating http context with root context information.");
 
                 // Return the http context.
                 return Some(Box::new(ConfiguredOidc {
-                    filter_config: filter_config.clone(),
+                    open_id_config: open_id_config.clone(),
                     plugin_config: plugin_config.clone(),
                     token_id: None,
                     cipher: self.cipher.clone().unwrap(),
@@ -273,7 +273,7 @@ impl RootContext for OidcDiscovery {
                 }
             }
             OidcRootState::Ready{
-                filter_config: _,
+                open_id_config: _,
                 plugin_config,
                 ..
             }=> {
@@ -418,7 +418,7 @@ impl Context for OidcDiscovery {
 
                         // Set the mode to ready.
                         OidcRootState::Ready {
-                            filter_config: Arc::new(OpenIdConfig {
+                            open_id_config: Arc::new(OpenIdConfig {
                                 auth_endpoint: auth_endpoint.clone(),
                                 token_endpoint: token_endpoint.clone(),
                                 issuer: issuer.clone(),
@@ -444,12 +444,12 @@ impl Context for OidcDiscovery {
             // If the plugin is in `Ready` mode, the response is ignored and the mode is not changed.
             OidcRootState::Ready {
                 plugin_config,
-                filter_config,
+                open_id_config,
             }=> {
                 warn!("ready mode is not expected here");
                 OidcRootState::Ready {
                     plugin_config: plugin_config.clone(),
-                    filter_config: filter_config.clone(),
+                    open_id_config: open_id_config.clone(),
                 }
             }
         };
