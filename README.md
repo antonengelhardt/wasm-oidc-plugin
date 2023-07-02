@@ -1,5 +1,7 @@
 # WASM OIDC Plugin
 
+[![Build Status](https://github.com/antonengelhardt/wasm-oidc-plugin/actions/workflows/build.yml/badge.svg)](https://github.com/antonengelhardt/wasm-oidc-plugin/actions/workflows/build.yml) [![Documentation](https://img.shields.io/badge/docs-blue)](https://antonengelhardt.github.io/wasm-oidc-plugin/wasm_oidc_plugin/index.html#)
+
 A plugin for [Envoy](https://www.envoyproxy.io/) written in [Rust](https://www.rust-lang.org).
 
 It is a HTTP Filter, that implements the OIDC Authorization Code Flow. Requests sent to the filter are checked for the presence of a valid session cookie. If the cookie is not present, the user is redirected to the Authorization endpoint to authenticate. After successful authentication, the user is redirected back to the original request.
@@ -59,6 +61,8 @@ To generate a detailed documentation, run:
 ```sh
 cargo doc --document-private-items --open
 ```
+
+Documentation is also [hosted on GitHub Pages](https://antonengelhardt.github.io/wasm-oidc-plugin/wasm_oidc_plugin/index.html#)
 
 ### Configuration
 
