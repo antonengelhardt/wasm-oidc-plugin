@@ -75,6 +75,10 @@ jobs:
             echo "::warning title=Invalid file permissions automatically fixed::$line"
           done
 
+      - name: Copy crate index to doc index
+        run: |
+          cp target/doc/wasm_oidc_plugin/index.html target/doc/index.html
+
       - name: Upload documentation
         uses: actions/upload-pages-artifact@v1
         with:
