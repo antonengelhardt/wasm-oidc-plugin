@@ -52,15 +52,20 @@ jobs:
   documentation:
     needs: build
     runs-on: ubuntu-latest
-    container:
-      image: zivgitlab.wwu.io/m_wiga01/rust-docker-tools/rust-docker-tools:latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Generate documentation
-        run: |
-          cargo doc --document-private-items
+      - name: Install rustup
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Use clippy
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --document-private-items
 
       - name: Zip documentation
         run: |
