@@ -64,6 +64,7 @@ jobs:
 
       - name: Zip documentation
         run: |
+          sudo apt-get update && sudo apt-get install -y zip
           cd target/doc
           zip -r doc.zip .
           cd ../..
