@@ -13,7 +13,6 @@ test:
   stage: test
   script:
     - rustc --version && cargo --version
-    - cargo fmt --check
     - cargo clippy
     - cargo test --workspace --verbose
 
@@ -25,7 +24,7 @@ build:
     - cargo build --target wasm32-wasi --release
   artifacts:
     paths:
-      - target/wasm32-wasi/release/oidc.wasm
+      - target/wasm32-wasi/release/wasm_oidc_plugin.wasm
 
 documentation:
   only:

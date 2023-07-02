@@ -46,8 +46,8 @@ jobs:
       - name: Archive production artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: oidc.wasm
-          path: target/wasm32-wasi/release/oidc.wasm
+          name: wasm_oidc_plugin.wasm
+          path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
 
   documentation:
     needs: build
@@ -62,8 +62,14 @@ jobs:
         run: |
           cargo doc --document-private-items
 
+      - name: Zip documentation
+        run: |
+          cd target/doc
+          zip -r doc.zip .
+          cd ../..
+
       - name: Archive documentation
         uses: actions/upload-artifact@v2
         with:
-          name: doc
-          path: target/doc
+          name: doc.zip
+          path: target/doc/doc.zip
