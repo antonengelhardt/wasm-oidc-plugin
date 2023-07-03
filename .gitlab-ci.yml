@@ -13,6 +13,8 @@ test:
   stage: test
   script:
     - rustc --version && cargo --version
+    - cargo-deny check licenses
+    - cargo-deny check advisories
     - cargo clippy
     - cargo test --workspace --verbose
 
