@@ -128,3 +128,22 @@ If you want to install a pre-commit hook - you should - install [pre-commit](htt
 ```bash
 pre-commit install
 ```
+
+### Cargo-Deny
+
+Cargo-deny checks all dependencies for security vulnerabilities and license issues.
+
+Install cargo-deny:
+
+```bash
+cargo install --locked cargo-deny
+```
+
+And then run:
+
+```bash
+cargo-deny check licenses
+cargo-deny check advisories
+```
+
+These commands are also run in the CI pipeline.

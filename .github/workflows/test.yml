@@ -18,6 +18,9 @@ jobs:
               path: target
               key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+          - name: Cargo Deny
+            uses: EmbarkStudios/cargo-deny-action@v1
+
           - name: Run tests
             run: |
               rustc --version && cargo --version

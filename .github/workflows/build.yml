@@ -29,6 +29,9 @@ jobs:
           cargo clippy
           cargo test --workspace --verbose
 
+      - name: Cargo Deny
+        uses: EmbarkStudios/cargo-deny-action@v1
+
   build:
     needs: test
     runs-on: ubuntu-latest
