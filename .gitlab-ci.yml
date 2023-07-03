@@ -27,6 +27,7 @@ build:
   artifacts:
     paths:
       - target/wasm32-wasi/release/wasm_oidc_plugin.wasm
+    expire_in: 1 week
 
 documentation:
   only:
@@ -37,3 +38,4 @@ documentation:
   artifacts:
     paths:
       - target/doc
+    expire_in: 1 week
