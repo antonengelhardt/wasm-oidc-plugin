@@ -255,8 +255,8 @@ impl ConfiguredOidc {
                         Ok(())
                     }
                     // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
-                    Err(_) => {
-                        return Err(format!("Token validation failed."));
+                    Err(e) => {
+                        return Err(format!("Token validation failed: {:?}", e));
                     }
                 }
             }
