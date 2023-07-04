@@ -4,6 +4,7 @@ stages:
   - test
   - build
   - documentation
+  - deploy-docs
 
 cache:
   paths:
@@ -29,13 +30,15 @@ build:
       - target/wasm32-wasi/release/wasm_oidc_plugin.wasm
     expire_in: 1 week
 
-documentation:
-  only:
-    - main
-  stage: documentation
+pages:
+  cache: {}
+  stage: deploy-docs
   script:
-    - cargo doc --document-private-items
+    - cargo doc --document-private-items --no-deps
+    - echo "<meta http-equiv=refresh content=0;url=wasm_oidc_plugin/index.html>" > target/doc/index.html
+    - mv target/doc public
   artifacts:
     paths:
-      - target/doc
-    expire_in: 1 week
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
