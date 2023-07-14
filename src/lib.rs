@@ -22,9 +22,7 @@ use jwt_simple::prelude::*;
 use url::{form_urlencoded, Url};
 
 // aes-256
-use aes_gcm::{
-    Aes256Gcm,
-};
+use aes_gcm::Aes256Gcm;
 
 /// This module contains logic to parse and save the current authorization state in a cookie
 mod cookie;
@@ -281,7 +279,6 @@ impl ConfiguredOidc {
 
         // Define verification options
         let mut verification_options = VerificationOptions::default();
-
         verification_options.allowed_audiences = Some(allowed_audiences);
         verification_options.allowed_issuers = Some(allowed_issuers);
 

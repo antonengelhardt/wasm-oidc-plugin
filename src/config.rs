@@ -5,7 +5,7 @@ use serde::Deserialize;
 use regex::Regex;
 
 // url
-use url::{Url};
+use url::Url;
 
 /// Struct that holds the configuration for the filter and all relevant information for the
 /// OpenID Connect Flow.
