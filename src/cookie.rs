@@ -39,7 +39,7 @@ impl AuthorizationState {
         // Format the response into a slice and parse it in a struct
         match serde_json::from_slice::<AuthorizationState>(&res) {
 
-            // If deserialization was successful, return the cookie
+            // If deserialization was successful, return the encrypted and encoded cookie
             Ok(state) => {
 
                 // Generate nonce and encode it

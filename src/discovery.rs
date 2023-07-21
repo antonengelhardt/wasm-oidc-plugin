@@ -24,8 +24,8 @@ use aes_gcm::{Aes256Gcm, KeyInit};
 
 // crate
 use crate::{OpenIdConfig, ConfiguredOidc, PauseRequests};
-use crate::config::PluginConfiguration;
-use crate::responses::{JWKsResponse, OidcDiscoveryResponse};
+use crate::config::{PluginConfiguration,Key};
+use crate::responses::{JWKsResponse, OidcDiscoveryResponse, JWK};
 
 // This is the initial entry point of the plugin.
 proxy_wasm::main! {{
@@ -387,27 +387,32 @@ impl Context for OidcDiscovery {
                             return;
                         }
 
-                       // For all keys, check if it is a key of alg RS256 and append it to the list of keys.
-                       let mut keys : Vec<jwt_simple::algorithms::RS256PublicKey> = Vec::new();
+                       // For all keys, check if it is a key of any of the supported types.
+                       let mut keys : Vec<Key> = vec![];
                        for key in jwks_response.keys {
-                            if key.kty == "RSA" && key.alg == "RS256" {
-                                // If the key id is present, set the state to ready and return.
-                                // Extract public key components
-                                let public_key_comp_n = &key.n;
-                                let public_key_comp_e = &key.e;
+                            match key {
+                                JWK::RS256{kty, alg, n, e} => {
 
-                                // Decode and parse the public key
-                                let n_dec = base64engine_urlsafe.decode(public_key_comp_n).unwrap();
-                                let e_dec = base64engine_urlsafe.decode(public_key_comp_e).unwrap();
+                                    // Check if the key is of type RSA
+                                    if kty != "RSA" && alg != "RS256" {
+                                        warn!("key is not of type RSA or alg is not RS256, skipping");
+                                        continue;
+                                    }
 
-                                let public_key = jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
-                                .unwrap();
+                                    // Extract public key components
+                                    let public_key_comp_n = &n;
+                                    let public_key_comp_e = &e;
 
-                                keys.push(public_key);
-                            }
+                                    // Decode and parse the public key
+                                    let n_dec = base64engine_urlsafe.decode(public_key_comp_n).unwrap();
+                                    let e_dec = base64engine_urlsafe.decode(public_key_comp_e).unwrap();
+
+                                    let public_key = jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
+                                    .unwrap();
+
+                                    keys.push(public_key);
+                                }
                             // Possibilty to add more algorithms here
-                            else {
-                                warn!("unsupported algorithm: {}", key.alg);
                             }
                         }
 
@@ -466,4 +471,3 @@ impl Context for OidcDiscovery {
         }
     }
 }
-

@@ -24,7 +24,13 @@ pub struct OpenIdConfig {
 
     // Relevant for Validation of the ID Token
     /// The public keys that will be used for the validation of the ID Token
-    pub public_keys: Vec<jwt_simple::algorithms::RS256PublicKey>,
+    pub public_keys: Vec<Key>,
+}
+
+/// Enum that holds the public keys that will be used for the validation of the ID Token
+#[derive(Clone, Debug)]
+pub enum Key {
+    RS256PublicKey,
 }
 
 /// Struct that holds the configuration for the plugin. It is loaded from the config file

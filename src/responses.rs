@@ -21,16 +21,18 @@ pub struct JWKsResponse {
 }
 
 #[derive(Deserialize, Debug)]
-/// A single key of the jwks response
-pub struct JWK {
-    /// The key type
-    pub kty: String,
-    /// The key algorithm
-    pub alg: String,
-    /// The Public Keys Component n, the modulus
-    pub n: String,
-    /// The Public Keys Component e, the exponent
-    pub e: String,
+pub enum JWK {
+    /// A RSA Key of 256 bits
+    RS256 {
+        /// The key type
+        kty: String,
+        /// The key algorithm
+        alg: String,
+        /// The Public Keys Component n, the modulus
+        n: String,
+        /// The Public Keys Component e, the exponent
+        e: String,
+    },
 }
 
 /// Struct that defines how the callback looks like to serialize it better
