@@ -393,114 +393,121 @@ impl ConfiguredOidc {
         // Check if the response is valid. If its not 200, investigate the response
         // and log the error.
         if self.get_http_call_response_header(":status") != Some("200".to_string()) {
-
             // Get body of response
-            if let Some(body) = self.get_http_call_response_body(0, body_size) {
-
-                // Decode body
-                if let Ok(decoded) = String::from_utf8(body) {
-                    return Err(format!("Token response is not valid: {:?}", decoded));
-
-                // If decoding fails, log the error
-                } else {
-                    return Err(format!("Token could not be decoded"));
+            match self.get_http_call_response_body(0, body_size) {
+                Some(body) => {
+                    // Decode body
+                    match String::from_utf8(body) {
+                        Ok(decoded) => {
+                            return Err(format!("Token response is not valid: {:?}", decoded));
+                        }
+                        // If decoding fails, log the error
+                        Err(_) => {
+                            return Err(format!("Token could not be decoded"));
+                        }
+                    }
                 }
-
-            // If no body is found, log the error
-            } else {
-                return Err(format!("No body in token response with invalid status code."));
+                // If no body is found, log the error
+                None => {
+                    return Err(format!(
+                        "No body in token response with invalid status code."
+                    ));
+                }
             }
         }
 
         // Catching token response from token endpoint. Previously we checked for the status code and
         // the body, so we can assume that the response is valid.
-        if let Some(body) = self.get_http_call_response_body(0, body_size) {
-            debug!("Token response: {:?}", body);
+        match self.get_http_call_response_body(0, body_size) {
+            Some(body) => {
+                debug!("Token response: {:?}", body);
 
-            // Build Cookie Struct using create_cookie_from_response from cookie.rs
-            match cookie::AuthorizationState::create_cookie_from_response(self.cipher.clone(), body.as_slice()) {
-                Ok(res) => {
+                // Build Cookie Struct using create_cookie_from_response from cookie.rs
+                match cookie::AuthorizationState::create_cookie_from_response(self.cipher.clone(), body.as_slice()) {
+                    Ok(res) => {
 
-                    let auth_cookie = res.first().unwrap().to_string();
-                    let nonce = res.last().unwrap().to_string();
+                        let auth_cookie = res.first().unwrap().to_string();
+                        let nonce = res.last().unwrap().to_string();
 
-                    debug!("Cookie: {:?}", &auth_cookie);
-                    debug!("Nonce: {:?}", &nonce);
+                        debug!("Cookie: {:?}", &auth_cookie);
+                        debug!("Nonce: {:?}", &nonce);
 
-                    // Get original-path cookie
-                    let original_path = match self.get_cookie("original-path") {
-                        Some(original_path_encoded) => {
-                            match base64engine.decode(original_path_encoded) {
-                                Ok(original_path_decoded) => {
-                                    match String::from_utf8(original_path_decoded) {
-                                        Ok(original_path_decoded) => {
-                                            original_path_decoded
-                                        }
-                                        Err(e) => {
-                                            warn!("Error: {}", e);
-                                            "/".to_string()
+                        // Get original-path cookie
+                        let original_path = match self.get_cookie("original-path") {
+                            Some(original_path_encoded) => {
+                                match base64engine.decode(original_path_encoded) {
+                                    Ok(original_path_decoded) => {
+                                        match String::from_utf8(original_path_decoded) {
+                                            Ok(original_path_decoded) => {
+                                                original_path_decoded
+                                            }
+                                            Err(e) => {
+                                                warn!("Error: {}", e);
+                                                "/".to_string()
+                                            }
                                         }
                                     }
-                                }
-                                Err(e) => {
-                                    warn!("Error: {}", e);
-                                    "/".to_string()
+                                    Err(e) => {
+                                        warn!("Error: {}", e);
+                                        "/".to_string()
+                                    }
                                 }
                             }
-                        }
-                        None => "/".to_string()
-                    };
-                    debug!("Original Path: {:?}", &original_path);
+                            None => "/".to_string()
+                        };
+                        debug!("Original Path: {:?}", &original_path);
 
-                    // Split every 4000 bytes and push it to the cookie_parts vector
-                    let cookie_parts = auth_cookie
-                    	.as_bytes()
-	                    .chunks(4000)
-	                    .map(|chunk| std::str::from_utf8(chunk)
-                        .expect("auth_cookie is base64 encoded, which means ASCII, which means one character = one byte, so this is valid"));
+                        // Split every 4000 bytes and push it to the cookie_parts vector
+                        let cookie_parts = auth_cookie
+                            .as_bytes()
+                            .chunks(4000)
+                            .map(|chunk| std::str::from_utf8(chunk)
+                            .expect("auth_cookie is base64 encoded, which means ASCII, which means one character = one byte, so this is valid"));
 
 
-                    // Iterate over the cookie parts and set the cookie reply headers
-                    let mut cookie_values = vec![];
-                    for (i, cookie_part) in cookie_parts.enumerate() {
-                        let cookie_value = String::from(format!("{}-{}={}; Path=/; HttpOnly; Max-Age={}",
-                            self.plugin_config.cookie_name,
-                            i,
-                            cookie_part,
-                            self.plugin_config.cookie_duration));
-                        cookie_values.push(cookie_value);
-                    };
+                        // Iterate over the cookie parts and set the cookie reply headers
+                        let mut cookie_values = vec![];
+                        for (i, cookie_part) in cookie_parts.enumerate() {
+                            let cookie_value = String::from(format!("{}-{}={}; Path=/; HttpOnly; Max-Age={}",
+                                self.plugin_config.cookie_name,
+                                i,
+                                cookie_part,
+                                self.plugin_config.cookie_duration));
+                            cookie_values.push(cookie_value);
+                        };
 
-                    // Build the cookie headers
-                    let mut set_cookie_headers: Vec<(&str,&str)> = cookie_values
-                        .iter()
-                        .map(|v| ("Set-Cookie", v.as_str()))
-                        .collect();
+                        // Build the cookie headers
+                        let mut set_cookie_headers: Vec<(&str,&str)> = cookie_values
+                            .iter()
+                            .map(|v| ("Set-Cookie", v.as_str()))
+                            .collect();
 
-                    // Set the location header to the original path
-                    let location_header = ("Location", original_path.as_str());
-                    set_cookie_headers.push(location_header);
+                        // Set the location header to the original path
+                        let location_header = ("Location", original_path.as_str());
+                        set_cookie_headers.push(location_header);
 
-                    // Set the nonce cookie
-                    let nonce_cookie = format!("{}={}; Path=/; HttpOnly; Max-Age={}", "nonce",
-                        nonce, self.plugin_config.cookie_duration);
-                    set_cookie_headers.push(("Set-Cookie", nonce_cookie.as_str()));
+                        // Set the nonce cookie
+                        let nonce_cookie = format!("{}={}; Path=/; HttpOnly; Max-Age={}", "nonce",
+                            nonce, self.plugin_config.cookie_duration);
+                        set_cookie_headers.push(("Set-Cookie", nonce_cookie.as_str()));
 
-                    // Redirect back to the original URL and set the cookie.
-                    self.send_http_response(
-                        307,
-                        set_cookie_headers,
-                        Some(b"Redirecting..."),
-                    );
-                    Ok(())
-                }
-                Err(e) => {
-                    Err(format!("Error: {}", e))
+                        // Redirect back to the original URL and set the cookie.
+                        self.send_http_response(
+                            307,
+                            set_cookie_headers,
+                            Some(b"Redirecting..."),
+                        );
+                        Ok(())
+                    }
+                    Err(e) => {
+                        Err(format!("Error: {}", e))
+                    }
                 }
             }
-        // If no body is found, return the error
-        } else {
-            Err(format!("No body in token response with invalid status code."))
+            // If no body is found, return the error
+            None => {
+                Err(format!("No body in token response with invalid status code."))
+            }
         }
     }
 

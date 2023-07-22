@@ -59,8 +59,8 @@ static_resources:
                           authority: "auth.k8s.wwu.de"
                           redirect_uri: "http://localhost:10000/oidc/callback"
                           client_id: "wasm-oidc-plugin"
-                          scope: "openid email"
-                          claims: "{\"id_token\":{\"email\":null}}"
+                          scope: "openid profile email"
+                          claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
 
                           client_secret: "redacted"
                           audience: "wasm-oidc-plugin"
