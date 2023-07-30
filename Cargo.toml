@@ -1,7 +1,7 @@
 [package]
 publish = false
 name = "wasm-oidc-plugin"
-version = "0.1.1"
+version = "0.1.3"
 authors = ["WWU Cloud Developer <cloud@uni-muenster.de>, Anton Engelhardt <antoncengelhardt@icloud.com>"]
 description = "WASM OIDC Envoy Plugin"
 license = "Apache-2.0"
@@ -31,7 +31,7 @@ base64 = "0.21.0"
 regex = "1.4.3"
 serde_regex = "1.1.0"
 
-# jsonwebtoken
+# jsonwebtoken (forked version to support RSA keys longer than 4096 bits)
 jwt-simple = {git = "https://zivgitlab.uni-muenster.de/m_wiga01/rust-jwt-simple/", rev = "b92ac707dab1f65fae00569a468793d5eb6dab22"}
 
 # pkce

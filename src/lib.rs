@@ -147,7 +147,7 @@ impl HttpContext for ConfiguredOidc {
             return Action::Pause;
         }
 
-        // Find all cookies that have the cookie name, split them by ; and remove the name from the cookie
+        // Find all cookies that have the cookie_name, split them by ; and remove the name from the cookie
         // as well as the leading =. Then join the cookie values together again.
         let cookie = self.get_http_request_header("cookie").unwrap_or_default();
         let cookie = cookie.split(";")
@@ -156,9 +156,20 @@ impl HttpContext for ConfiguredOidc {
             .collect::<Vec<&str>>()
             .join("");
 
+        // Get Nonce from cookie
+        let nonce = match self.get_cookie("nonce") {
+            Some(nonce) => nonce,
+            None => {
+                // If no nonce is found, redirect to `authorization_endpoint`
+                debug!("No nonce found in cookie.");
+                self.redirect_to_authorization_endpoint();
+                return Action::Pause;
+            }
+        };
+
         // Validate the cookie
         if cookie != "" {
-            match self.validate_cookie(cookie) {
+            match self.validate_cookie(cookie, nonce) {
                 Ok(_) => {
                     return Action::Continue;
                 },
@@ -168,8 +179,8 @@ impl HttpContext for ConfiguredOidc {
             };
         }
 
-        // Redirect to `authorization endpoint` if no cookie is found or previous cases have returned an error.
-        // Pausing the request is necessary to create a new context for the redirect.
+        // Redirect to `authorization_endpoint` if no cookie is found or previous cases have returned an error.
+        // Pausing the request is necessary to create a new context after the redirect.
         self.redirect_to_authorization_endpoint();
 
         Action::Pause
@@ -228,17 +239,9 @@ impl ConfiguredOidc {
     /// The cookie is parsed into the `AuthorizationState` struct. The token is validated using the
     /// `validate_token` function. If the token is valid, this function returns Ok(()). If the token
     /// is invalid, this function returns Err(String) and redirects the requester to the `authorization endpoint`.
-    fn validate_cookie(&self, cookie: String) -> Result<(), String> {
+    fn validate_cookie(&self, cookie: String, nonce: String) -> Result<(), String> {
 
         debug!("Cookie found, checking validity.");
-
-        // Get Nonce from cookie
-        let nonce = match self.get_cookie("nonce") {
-            Some(nonce) => nonce,
-            None => {
-                return Err(format!("Nonce not found in cookie."));
-            }
-        };
 
         // Try to parse and decrypt the cookie and handle the result
         match cookie::AuthorizationState::decode_and_decrypt_cookie(cookie, self.cipher.to_owned(), nonce) {
@@ -332,7 +335,7 @@ impl ConfiguredOidc {
         let auth = format!("Basic {}", encoded);
 
         // Get code verifier from cookie
-        let code_verifier = self.get_cookie("code_verifier").unwrap_or_default();
+        let code_verifier = self.get_cookie("code-verifier").unwrap_or_default();
         let code_verifier_decoded = match base64engine.decode(code_verifier) {
             Ok(decoded) => decoded,
             Err(e) => {
@@ -549,7 +552,7 @@ impl ConfiguredOidc {
                 // Original path to redirect back to
                 ("Set-Cookie", &format!("original-path={}; Max-Age={}", &original_path_encoded, 180)),
                 // Set the pkce challenge as a cookie to verify the callback.
-                ("Set-Cookie", &format!("code_verifier={}; Max-Age={}", &pkce_encoded, 180)),
+                ("Set-Cookie", &format!("code-verifier={}; Max-Age={}", &pkce_encoded, 180)),
                 // Redirect to `authorization endpoint`
                 ("Location", url.as_str()),
                 ],
