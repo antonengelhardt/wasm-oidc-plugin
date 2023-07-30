@@ -7,7 +7,7 @@ jobs:
     test:
         runs-on: ubuntu-latest
         container:
-          image: zivgitlab.wwu.io/m_wiga01/rust-docker-tools/rust-docker-tools:latest
+          image: antonengelhardt/rust-docker-tools
         steps:
           - name: Checkout code
             uses: actions/checkout@v3
