@@ -77,7 +77,7 @@ The plugin is configured via the `envoy.yaml` file. The following configuration 
 | `exclude_urls` | `Vec<Regex>` | A comma separated list of URLs (in Regex expressions), that are excluded from the filter. | `["localhost:10000/health"]` |
 | `cookie_name` | `string` | The name of the cookie, that is used to store the session. | `oidcSession` |
 | `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` |
-| 'token_validation' | bool | Whether to validate the token or not. | `true` |
+| `token_validation` | bool | Whether to validate the token or not. | `true` |
 | `aes_key` | `string` | A base64 encoded AES-256 Key | `SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q` |
 | `authority` | `string` | The authority of the `authorization_endpoint`. | `accounts.google.com` |
 | `redirect_uri` | `string` | The redirect URI, that the `authorization_endpoint` will redirect to. | `http://localhost:10000/oidc/callback` |
