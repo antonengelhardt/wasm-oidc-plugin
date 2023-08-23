@@ -246,18 +246,28 @@ impl ConfiguredOidc {
         // Try to parse and decrypt the cookie and handle the result
         match cookie::AuthorizationState::decode_and_decrypt_cookie(cookie, self.cipher.to_owned(), nonce) {
 
-            // If the cookie can be parsed, this filter validates the token
+            // If the cookie can be parsed, this means that the cookie is trusted because modifications would have
+            // corrupted the encrypted state
             Ok(auth_state) => {
-                // Validate token
-                match self.validate_token(&auth_state.id_token) {
-                    // If the token is valid, this filter passes the request
-                    Ok(_) => {
-                        debug!("Token is valid, passing request.");
-                        Ok(())
+
+                // Only validate the token if the configuration option is set
+                match self.plugin_config.token_validation {
+                    true => {
+                        // Validate token
+                        match self.validate_token(&auth_state.id_token) {
+                            // If the token is valid, this filter passes the request
+                            Ok(_) => {
+                                debug!("Token is valid, passing request.");
+                                Ok(())
+                            }
+                            // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
+                            Err(e) => {
+                                return Err(format!("Token validation failed: {:?}", e));
+                            }
+                        }
                     }
-                    // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
-                    Err(e) => {
-                        return Err(format!("Token validation failed: {:?}", e));
+                    false => {
+                        Ok(())
                     }
                 }
             }

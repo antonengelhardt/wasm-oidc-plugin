@@ -51,6 +51,8 @@ pub struct PluginConfiguration {
     pub cookie_name: String,
     /// The cookie duration in seconds
     pub cookie_duration: u64,
+    /// Option to skip Token Validation
+    pub token_validation: bool,
     /// AES Key
     pub aes_key: String,
 
