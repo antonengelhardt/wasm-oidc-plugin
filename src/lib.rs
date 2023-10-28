@@ -300,7 +300,7 @@ impl ConfiguredOidc {
 
             // Perform the validation
             let validation_result =
-                public_key.verify_token::<NoCustomClaims>(&token, Some(verification_options.to_owned()));
+                public_key.verify_token(&token, verification_options.to_owned());
 
             // Check if the token is valid, the aud and iss are correct and the signature is valid.
             match validation_result {

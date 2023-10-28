@@ -24,8 +24,8 @@ use aes_gcm::{Aes256Gcm, KeyInit};
 
 // crate
 use crate::{OpenIdConfig, ConfiguredOidc, PauseRequests};
-use crate::config::{PluginConfiguration,Key};
-use crate::responses::{JWKsResponse, OidcDiscoveryResponse, JWK};
+use crate::config::{PluginConfiguration,SigningKey};
+use crate::responses::{JWKsResponse, OidcDiscoveryResponse, JsonWebKey};
 
 // This is the initial entry point of the plugin.
 proxy_wasm::main! {{
@@ -377,6 +377,7 @@ impl Context for OidcDiscovery {
                 let body = self.get_http_call_response_body(0, _body_size).unwrap();
 
                 match serde_json::from_slice::<JWKsResponse>(&body) {
+
                     Ok(jwks_response) => {
                         debug!("parsed jwks body: {:?}", jwks_response);
 
@@ -388,10 +389,11 @@ impl Context for OidcDiscovery {
                         }
 
                        // For all keys, check if it is a key of any of the supported types.
-                       let mut keys : Vec<Key> = vec![];
+                       let mut keys : Vec<SigningKey> = vec![];
                        for key in jwks_response.keys {
                             match key {
-                                JWK::RS256{kty, alg, n, e} => {
+                                // Build the public key from the components and add it to the list of keys.
+                                JsonWebKey::RS256{kty, alg, n, e} => {
 
                                     // Check if the key is of type RSA
                                     if kty != "RSA" && alg != "RS256" {
@@ -407,12 +409,13 @@ impl Context for OidcDiscovery {
                                     let n_dec = base64engine_urlsafe.decode(public_key_comp_n).unwrap();
                                     let e_dec = base64engine_urlsafe.decode(public_key_comp_e).unwrap();
 
-                                    let public_key = jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
-                                    .unwrap();
+                                    let public_key = SigningKey::RS256PublicKey(
+                                        jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
+                                    .unwrap());
 
                                     keys.push(public_key);
                                 }
-                            // Possibilty to add more algorithms here
+                                // Possibility to add more algorithms here
                             }
                         }
 
