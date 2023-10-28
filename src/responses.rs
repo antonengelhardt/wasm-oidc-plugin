@@ -15,13 +15,17 @@ pub struct OidcDiscoveryResponse {
 
 #[derive(Deserialize, Debug)]
 /// [JWKs response](https://tools.ietf.org/html/rfc7517)
+/// Contains a list of keys that can be used for the validation of the ID Token
 pub struct JWKsResponse {
     /// The keys of the jwks response, see `JWK`
-    pub keys: Vec<JWK>,
+    pub keys: Vec<JsonWebKey>,
 }
 
+/// [JWK](https://tools.ietf.org/html/rfc7517)
+/// Define the structure of each key type that can be used for the validation of the ID Token
 #[derive(Deserialize, Debug)]
-pub enum JWK {
+#[serde(untagged)]
+pub enum JsonWebKey {
     /// A RSA Key of 256 bits
     RS256 {
         /// The key type
@@ -33,6 +37,7 @@ pub enum JWK {
         /// The Public Keys Component e, the exponent
         e: String,
     },
+    // Add more key types here
 }
 
 /// Struct that defines how the callback looks like to serialize it better
