@@ -24,8 +24,8 @@ use aes_gcm::{Aes256Gcm, KeyInit};
 
 // crate
 use crate::{OpenIdConfig, ConfiguredOidc, PauseRequests};
-use crate::config::{PluginConfiguration,SigningKey};
-use crate::responses::{JWKsResponse, OidcDiscoveryResponse, JsonWebKey};
+use crate::config::PluginConfiguration;
+use crate::responses::{JWKsResponse, OidcDiscoveryResponse, JsonWebKey, SigningKey};
 
 // This is the initial entry point of the plugin.
 proxy_wasm::main! {{
