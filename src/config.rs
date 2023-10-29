@@ -4,11 +4,11 @@ use serde::Deserialize;
 // serde_regex
 use regex::Regex;
 
-// jwt_simple
-use jwt_simple::{self, prelude::{RSAPublicKeyLike, VerificationOptions, JWTClaims}, Error, claims::NoCustomClaims};
-
 // url
 use url::Url;
+
+// wasm-oidc-plugin
+use crate::responses::SigningKey;
 
 /// Struct that holds the configuration for the filter and all relevant information for the
 /// OpenID Connect Flow.
@@ -28,28 +28,6 @@ pub struct OpenIdConfig {
     // Relevant for Validation of the ID Token
     /// The public keys that will be used for the validation of the ID Token
     pub public_keys: Vec<SigningKey>,
-}
-
-/// Enum that holds the public keys that will be used for the validation of the ID Token
-/// Essentially a wrapper to connect the `JWKsResponse` with the `jwt_simple` crate to use
-/// the `verify_token` function
-#[derive(Clone, Debug)]
-pub enum SigningKey {
-    RS256PublicKey(jwt_simple::algorithms::RS256PublicKey)
-}
-
-/// A public key that can be used for the validation of the ID Token
-impl SigningKey {
-
-    /// Function that calls the `verify_token` function of the `jwt_simple` crate for each key type
-    pub fn verify_token(&self, token: &str, options: VerificationOptions) -> Result<JWTClaims<NoCustomClaims>, Error> {
-
-        match self {
-            // RSA Key of 256 bits
-            SigningKey::RS256PublicKey(key) => key.verify_token(token, Some(options))
-            // Add more key types here
-        }
-    }
 }
 
 /// Struct that holds the configuration for the plugin. It is loaded from the config file
