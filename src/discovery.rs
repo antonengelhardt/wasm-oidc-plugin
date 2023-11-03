@@ -14,7 +14,7 @@ use std::sync::Mutex;
 use url::Url;
 
 // base64
-use base64::{engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
+use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
 
 // duration
 use std::time::Duration;
@@ -25,7 +25,7 @@ use aes_gcm::{Aes256Gcm, KeyInit};
 // crate
 use crate::{OpenIdConfig, ConfiguredOidc, PauseRequests};
 use crate::config::PluginConfiguration;
-use crate::responses::{JWKsResponse, OidcDiscoveryResponse, JsonWebKey, SigningKey};
+use crate::responses::{JWKsResponse, OidcDiscoveryResponse, SigningKey};
 
 // This is the initial entry point of the plugin.
 proxy_wasm::main! {{
@@ -60,7 +60,7 @@ pub struct OidcDiscovery {
     pub state: OidcRootState,
     /// Queue of waiting requests which are waiting for the configuration to be loaded
     waiting: Mutex<Vec<u32>>,
-    /// Tokenid of the HttpCalls to verify the call is correct
+    /// token_id of the HttpCalls to verify the call is correct
     token_id: Option<u32>,
     /// AES256 key used to encrypt the session data
     cipher: Option<Aes256Gcm>,
@@ -388,35 +388,15 @@ impl Context for OidcDiscovery {
                             return;
                         }
 
-                       // For all keys, check if it is a key of any of the supported types.
+                       // For all keys, create a signing key if possible
                        let mut keys : Vec<SigningKey> = vec![];
                        for key in jwks_response.keys {
-                            match key {
-                                // Build the public key from the components and add it to the list of keys.
-                                JsonWebKey::RS256{kty, alg, n, e} => {
 
-                                    // Check if the key is of type RSA
-                                    if kty != "RSA" && alg != "RS256" {
-                                        warn!("key is not of type RSA or alg is not RS256, skipping");
-                                        continue;
-                                    }
+                            // Create the signing key from the JWK
+                            let signing_key = SigningKey::from(key);
 
-                                    // Extract public key components
-                                    let public_key_comp_n = &n;
-                                    let public_key_comp_e = &e;
-
-                                    // Decode and parse the public key
-                                    let n_dec = base64engine_urlsafe.decode(public_key_comp_n).unwrap();
-                                    let e_dec = base64engine_urlsafe.decode(public_key_comp_e).unwrap();
-
-                                    let public_key = SigningKey::RS256PublicKey(
-                                        jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
-                                    .unwrap());
-
-                                    keys.push(public_key);
-                                }
-                                // Possibility to add more algorithms here
-                            }
+                            // Add the signing key to the list of keys
+                            keys.push(signing_key);
                         }
 
                         // Now that we have loaded all the configuration, we can set the tick period
