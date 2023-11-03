@@ -13,7 +13,6 @@ use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as
 // aes_gcm
 use aes_gcm::{Aes256Gcm, aead::{OsRng, AeadMut}, AeadCore};
 
-
 /// Struct parse the cookie from the request into a struct in order to access the fields and
 /// also to save the cookie on the client side
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -2,7 +2,7 @@
 use serde::Deserialize;
 
 // log
-use log::{debug, info};
+use log::{info, debug};
 
 // base64
 use {base64::engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, base64::Engine as _};
@@ -37,7 +37,7 @@ pub struct JWKsResponse {
 pub enum JsonWebKey {
     /// A RSA Key of 256 bits
     RS256 {
-        /// The key type
+        /// The key type like RSA
         kty: String,
         /// The Public Keys Component n, the modulus
         n: String,
@@ -74,6 +74,8 @@ impl SigningKey {
 /// Implementation of the `From` trait for the `SigningKey` enum to convert the `JsonWebKey` into
 /// the `SigningKey` enum
 impl From<JsonWebKey> for SigningKey {
+
+    /// Function that converts the `JsonWebKey` into the `SigningKey` enum
     fn from(key: JsonWebKey) -> Self {
         match key {
             // RSA Key of 256 bits
@@ -84,15 +86,11 @@ impl From<JsonWebKey> for SigningKey {
                     debug!("key is not of type RSA although alg is RS256");
                 }
 
-                // Extract public key components
-                let public_key_comp_n = &n;
-                let public_key_comp_e = &e;
+                // Decode and parse the public key components
+                let n_dec = base64engine_urlsafe.decode(&n).unwrap();
+                let e_dec = base64engine_urlsafe.decode(&e).unwrap();
 
-                // Decode and parse the public key
-                let n_dec = base64engine_urlsafe.decode(public_key_comp_n).unwrap();
-                let e_dec = base64engine_urlsafe.decode(public_key_comp_e).unwrap();
-
-                info!("loaded rs256 public key");
+                info!("loaded RS256 public key");
 
                 return SigningKey::RS256PublicKey(
                     jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)

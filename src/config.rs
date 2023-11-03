@@ -7,7 +7,7 @@ use regex::Regex;
 // url
 use url::Url;
 
-// wasm-oidc-plugin
+// crate
 use crate::responses::SigningKey;
 
 /// Struct that holds the configuration for the filter and all relevant information for the
