@@ -1,6 +1,12 @@
 // serde
 use serde::Deserialize;
 
+// log
+use log::{debug, info};
+
+// base64
+use {base64::engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, base64::Engine as _};
+
 // jwt_simple
 use jwt_simple::{self, prelude::{RSAPublicKeyLike, VerificationOptions, JWTClaims}, Error, claims::NoCustomClaims};
 
@@ -27,14 +33,12 @@ pub struct JWKsResponse {
 /// [JWK](https://tools.ietf.org/html/rfc7517)
 /// Define the structure of each key type that are retrieved from the jwks uri
 #[derive(Deserialize, Debug)]
-#[serde(untagged)]
+#[serde(tag = "alg")]
 pub enum JsonWebKey {
     /// A RSA Key of 256 bits
     RS256 {
         /// The key type
         kty: String,
-        /// The key algorithm
-        alg: String,
         /// The Public Keys Component n, the modulus
         n: String,
         /// The Public Keys Component e, the exponent
@@ -48,7 +52,9 @@ pub enum JsonWebKey {
 /// the `verify_token` function
 #[derive(Clone, Debug)]
 pub enum SigningKey {
-    RS256PublicKey(jwt_simple::algorithms::RS256PublicKey)
+    /// A RSA Key of 256 bits
+    RS256PublicKey(jwt_simple::algorithms::RS256PublicKey),
+    // Add more key types here
 }
 
 /// A public key that can be used for the validation of the ID Token
@@ -59,7 +65,39 @@ impl SigningKey {
 
         match self {
             // RSA Key of 256 bits
-            SigningKey::RS256PublicKey(key) => key.verify_token(token, Some(options))
+            SigningKey::RS256PublicKey(key) => key.verify_token(token, Some(options)),
+            // Add more key types here
+        }
+    }
+}
+
+/// Implementation of the `From` trait for the `SigningKey` enum to convert the `JsonWebKey` into
+/// the `SigningKey` enum
+impl From<JsonWebKey> for SigningKey {
+    fn from(key: JsonWebKey) -> Self {
+        match key {
+            // RSA Key of 256 bits
+            JsonWebKey::RS256 { kty, n, e, .. } => {
+
+                // Check if the key is of type RSA
+                if kty != "RSA" {
+                    debug!("key is not of type RSA although alg is RS256");
+                }
+
+                // Extract public key components
+                let public_key_comp_n = &n;
+                let public_key_comp_e = &e;
+
+                // Decode and parse the public key
+                let n_dec = base64engine_urlsafe.decode(public_key_comp_n).unwrap();
+                let e_dec = base64engine_urlsafe.decode(public_key_comp_e).unwrap();
+
+                info!("loaded rs256 public key");
+
+                return SigningKey::RS256PublicKey(
+                    jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
+                .unwrap());
+            },
             // Add more key types here
         }
     }
