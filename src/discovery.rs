@@ -335,12 +335,10 @@ impl Context for OidcDiscovery {
 
                 // Parse the response body as json.
                 let body = match self.get_http_call_response_body(0, _body_size) {
-                    Some(body) => {
-                        debug!("openid config response body: {:?}", body);
-                        body
-                    }
+                    Some(body) => body,
                     None => {
-                        warn!("no body in openid config response");
+                        warn!("no body found in config response, maybe you forgot to add upstream to envoy.yaml?");
+                        // Stay in the same state.
                         return;
                     }
                 };
