@@ -4,35 +4,73 @@ on:
   pull_request:
 
 jobs:
-  test:
-    name: Test
-    runs-on: ubuntu-latest
-    container:
-      image: antonengelhardt/rust-docker-tools
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    test:
+      runs-on: ubuntu-latest
+      container:
+        image: antonengelhardt/rust-docker-tools
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v3
 
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        - name: Cache dependencies
+          uses: actions/cache@v2
+          with:
+            path: target
+            key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Cargo Deny
-        uses: EmbarkStudios/cargo-deny-action@v1
+        - name: Cargo Deny
+          uses: EmbarkStudios/cargo-deny-action@v1
 
-      - name: Rust version
-        run: rustc --version && cargo --version
+        - name: Run Rust tests
+          run: |
+            rustc --version && cargo --version
+            cargo clippy
+            cargo test --workspace --verbose
 
-      - name: Clippy
-        run: cargo clippy --release --all-targets --target=wasm32-wasi
+    integration-test:
+      runs-on: ubuntu-latest
+      container:
+        image: antonengelhardt/rust-docker-tools
 
-      - name: Fmt
-        run: cargo fmt -- --check
+      steps:
+        - name: Checkout code
+          uses: actions/checkout@v3
 
-      - name: Test
-        run: cargo test --workspace
+        - name: Create .env for Integration tests
+          run: |
+            echo "CI=true" >> integration-tests/.env
+            echo "WASM_OIDC_PLUGIN_TEST_EMAIL={{ secrets.WASM_OIDC_PLUGIN_TEST_EMAIL }}" >> integration-tests/.env
+            echo "WASM_OIDC_PLUGIN_TEST_PASSWORD={{ secrets.WASM_OIDC_PLUGIN_TEST_PASSWORD }}" >> integration-tests/.env
+            sed -i "client_secret: redacted/client_secret: ${{ secrets.WASM_OIDC_PLUGIN_TEST_CLIENT_SECRET }}" integration-tests/.env
 
-      - name: Build
-        run: cargo build --release --target wasm32-wasi
+        - name: Install Chrome
+          run: |
+            apt-get update
+            apt-get install -y libnss3-tools
+            wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+            apt install -y ./google-chrome-stable_current_amd64.deb
+
+        - name: Setup Chromedriver
+          uses: nanasess/setup-chromedriver@v2
+
+        - name: Setup Python
+          uses: actions/setup-python@v4
+          with:
+            python-version: 3.8
+
+        - name: Install Requirements
+          run: |
+            pip install -r integration-tests/requirements.txt
+
+        - name: Build
+          run: |
+            cargo build --target wasm32-wasi --release
+
+        - name: Docker-Compose up
+          run: |
+            cd integration-tests
+            docker-compose up -d
+
+        - name: Run Integration tests
+          run: |
+            pytest test.py

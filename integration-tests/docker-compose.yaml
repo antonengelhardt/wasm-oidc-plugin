@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  envoy:
+    image: envoyproxy/envoy:v1.24-latest
+    hostname: envoy
+    ports:
+      - "10000:10000"
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml
+      - ../target/wasm32-wasi/release:/etc/envoy/proxy-wasm-plugins
+    networks:
+      - envoymesh
+    command: envoy -c /etc/envoy/envoy.yaml --concurrency 1
+
+  httpbin:
+    image: kennethreitz/httpbin
+    hostname: httpbin
+    ports:
+      - "80:80"
+    networks:
+      - envoymesh
+networks:
+  envoymesh: {}
