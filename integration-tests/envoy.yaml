@@ -1,0 +1,95 @@
+static_resources:
+  listeners:
+    address:
+      socket_address:
+        address: 0.0.0.0
+        port_value: 10000
+    filter_chains:
+      - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              stat_prefix: ingress_http
+              codec_type: AUTO
+              route_config:
+                name: local_routes
+                virtual_hosts:
+                  - name: local_service
+                    domains:
+                      - "*"
+                    routes:
+                      - match:
+                          prefix: "/"
+                        route:
+                          cluster: httpbin
+              http_filters:
+                - name: envoy.filters.http.wasm
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+                    config:
+                      name: "oidc-wasm-plugin"
+                      configuration:
+                        "@type": "type.googleapis.com/google.protobuf.StringValue"
+                        value: |
+                          config_endpoint: "https://dev-wivqmfr2j1pfl1nt.us.auth0.com/.well-known/openid-configuration"
+                          reload_interval_in_h: 1
+
+                          exclude_hosts: []
+                          exclude_paths: []
+                          exclude_urls: []
+
+                          cookie_name: "oidcSession"
+                          cookie_duration: 86400
+                          token_validation: true
+                          aes_key: "SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q"
+
+                          authority: "dev-wivqmfr2j1pfl1nt.us.auth0.com"
+                          redirect_uri: "http://localhost:10000/oidc/callback"
+                          client_id: "qzj3n3w1cANXRdGYqw4j4OMEUQph2SVO"
+                          scope: "openid"
+                          claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+
+                          client_secret: "redacted"
+                          audience: "qzj3n3w1cANXRdGYqw4j4OMEUQph2SVO"
+                      vm_config:
+                        runtime: "envoy.wasm.runtime.v8"
+                        code:
+                          local:
+                            filename: "/etc/envoy/proxy-wasm-plugins/wasm_oidc_plugin.wasm"
+                - name: envoy.filters.http.router
+                  typed_config:
+                    "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  clusters:
+    - name: httpbin
+      connect_timeout: 5s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: httpbin
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: httpbin
+                      port_value: 80
+                  hostname: "httpbin.org"
+    - name: oidc
+      connect_timeout: 5s
+      type: LOGICAL_DNS
+      dns_lookup_family: V4_ONLY
+      load_assignment:
+        cluster_name: oidc
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: dev-wivqmfr2j1pfl1nt.us.auth0.com
+                      port_value: 443
+                  # hostname: "dev-wivqmfr2j1pfl1nt.us.auth0.com"
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+          sni: "dev-wivqmfr2j1pfl1nt.us.auth0.com"
