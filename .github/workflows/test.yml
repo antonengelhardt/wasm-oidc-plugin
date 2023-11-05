@@ -47,9 +47,7 @@ jobs:
           run: |
             apk update
             apk add chromium
-
-        - name: Setup Chromedriver
-          uses: nanasess/setup-chromedriver@v2
+            apk add chromium-chromedriver
 
         - name: Setup Python
           uses: actions/setup-python@v4
