@@ -41,7 +41,7 @@ jobs:
             echo "CI=true" >> integration-tests/.env
             echo "WASM_OIDC_PLUGIN_TEST_EMAIL={{ secrets.WASM_OIDC_PLUGIN_TEST_EMAIL }}" >> integration-tests/.env
             echo "WASM_OIDC_PLUGIN_TEST_PASSWORD={{ secrets.WASM_OIDC_PLUGIN_TEST_PASSWORD }}" >> integration-tests/.env
-            sed -i "client_secret: redacted/client_secret: ${{ secrets.WASM_OIDC_PLUGIN_TEST_CLIENT_SECRET }}" integration-tests/.env
+            sed -i 's/client_secret: redacted/client_secret: ${{ secrets.WASM_OIDC_PLUGIN_TEST_CLIENT_SECRET }}/g' integration-tests/envoy.yaml
 
         - name: Install Chrome, Chromedriver, Docker, Docker-Compose and Python (and pip)
           run: |
@@ -64,7 +64,7 @@ jobs:
         - name: Docker-Compose up
           run: |
             cd integration-tests
-            chown -R envoy.yaml
+
             docker-compose up -d
 
         - name: Run Integration tests
