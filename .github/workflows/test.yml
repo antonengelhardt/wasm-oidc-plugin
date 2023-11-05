@@ -49,10 +49,10 @@ jobs:
             apk add chromium
             apk add chromium-chromedriver
             apk add python3
+            apk add py3-pip
 
         - name: Install Requirements
           run: |
-            python -m pip install --upgrade pip
             pip install -r integration-tests/requirements.txt
 
         - name: Build
