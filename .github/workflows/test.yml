@@ -45,10 +45,8 @@ jobs:
 
         - name: Install Chrome
           run: |
-            apt-get update
-            apt-get install -y libnss3-tools
-            wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-            apt install -y ./google-chrome-stable_current_amd64.deb
+            apk update
+            apk add chromium
 
         - name: Setup Chromedriver
           uses: nanasess/setup-chromedriver@v2
