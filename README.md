@@ -75,6 +75,11 @@ The plugin is configured via the `envoy.yaml` file. The following configuration 
 | `exclude_hosts` | `Vec<Regex>` | A comma separated list Hosts (in Regex expressions), that are excluded from the filtrr. | `["localhost:10000"]` |
 | `exclude_paths` | `Vec<Regex>` | A comma separated list of paths (in Regex expressions), that are excluded from the filter. | `["/health"]` |
 | `exclude_urls` | `Vec<Regex>` | A comma separated list of URLs (in Regex expressions), that are excluded from the filter. | `["localhost:10000/health"]` |
+| `forward_access_token` | `bool` | Whether to forward the access token to the upstream service or not. | `true` |
+| `access_token_header_name` | `string` | The name of the header, that is used to forward the access token, if empty "Authorization" is used. | `X-Access-Token` |
+| `access_token_header_prefix` | `string` | The prefix of the header, that is used to forward the access token, if empty "" is used. | `Bearer` |
+| `forward_id_token` | `bool` | Whether to forward the id token to the upstream service or not. | `true` |
+| `id_token_header_name` | `string` | The name of the header, that is used to forward the id token, if empty "X-Id-Token" is used. | `X-Id-Token` |
 | `cookie_name` | `string` | The name of the cookie, that is used to store the session. | `oidcSession` |
 | `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` |
 | `token_validation` | bool | Whether to validate the token or not. | `true` |

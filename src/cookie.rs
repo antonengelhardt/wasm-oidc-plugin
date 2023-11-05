@@ -51,7 +51,7 @@ impl AuthorizationState {
                 // Encode cookie
                 let encoded_cookie = base64engine.encode(encrypted_cookie.as_slice());
 
-                Ok(vec![encoded_cookie, encoded_nonce])
+                Ok(vec![encoded_cookie, encoded_nonce, state.access_token, state.id_token])
             },
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
@@ -104,7 +104,7 @@ impl AuthorizationState {
             },
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
-                warn!("The cookie didnt match the expected format: {}", e);
+                warn!("The cookie didn't match the expected format: {}", e);
                 return Err(e.to_string())
             }
         }

@@ -38,6 +38,12 @@ static_resources:
                           exclude_paths: []
                           exclude_urls: []
 
+                          forward_access_token: true
+                          access_token_header_name: "Authorization"
+                          access_token_header_prefix: "Bearer "
+                          forward_id_token: true
+                          id_token_header_name: "X-Id-Token"
+
                           cookie_name: "oidcSession"
                           cookie_duration: 86400
                           token_validation: true
