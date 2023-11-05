@@ -43,16 +43,12 @@ jobs:
             echo "WASM_OIDC_PLUGIN_TEST_PASSWORD={{ secrets.WASM_OIDC_PLUGIN_TEST_PASSWORD }}" >> integration-tests/.env
             sed -i "client_secret: redacted/client_secret: ${{ secrets.WASM_OIDC_PLUGIN_TEST_CLIENT_SECRET }}" integration-tests/.env
 
-        - name: Install Chrome
+        - name: Install Chrome, Chromedriver and Python
           run: |
             apk update
             apk add chromium
             apk add chromium-chromedriver
-
-        - name: Setup Python
-          uses: actions/setup-python@v4
-          with:
-            python-version: 3.8
+            apk add python3
 
         - name: Install Requirements
           run: |
