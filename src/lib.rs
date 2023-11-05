@@ -26,6 +26,7 @@ use aes_gcm::Aes256Gcm;
 
 /// This module contains logic to parse and save the current authorization state in a cookie
 mod cookie;
+use cookie::AuthorizationState;
 
 /// This module contains the structs of the `PluginConfiguration` and `OpenIdConfig`
 mod config;
@@ -166,11 +167,41 @@ impl HttpContext for ConfiguredOidc {
                 return Action::Pause;
             }
         };
+        debug!("Nonce found in cookie: {:?}", nonce);
 
-        // Validate the cookie
+        // Validate the cookie and forward the request if the cookie is valid
         if cookie != "" {
             match self.validate_cookie(cookie, nonce) {
-                Ok(_) => {
+                Ok(auth_state) => {
+                    // Forward access token in header, if configured
+                    if self.plugin_config.forward_access_token {
+                        // Get access token
+                        let access_token = &auth_state.access_token;
+                        // Forward access token in header
+                        let access_token_header_name = match self.plugin_config.access_token_header_name.is_empty() {
+                            true => "Authorization",
+                            false => &self.plugin_config.access_token_header_name,
+                        };
+                        // Forward access token with prefix
+                        let access_token_header_prefix = match self.plugin_config.access_token_header_prefix.is_empty() {
+                            true => "",
+                            false => &self.plugin_config.access_token_header_prefix,
+                        };
+                        self.add_http_request_header(access_token_header_name, format!("{}{}", access_token_header_prefix, access_token).as_str());
+                    }
+                    // Forward id token in header, if configured
+                    if self.plugin_config.forward_id_token {
+                        // Get id token
+                        let id_token = &auth_state.id_token;
+                        // Forward id token in header
+                        let id_token_header_name = match self.plugin_config.id_token_header_name.is_empty() {
+                            true => "X-Id-Token",
+                            false => &self.plugin_config.id_token_header_name,
+                        };
+                        self.add_http_request_header(id_token_header_name, id_token);
+                    }
+
+                    // Allow request to pass
                     return Action::Continue;
                 },
                 Err(e) => {
@@ -239,7 +270,7 @@ impl ConfiguredOidc {
     /// The cookie is parsed into the `AuthorizationState` struct. The token is validated using the
     /// `validate_token` function. If the token is valid, this function returns Ok(()). If the token
     /// is invalid, this function returns Err(String) and redirects the requester to the `authorization endpoint`.
-    fn validate_cookie(&self, cookie: String, nonce: String) -> Result<(), String> {
+    fn validate_cookie(&self, cookie: String, nonce: String) -> Result<AuthorizationState, String> {
 
         debug!("Cookie found, checking validity.");
 
@@ -258,7 +289,7 @@ impl ConfiguredOidc {
                             // If the token is valid, this filter passes the request
                             Ok(_) => {
                                 debug!("Token is valid, passing request.");
-                                Ok(())
+                                Ok(auth_state)
                             }
                             // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
                             Err(e) => {
@@ -267,7 +298,7 @@ impl ConfiguredOidc {
                         }
                     }
                     false => {
-                        Ok(())
+                        Ok(auth_state)
                     }
                 }
             }
@@ -440,7 +471,7 @@ impl ConfiguredOidc {
                     Ok(res) => {
 
                         let auth_cookie = res.first().unwrap().to_string();
-                        let nonce = res.last().unwrap().to_string();
+                        let nonce = res.get(1).unwrap().to_string();
 
                         debug!("Cookie: {:?}", &auth_cookie);
                         debug!("Nonce: {:?}", &nonce);
