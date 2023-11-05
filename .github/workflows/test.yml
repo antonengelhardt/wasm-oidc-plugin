@@ -64,6 +64,7 @@ jobs:
         - name: Docker-Compose up
           run: |
             cd integration-tests
+            chown -R envoy.yaml
             docker-compose up -d
 
         - name: Run Integration tests
