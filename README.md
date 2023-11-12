@@ -80,6 +80,7 @@ The plugin is configured via the `envoy.yaml` file. The following configuration 
 | `access_token_header_prefix` | `string` | The prefix of the header, that is used to forward the access token, if empty "" is used. | `Bearer` |
 | `forward_id_token` | `bool` | Whether to forward the id token to the upstream service or not. | `true` |
 | `id_token_header_name` | `string` | The name of the header, that is used to forward the id token, if empty "X-Id-Token" is used. | `X-Id-Token` |
+| `id_token_header_prefix` | `string` | The prefix of the header, that is used to forward the id token, if empty "" is used. | `Bearer` |
 | `cookie_name` | `string` | The name of the cookie, that is used to store the session. | `oidcSession` |
 | `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` |
 | `token_validation` | bool | Whether to validate the token or not. | `true` |

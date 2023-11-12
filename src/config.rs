@@ -63,6 +63,9 @@ pub struct PluginConfiguration {
     /// The header name that will be used for the id token
     /// If the header name is empty, the id token will be forwarded in X-Id-Token header
     pub id_token_header_name: String,
+    /// Prefix for the id token header
+    /// If the prefix is empty, the id token will be forwarded without a prefix
+    pub id_token_header_prefix: String,
 
     // Cookie settings
     /// The cookie name that will be used for the session cookie

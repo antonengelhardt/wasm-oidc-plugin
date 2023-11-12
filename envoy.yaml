@@ -43,6 +43,7 @@ static_resources:
                           access_token_header_prefix: "Bearer "
                           forward_id_token: true
                           id_token_header_name: "X-Id-Token"
+                          id_token_header_prefix: "Bearer "
 
                           cookie_name: "oidcSession"
                           cookie_duration: 86400
