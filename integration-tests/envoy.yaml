@@ -35,8 +35,8 @@ static_resources:
                           reload_interval_in_h: 1
 
                           exclude_hosts: []
-                          exclude_paths: []
-                          exclude_urls: []
+                          exclude_paths: ["/anything"]
+                          exclude_urls: ["http://localhost:10000/anything"]
 
                           cookie_name: "oidcSession"
                           cookie_duration: 86400
