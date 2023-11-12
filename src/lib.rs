@@ -198,7 +198,11 @@ impl HttpContext for ConfiguredOidc {
                             true => "X-Id-Token",
                             false => &self.plugin_config.id_token_header_name,
                         };
-                        self.add_http_request_header(id_token_header_name, id_token);
+                        let id_token_header_prefix = match self.plugin_config.id_token_header_prefix.is_empty() {
+                            true => "",
+                            false => &self.plugin_config.id_token_header_prefix,
+                        };
+                        self.add_http_request_header(id_token_header_name, format!("{}{}", id_token_header_prefix, id_token).as_str());
                     }
 
                     // Allow request to pass
