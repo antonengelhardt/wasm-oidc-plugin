@@ -156,7 +156,7 @@ impl RootContext for OidcDiscovery {
 
     /// Creates the http context with the information from the open_id_config and the plugin configuration.
     /// This is called whenever a new http context is created by the proxy.
-    /// When the plugin is not yet ready, the http context is created in Unconfigured state and the
+    /// When the plugin is not yet ready, the http context is created in `Unconfigured` state and the
     /// context id is added to the waiting queue to be processed later.
     fn create_http_context(&self, context_id: u32) -> Option<Box<dyn HttpContext>> {
 
@@ -179,7 +179,7 @@ impl RootContext for OidcDiscovery {
                 }));
             },
 
-            // If the plugin is not ready, return the http context in Unconfigured state and add the
+            // If the plugin is not ready, return the http context in `Unconfigured` state and add the
             // context id to the waiting queue.
             _ => {
                 warn!("Root context is not ready yet. Queueing http context.");
@@ -187,7 +187,7 @@ impl RootContext for OidcDiscovery {
                 // Add the context id to the waiting queue.
                 self.waiting.lock().unwrap().push(context_id);
 
-                // Return the http context in Unconfigured state.
+                // Return the http context in `Unconfigured` state.
                 return Some(Box::new(PauseRequests{
                     original_path: None,
                 }));
@@ -223,7 +223,7 @@ impl RootContext for OidcDiscovery {
                 self.set_tick_period(Duration::from_millis(250));
 
                 // Make call to openid configuration endpoint
-                // The reponse is handled in `on_http_call_response`.
+                // The response is handled in `on_http_call_response`.
                 match self.dispatch_http_call(
                     "oidc",
                     vec![
@@ -253,7 +253,7 @@ impl RootContext for OidcDiscovery {
             }  => {
 
                 // Make call to jwks endpoint and load public key
-                // The reponse is handled in `on_http_call_response`.
+                // The response is handled in `on_http_call_response`.
                 match self.dispatch_http_call(
                     "oidc",
                     vec![
@@ -291,14 +291,14 @@ impl RootContext for OidcDiscovery {
     }
 
     /// This is one of those functions that need to be there for some reason but we are
-    /// not sure why. It just doesnt work without it.
+    /// not sure why. It just doesn't work without it.
     fn get_type(&self) -> Option<proxy_wasm::types::ContextType> {
         Some(ContextType::HttpContext)
     }
 }
 
 /// The context is used to process the response from the OIDC config endpoint and the jwks endpoint.
-/// It also utilised the state enum to determine what to do with the response.
+/// It also utilized the state enum to determine what to do with the response.
 /// 1. If the state is `Uninitialized`, the plugin is not initialized and the response is ignored.
 /// 2. If the state is `LoadingConfig`, the open id configuration is expected.
 /// 3. If the state is `LoadingJwks`, the jwks endpoint is expected.
@@ -418,7 +418,7 @@ impl Context for OidcDiscovery {
                     }
                     Err(e) =>  {
                         warn!("error parsing jwks body: {:?}", e);
-                        // Stay in the same state as the response couldnt be parsed.
+                        // Stay in the same state as the response couldn't be parsed.
                         OidcRootState::LoadingJwks {
                             plugin_config: plugin_config.clone(),
                             auth_endpoint: auth_endpoint.clone(),
