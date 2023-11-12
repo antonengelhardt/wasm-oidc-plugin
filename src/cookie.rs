@@ -13,6 +13,8 @@ use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as
 // aes_gcm
 use aes_gcm::{Aes256Gcm, aead::{OsRng, AeadMut}, AeadCore};
 
+use crate::error::PluginError;
+
 /// Struct parse the cookie from the request into a struct in order to access the fields and
 /// also to save the cookie on the client side
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -73,22 +75,19 @@ impl AuthorizationState {
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
                 warn!("The token response is not in the required format: {}", e);
-                return Err(e.to_string())
+                return Err(PluginError::JsonError(e))
             }
         }
     }
 
     /// Decode cookie, parse into a struct in order to access the fields and
     /// validate the ID Token
-    pub fn decode_and_decrypt_cookie(cookie: String, mut cipher: Aes256Gcm, nonce: String) -> Result<AuthorizationState, String> {
+    pub fn decode_and_decrypt_cookie(cookie: String, mut cipher: Aes256Gcm, nonce: String) -> Result<AuthorizationState, PluginError> {
 
         // Decode nonce using base64
         let decoded_nonce = match base64engine.decode(nonce.as_bytes()) {
             Ok(s) => s,
-            Err(e) => {
-                warn!("The nonce could not be decoded: {}", e);
-                return Err(e.to_string());
-            }
+            Err(e) => return Err(PluginError::DecodeError(e))
         };
         let nonce = aes_gcm::Nonce::from_slice(decoded_nonce.as_slice());
         debug!("Nonce: {:?}", nonce);
@@ -96,19 +95,13 @@ impl AuthorizationState {
         // Decode cookie using base64
         let decoded_cookie = match base64engine.decode(cookie.as_bytes()) {
             Ok(s) => s,
-            Err(e) => {
-                warn!("The cookie could not be decoded: {}", e);
-                return Err(e.to_string());
-            }
+            Err(e) => return Err(PluginError::DecodeError(e))
         };
 
         // Decrypt with cipher
         let decrypted_cookie = match cipher.decrypt(nonce, decoded_cookie.as_slice()) {
             Ok(s) => s,
-            Err(e) => {
-                warn!("The cookie could not be decrypted: {}", e);
-                return Err(e.to_string());
-            }
+            Err(e) => return Err(PluginError::DecryptionError(e.to_string()))
         };
 
         // Parse cookie into a struct
@@ -120,10 +113,7 @@ impl AuthorizationState {
                 return Ok(state)
             },
             // If the cookie cannot be parsed into a struct, return an error
-            Err(e) => {
-                warn!("The cookie didn't match the expected format: {}", e);
-                return Err(e.to_string())
-            }
+            Err(e) => return Err(PluginError::JsonError(e))
         }
     }
 }

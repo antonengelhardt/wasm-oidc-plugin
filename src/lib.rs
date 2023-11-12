@@ -1,3 +1,4 @@
+use error::PluginError;
 // log
 use log::{debug,warn,info};
 
@@ -38,6 +39,9 @@ mod discovery;
 /// This module contains the responses for the OIDC discovery and jwks endpoints
 mod responses;
 use responses::Callback;
+
+/// This module contains the error types for the plugin
+mod error;
 
 /// The PauseRequests Context is the filter struct which is used when the filter is not configured.
 /// All requests are paused and queued by the RootContext. Once the filter is configured, the
@@ -203,7 +207,7 @@ impl HttpContext for ConfiguredOidc {
                     return Action::Continue;
                 },
                 Err(e) => {
-                    warn!("Cookie validation failed: {}", e);
+                    warn!("cookie validation failed: {}", e);
                 }
             };
         }
@@ -254,9 +258,7 @@ impl ConfiguredOidc {
                     let cookie_name_end = cookie_string.find('=').unwrap_or(0);
                     let cookie_name = &cookie_string[0..cookie_name_end];
                     if cookie_name.trim() == name {
-                        return Some(
-                            cookie_string[(cookie_name_end + 1)..cookie_string.len()].to_owned(),
-                        );
+                        return Some(cookie_string[(cookie_name_end + 1)..cookie_string.len()].to_owned());
                     }
                 }
             }
@@ -268,7 +270,7 @@ impl ConfiguredOidc {
     /// The cookie is parsed into the `AuthorizationState` struct. The token is validated using the
     /// `validate_token` function. If the token is valid, this function returns Ok(()). If the token
     /// is invalid, this function returns Err(String) and redirects the requester to the `authorization endpoint`.
-    fn validate_cookie(&self, cookie: String, nonce: String) -> Result<AuthorizationState, String> {
+    fn validate_cookie(&self, cookie: String, nonce: String) -> Result<AuthorizationState, PluginError> {
 
         debug!("Cookie found, checking validity.");
 
@@ -290,28 +292,23 @@ impl ConfiguredOidc {
                                 Ok(auth_state)
                             }
                             // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
-                            Err(e) => {
-                                return Err(format!("Token validation failed: {:?}", e));
-                            }
+                            Err(e) => return Err(e),
                         }
                     }
                     false => {
                         Ok(auth_state)
                     }
                 }
-            }
+            },
             // If the cookie cannot be parsed, this filter redirects the requester to the `authorization_endpoint`
-            Err(err) => {
-                return Err(format!("Authorisation state couldn't be loaded from the cookie: {:?}",err));
-            }
+            Err(e) => return Err(PluginError::CookieValidationError(e.to_string()))
         }
     }
-
 
     /// Validate the token using the JWT library.
     /// This function checks for the correct issuer and audience and verifies the signature with the
     /// public keys loaded from the JWKs endpoint.
-    fn validate_token(&self, token: &str) -> Result<(), String> {
+    fn validate_token(&self, token: &str) -> Result<(), PluginError> {
 
         // Define allowed issuers and audiences
         let mut allowed_issuers = HashSet::new();
@@ -333,22 +330,17 @@ impl ConfiguredOidc {
 
             // Check if the token is valid, the aud and iss are correct and the signature is valid.
             match validation_result {
-                Ok(_) => {
-                    return Ok(());
-                }
-                Err(_) => {
-                    continue;
-                }
+                Ok(_) => return Ok(()),
+                Err(_) => continue
             }
         }
-        return Err("No key worked".to_string());
-
+        return Err(PluginError::NoKeyError);
     }
 
     /// Exchange the code for a token using the token endpoint.
     /// This function is called when the user is redirected back to the callback URL.
     /// The code is extracted from the URL and exchanged for a token using the token endpoint.
-    fn exchange_code_for_token(&mut self, path: String) -> Result<(), String>{
+    fn exchange_code_for_token(&mut self, path: String) -> Result<(), PluginError>{
 
         debug!("Received request for OIDC callback.");
 
@@ -358,9 +350,7 @@ impl ConfiguredOidc {
         // Extract code from the url
         let code = match serde_urlencoded::from_str::<Callback>(&query) {
             Ok(callback) => callback.code,
-            Err(e) => {
-                return Err(e.to_string());
-            }
+            Err(e) => return Err(PluginError::CodeNotFoundInCallbackError(e.to_string()))
         };
 
         debug!("Code: {}", code);
@@ -376,12 +366,12 @@ impl ConfiguredOidc {
         // Get code verifier from cookie
         let code_verifier = self.get_cookie("code-verifier").unwrap_or_default();
         let code_verifier_decoded = match base64engine.decode(code_verifier) {
-            Ok(decoded) => decoded,
-            Err(e) => {
-                return Err(e.to_string());
+            Ok(decoded) => match String::from_utf8(decoded) {
+                Ok(decoded) => decoded,
+                Err(e) => return Err(PluginError::Utf8Error(e))
             }
+            Err(e) => return Err(PluginError::DecodeError(e))
         };
-        let code_verifier_decoded = String::from_utf8(code_verifier_decoded).unwrap();
 
         // Build the request body for the token endpoint
         let data = form_urlencoded::Serializer::new(String::new())
@@ -416,20 +406,18 @@ impl ConfiguredOidc {
                 Ok(())
             }
             // If the request fails, this filter logs the error and pauses the request
-            Err(err) => {
-               return Err(format!("Failed to dispatch HTTP request to Token Endpoint: {:?}", err));
-            }
+            Err(_) => return Err(PluginError::DispatchError)
         }
     }
 
     /// Store the token from the token response in a cookie.
     /// Parse the token with the `AuthorizationState` struct and store it in an encoded cookie.
     /// Then, redirect the requester to the original URL.
-    fn store_token_in_cookie(&mut self, token_id: u32, body_size: usize) -> Result<(), String> {
+    fn store_token_in_cookie(&mut self, token_id: u32, body_size: usize) -> Result<(), PluginError> {
         // Assess token id
         if self.token_id != Some(token_id) {
             warn!("Token id does not match.");
-            return Err("Token id does not match.".to_string());
+            return Err(PluginError::TokenIdMismatchError);
         }
 
         // Check if the response is valid. If its not 200, investigate the response
@@ -440,21 +428,13 @@ impl ConfiguredOidc {
                 Some(body) => {
                     // Decode body
                     match String::from_utf8(body) {
-                        Ok(decoded) => {
-                            return Err(format!("Token response is not valid: {:?}", decoded));
-                        }
+                        Ok(decoded) => return Err(PluginError::TokenResponseFormatError(decoded)),
                         // If decoding fails, log the error
-                        Err(_) => {
-                            return Err(format!("Token could not be decoded"));
-                        }
+                        Err(e) => return Err(PluginError::Utf8Error(e))
                     }
                 }
                 // If no body is found, log the error
-                None => {
-                    return Err(format!(
-                        "No body in token response with invalid status code."
-                    ));
-                }
+                None => return Err(PluginError::NoBodyError)
             }
         }
 
@@ -480,17 +460,15 @@ impl ConfiguredOidc {
                                 match base64engine.decode(original_path_encoded) {
                                     Ok(original_path_decoded) => {
                                         match String::from_utf8(original_path_decoded) {
-                                            Ok(original_path_decoded) => {
-                                                original_path_decoded
-                                            }
+                                            Ok(original_path_decoded) => original_path_decoded,
                                             Err(e) => {
-                                                warn!("Error: {}", e);
+                                                warn!("error when casting utf8 to string: {}", e);
                                                 "/".to_string()
                                             }
                                         }
                                     }
                                     Err(e) => {
-                                        warn!("Error: {}", e);
+                                        warn!("decode original path error: {}", e);
                                         "/".to_string()
                                     }
                                 }
@@ -505,7 +483,6 @@ impl ConfiguredOidc {
                             .chunks(4000)
                             .map(|chunk| std::str::from_utf8(chunk)
                             .expect("auth_cookie is base64 encoded, which means ASCII, which means one character = one byte, so this is valid"));
-
 
                         // Iterate over the cookie parts and set the cookie reply headers
                         let mut cookie_values = vec![];
@@ -541,15 +518,11 @@ impl ConfiguredOidc {
                         );
                         Ok(())
                     }
-                    Err(e) => {
-                        Err(format!("Error: {}", e))
-                    }
+                    Err(e) => Err(PluginError::CookieStoreError(e.to_string())),
                 }
             }
             // If no body is found, return the error
-            None => {
-                Err(format!("No body in token response with invalid status code."))
-            }
+            None => Err(PluginError::NoBodyError)
         }
     }
 

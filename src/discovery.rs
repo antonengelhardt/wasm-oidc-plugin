@@ -164,10 +164,7 @@ impl RootContext for OidcDiscovery {
 
             // If the plugin is ready, create the http context in Ready state
             // with the open-id config and the plugin config.
-            OidcRootState::Ready {
-                open_id_config,
-                plugin_config,
-            } => {
+            OidcRootState::Ready {open_id_config,plugin_config} => {
                 debug!("Creating http context with root context information.");
 
                 // Return the http context.
@@ -202,6 +199,7 @@ impl RootContext for OidcDiscovery {
     /// 3. If the state is `LoadingJwks`, the public key is loaded from the jwks endpoint.
     /// 4. If the state is `Ready`, the configuration is reloaded.
     fn on_tick(&mut self) {
+
         debug!("tick");
 
         // See what the current state is.
@@ -215,9 +213,7 @@ impl RootContext for OidcDiscovery {
 
             // If the plugin is in Loading `LoadingConfig` state, the configuration is loaded from the
             // openid configuration endpoint.
-            OidcRootState::LoadingConfig{
-                plugin_config,
-            } => {
+            OidcRootState::LoadingConfig{plugin_config} => {
 
                 // Tick every 250ms to not overload the openid configuration endpoint.
                 self.set_tick_period(Duration::from_millis(250));
@@ -246,11 +242,7 @@ impl RootContext for OidcDiscovery {
 
             // If the plugin is in Loading `LoadingJwks` state, the public keys are loaded from the
             // jwks endpoint.
-            OidcRootState::LoadingJwks{
-                plugin_config,
-                jwks_uri,
-                ..
-            }  => {
+            OidcRootState::LoadingJwks{plugin_config, jwks_uri, .. }  => {
 
                 // Make call to jwks endpoint and load public key
                 // The response is handled in `on_http_call_response`.
@@ -272,11 +264,7 @@ impl RootContext for OidcDiscovery {
                     Err(e) => warn!("error dispatching jwks call: {:?}", e),
                 }
             }
-            OidcRootState::Ready{
-                open_id_config: _,
-                plugin_config,
-                ..
-            }=> {
+            OidcRootState::Ready{open_id_config: _, plugin_config, .. } => {
 
                 // If this state is reached, the plugin was ready and needs to reload the configuration.
                 // This is controlled by `reload_interval_in_h` in the plugin configuration.
@@ -304,8 +292,9 @@ impl RootContext for OidcDiscovery {
 /// 3. If the state is `LoadingJwks`, the jwks endpoint is expected.
 /// 4. `Ready` is not expected, as the root context doesn't dispatch any calls in that state.
 impl Context for OidcDiscovery {
-    fn on_http_call_response(&mut self, token_id: u32, _num_headers: usize, _body_size: usize, _num_trailers: usize,
-    ) {
+
+    fn on_http_call_response(&mut self, token_id: u32, _num_headers: usize, _body_size: usize, _num_trailers: usize) {
+
         // Check for each state what to do with the response.
         self.state = match &self.state {
 
@@ -317,9 +306,8 @@ impl Context for OidcDiscovery {
 
             // If the plugin is in Loading `LoadingConfig` state, the response is expected to be the
             // openid configuration.
-            OidcRootState::LoadingConfig{
-                plugin_config,
-            } => {
+            OidcRootState::LoadingConfig{ plugin_config } => {
+
                 // If the token id is not the same as the one from the call made in
                 // `self.dispatch_http_call`, the response is ignored.
                 if self.token_id != Some(token_id) {
@@ -347,23 +335,15 @@ impl Context for OidcDiscovery {
                         }
                     }
                     Err(e) => {
-                        warn!("error parsing config response: {:?}", e);
                         // Stay in the same state.
-                        OidcRootState::LoadingConfig{
-                            plugin_config: plugin_config.clone(),
-                        }
+                        warn!("error parsing config response: {:?}", e);
+                        OidcRootState::LoadingConfig{plugin_config: plugin_config.clone()}
                     }
                 }
             }
 
             // If the plugin is in `LoadingJwks` state, the jwks endpoint is expected.
-            OidcRootState::LoadingJwks{
-                plugin_config,
-                auth_endpoint,
-                token_endpoint,
-                issuer,
-                jwks_uri,
-            } => {
+            OidcRootState::LoadingJwks{plugin_config, auth_endpoint, token_endpoint, issuer, jwks_uri } => {
 
                 // If the token id is not the same as the one from the call, return.
                 if self.token_id != Some(token_id) {
@@ -431,10 +411,7 @@ impl Context for OidcDiscovery {
             }
 
             // If the plugin is in `Ready` state, the response is ignored and the state is not changed.
-            OidcRootState::Ready {
-                plugin_config,
-                open_id_config,
-            }=> {
+            OidcRootState::Ready {plugin_config, open_id_config} => {
                 warn!("ready state is not expected here");
                 OidcRootState::Ready {
                     plugin_config: plugin_config.clone(),
@@ -442,6 +419,7 @@ impl Context for OidcDiscovery {
                 }
             }
         };
+
         // If the plugin is in `Ready` state, any request that was sent during the loading phase,
         // is now resumed.
         if matches!(self.state, OidcRootState::Ready { .. }) {
@@ -450,7 +428,6 @@ impl Context for OidcDiscovery {
                 hostcalls::set_effective_context(context_id).unwrap();
                 hostcalls::resume_http_request().unwrap();
             }
-            // hostcalls::set_effective_context(1).unwrap();
         }
     }
 }
