@@ -54,7 +54,7 @@ impl HttpContext for PauseRequests {
     /// configured, the request is paused and queued by the RootContext. Once the filter is
     /// configured, the request is resumed by the RootContext.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
-        warn!("Filter not ready. Pausing request.");
+        warn!("filter not ready, pausing request");
 
         // Get the original path from the request headers
         self.original_path = Some(self.get_http_request_header(":path").unwrap_or("/".to_string()));
@@ -66,7 +66,7 @@ impl HttpContext for PauseRequests {
     /// request. This function sends a redirect to create a new context for the configured filter.
     fn on_http_response_headers(&mut self, _num_headers: usize, _end_of_stream: bool) -> Action {
 
-        info!("Filter now ready. Sending redirect.");
+        info!("filter now ready, sending redirect");
 
         // Send a redirect to the original path
         self.send_http_response(307,
@@ -132,7 +132,6 @@ impl HttpContext for ConfiguredOidc {
             return Action::Continue;
         }
 
-        // If the request is for the OIDC callback, e.g the code is returned, this step
         // exchanges the code for a token. The response is caught in on_http_call_response.
         // If the dispatch fails, a 503 is returned.
         if path.starts_with(Url::parse(&self.plugin_config.redirect_uri).unwrap().path()) {
@@ -141,7 +140,7 @@ impl HttpContext for ConfiguredOidc {
                     return Action::Pause;
                 },
                 Err(e) => {
-                    warn!("Token exchange failed: {}", e);
+                    warn!("token exchange failed: {}", e);
                     self.send_http_response(503,
                         vec![
                             ("Cache-Control", "no-cache"),
@@ -166,7 +165,7 @@ impl HttpContext for ConfiguredOidc {
             Some(nonce) => nonce,
             None => {
                 // If no nonce is found, redirect to `authorization_endpoint`
-                debug!("No nonce found in cookie.");
+                debug!("no nonce found in cookie");
                 self.redirect_to_authorization_endpoint();
                 return Action::Pause;
             }
@@ -209,7 +208,7 @@ impl HttpContext for ConfiguredOidc {
                     return Action::Continue;
                 },
                 Err(e) => {
-                    warn!("Cookie validation failed: {}", e);
+                    warn!("cookie validation failed: {}", e);
                 }
             };
         }
@@ -230,10 +229,10 @@ impl Context for ConfiguredOidc {
         // Store the token in the cookie
         match self.store_token_in_cookie(token_id, body_size) {
             Ok(_) => {
-                debug!("Token stored in cookie.");
+                debug!("token stored in cookie");
             },
             Err(e) => {
-                warn!("Storing token in cookie failed: {}", e);
+                warn!("storing token in cookie failed: {}", e);
                 // Send a 503 if storing the token in the cookie failed
                 self.send_http_response(503,
                     vec![
@@ -302,7 +301,7 @@ impl ConfiguredOidc {
     /// is invalid, this function returns Err(String) and redirects the requester to the `authorization endpoint`.
     fn validate_cookie(&self, cookie: String, nonce: String) -> Result<AuthorizationState, String> {
 
-        debug!("Cookie found, checking validity.");
+        debug!("cookie found, checking validity");
 
         // Try to parse and decrypt the cookie and handle the result
         match cookie::AuthorizationState::decode_and_decrypt_cookie(cookie, self.cipher.to_owned(), nonce) {
@@ -318,12 +317,12 @@ impl ConfiguredOidc {
                         match self.validate_token(&auth_state.id_token) {
                             // If the token is valid, this filter passes the request
                             Ok(_) => {
-                                debug!("Token is valid, passing request.");
+                                debug!("token is valid, passing request");
                                 Ok(auth_state)
                             }
                             // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
                             Err(e) => {
-                                return Err(format!("Token validation failed: {:?}", e));
+                                return Err(format!("token validation failed: {:?}", e));
                             }
                         }
                     }
@@ -366,6 +365,7 @@ impl ConfiguredOidc {
             // Check if the token is valid, the aud and iss are correct and the signature is valid.
             match validation_result {
                 Ok(_) => {
+                    debug!("token validated with key");
                     return Ok(());
                 }
                 Err(_) => {
@@ -382,10 +382,40 @@ impl ConfiguredOidc {
     /// The code is extracted from the URL and exchanged for a token using the token endpoint.
     fn exchange_code_for_token(&mut self, path: String) -> Result<(), String>{
 
-        debug!("Received request for OIDC callback.");
+        debug!("received request for OIDC callback");
 
         // Get Query String from URL
         let query = path.split("?").last().unwrap_or_default();
+
+        // Get state from query
+        let state = match serde_urlencoded::from_str::<Callback>(&query) {
+            Ok(callback) => callback.state,
+            Err(e) => {
+                return Err(e.to_string());
+            }
+        };
+
+        // Get state from shared data
+        let request_id = self.get_cookie("request-id").unwrap_or_default();
+        let state_client = match self.get_shared_data(format!("state-{}", request_id).as_str()).0 {
+            Some(state) => {
+                match String::from_utf8(state) {
+                    Ok(state) => state,
+                    Err(e) => {
+                        warn!("error when converting state to utf8: {:?}", e);
+                        "".to_string()
+                    }
+                }
+            }
+            None => "".to_string()
+        };
+        debug!("state: {}", state);
+
+        // Compare state
+        if state != state_client {
+            warn!("state does not match.");
+            return Err("state does not match.".to_string());
+        }
 
         // Extract code from the url
         let code = match serde_urlencoded::from_str::<Callback>(&query) {
@@ -395,7 +425,7 @@ impl ConfiguredOidc {
             }
         };
 
-        debug!("Code: {}", code);
+        debug!("authorization code: {}", code);
 
         // Hardcoded values for request to token endpoint
         let client_id = &self.plugin_config.client_id;
@@ -421,14 +451,14 @@ impl ConfiguredOidc {
             .append_pair("code_verifier", &code_verifier_decoded)
             .append_pair("code", &code)
             .append_pair("redirect_uri", self.plugin_config.redirect_uri.as_str())
-            // TODO: Nonce #7
+            .append_pair("state", &state)
             .finish();
 
         // Get path from token endpoint
         let token_endpoint = self.open_id_config.token_endpoint.path();
 
         // Dispatch request to token endpoint using built-in envoy function
-        debug!("Sending data to token endpoint: {}", data);
+        debug!("sending data to token endpoint: {}", data);
         match self.dispatch_http_call(
             "oidc",
             vec![
@@ -494,7 +524,7 @@ impl ConfiguredOidc {
         // the body, so we can assume that the response is valid.
         match self.get_http_call_response_body(0, body_size) {
             Some(body) => {
-                debug!("Token response: {:?}", body);
+                debug!("token response: {:?}", body);
 
                 // Build Cookie Struct using create_cookie_from_response from cookie.rs
                 match cookie::AuthorizationState::create_cookie_from_response(self.cipher.clone(), body.as_slice()) {
@@ -503,8 +533,8 @@ impl ConfiguredOidc {
                         let auth_cookie = res.encoded_cookie;
                         let nonce = res.encoded_nonce;
 
-                        debug!("Cookie: {:?}", &auth_cookie);
-                        debug!("Nonce: {:?}", &nonce);
+                        debug!("encrypted cookie: {:?}", &auth_cookie);
+                        debug!("encoded nonce: {:?}", &nonce);
 
                         // Get original-path cookie
                         let original_path = match self.get_cookie("original-path") {
@@ -529,7 +559,7 @@ impl ConfiguredOidc {
                             }
                             None => "/".to_string()
                         };
-                        debug!("Original Path: {:?}", &original_path);
+                        debug!("original path: {:?}", &original_path);
 
                         // Split every 4000 bytes and push it to the cookie_parts vector
                         let cookie_parts = auth_cookie
@@ -580,7 +610,7 @@ impl ConfiguredOidc {
             }
             // If no body is found, return the error
             None => {
-                Err(format!("No body in token response with invalid status code."))
+                Err(format!("no body in token response with invalid status code"))
             }
         }
     }
@@ -593,13 +623,30 @@ impl ConfiguredOidc {
         let original_path = self.get_http_request_header(":path").unwrap_or_default();
         let original_path_encoded = base64engine.encode(original_path.as_bytes());
 
-        debug!("No cookie found or invalid, redirecting to authorization endpoint.");
+        debug!("no cookie found or invalid, redirecting to authorization endpoint");
 
         // Generate PKCE code verifier and challenge
         let pkce_verifier = pkce::code_verifier(128);
         let pkce_verifier_string = String::from_utf8(pkce_verifier.clone()).unwrap();
         let pkce_encoded = base64engine.encode(pkce_verifier_string.as_bytes());
         let pkce_challenge = pkce::code_challenge(&pkce_verifier);
+
+        // Generate state
+        let state_string = String::from_utf8(pkce::code_verifier(128)).unwrap();
+        debug!("state: {}", state_string);
+
+        // Store request id in shared data
+        let request_id = self.get_http_request_header("x-request-id").unwrap_or_default();
+        match self.set_shared_data(
+        format!("state-{}", request_id).as_str(),
+        Some(state_string.as_bytes()), None) {
+            Ok(_) => {
+                debug!("state stored in shared data");
+            }
+            Err(e) => {
+                warn!("storing state in shared data failed: {:?}", e);
+            }
+        }
 
         // Build URL
         let url = Url::parse_with_params(
@@ -608,6 +655,7 @@ impl ConfiguredOidc {
                 ("response_type", "code"),
                 ("code_challenge", &pkce_challenge),
                 ("code_challenge_method", "S256"),
+                ("state", &state_string),
                 ("client_id", &self.plugin_config.client_id),
                 ("redirect_uri",&self.plugin_config.redirect_uri.as_str()),
                 ("scope", &self.plugin_config.scope),
@@ -624,6 +672,8 @@ impl ConfiguredOidc {
                 ("Set-Cookie", &format!("original-path={}; Max-Age={}", &original_path_encoded, 180)),
                 // Set the pkce challenge as a cookie to verify the callback.
                 ("Set-Cookie", &format!("code-verifier={}; Max-Age={}", &pkce_encoded, 180)),
+                // Set request id as a cookie to verify the callback.
+                ("Set-Cookie", &format!("request-id={}; Max-Age={}", &request_id, 180)),
                 // Redirect to `authorization endpoint`
                 ("Location", url.as_str()),
                 ],

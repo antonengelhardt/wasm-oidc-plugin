@@ -168,7 +168,7 @@ impl RootContext for OidcDiscovery {
                 open_id_config,
                 plugin_config,
             } => {
-                debug!("Creating http context with root context information.");
+                debug!("creating http context with root context information");
 
                 // Return the http context.
                 return Some(Box::new(ConfiguredOidc {
@@ -182,7 +182,7 @@ impl RootContext for OidcDiscovery {
             // If the plugin is not ready, return the http context in `Unconfigured` state and add the
             // context id to the waiting queue.
             _ => {
-                warn!("Root context is not ready yet. Queueing http context.");
+                warn!("root context is not ready yet, queueing http context.");
 
                 // Add the context id to the waiting queue.
                 self.waiting.lock().unwrap().push(context_id);
@@ -327,7 +327,7 @@ impl Context for OidcDiscovery {
                     return;
                 }
 
-                debug!("loading from openid config endpoint");
+                debug!("received config response");
 
                 // Parse the response body as json.
                 let body = match self.get_http_call_response_body(0, _body_size) {
@@ -377,7 +377,7 @@ impl Context for OidcDiscovery {
                     return;
                 }
 
-                debug!("loading jwks");
+                debug!("received jwks response");
 
                 // Parse body
                 let body = self.get_http_call_response_body(0, _body_size).unwrap();
