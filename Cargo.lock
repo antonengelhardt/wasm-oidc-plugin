@@ -1164,6 +1164,7 @@ dependencies = [
  "serde_regex",
  "serde_urlencoded",
  "serde_yaml",
+ "thiserror",
  "url",
 ]
 

@@ -12,6 +12,8 @@ use serde::{Deserialize, Serialize};
 
 // std
 use std::fmt::Debug;
+use crate::error::PluginError;
+
 /// Struct parse the cookie from the request into a struct in order to access the fields and
 /// also to save the cookie on the client side
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,17 +130,11 @@ impl Session {
         encoded_cookie: String,
         mut cipher: Aes256Gcm,
         encoded_nonce: String,
-    ) -> Result<Session, String> {
+    ) -> Result<Session, PluginError> {
         // Decode nonce using base64
-        // TODO: Idiomatically handle the error
         let decoded_nonce = match base64engine.decode(encoded_nonce.as_bytes()) {
-            Ok(nonce) => nonce,
-            Err(e) => {
-                return Err(format!(
-                    "the nonce didn't match the expected format: {}",
-                    e.to_string()
-                ));
-            }
+            Ok(s) => s,
+            Err(e) => return Err(PluginError::DecodeError(e))
         };
 
         // Build nonce from decoded nonce
@@ -146,33 +142,26 @@ impl Session {
 
         // Decode cookie using base64
         let decoded_cookie = match base64engine.decode(encoded_cookie.as_bytes()) {
-            Ok(cookie) => cookie,
-            Err(e) => {
-                return Err(format!("decoding the cookie failed: {}", e.to_string()));
-            }
-        }; // TODO: Idiomatically handle the error
+            Ok(s) => s,
+            Err(e) => return Err(PluginError::DecodeError(e))
+        };
 
-        // Decrypt cookie
-        // TODO: Idiomatically handle the error
-        match cipher.decrypt(nonce, decoded_cookie.as_slice()) {
-            // If decryption was successful, continue
-            Ok(decrypted_cookie) => {
-                // Parse cookie into a struct
-                match serde_json::from_slice::<Session>(&decrypted_cookie) {
-                    // If deserialization was successful, return the session
-                    Ok(session) => {
-                        debug!("authorization state: {:?}", session);
-                        Ok(session)
-                    }
-                    // If the cookie cannot be parsed into a struct, return an error
-                    Err(e) => Err(format!(
-                        "the cookie didn't match the expected format: {}",
-                        e.to_string()
-                    )),
-                }
-            }
-            // If decryption failed, return an error
-            Err(e) => Err(format!("decryption failed: {}", e.to_string())),
+        // Decrypt with cipher
+        let decrypted_cookie = match cipher.decrypt(nonce, decoded_cookie.as_slice()) {
+            Ok(s) => s,
+            Err(e) => return Err(PluginError::DecryptionError(e.to_string()))
+        };
+
+        // Parse cookie into a struct
+        match serde_json::from_slice::<Session>(&decrypted_cookie) {
+
+            // If deserialization was successful, set the cookie and resume the request
+            Ok(state) => {
+                debug!("State: {:?}", state);
+                return Ok(state)
+            },
+            // If the cookie cannot be parsed into a struct, return an error
+            Err(e) => return Err(PluginError::JsonError(e))
         }
     }
 }
