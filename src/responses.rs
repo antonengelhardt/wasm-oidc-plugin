@@ -107,4 +107,6 @@ impl From<JsonWebKey> for SigningKey {
 pub struct Callback {
     /// The code that is returned from the authorization endpoint
     pub code: String,
+    /// The state that is returned from the authorization endpoint
+    pub state: String,
 }
