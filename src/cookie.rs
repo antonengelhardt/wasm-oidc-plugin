@@ -73,7 +73,7 @@ impl AuthorizationState {
             },
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
-                warn!("The token response is not in the required format: {}", e);
+                warn!("the token response is not in the required format: {}", e);
                 return Err(e.to_string())
             }
         }
@@ -87,18 +87,17 @@ impl AuthorizationState {
         let decoded_nonce = match base64engine.decode(nonce.as_bytes()) {
             Ok(s) => s,
             Err(e) => {
-                warn!("The nonce could not be decoded: {}", e);
+                warn!("the nonce could not be decoded: {}", e);
                 return Err(e.to_string());
             }
         };
         let nonce = aes_gcm::Nonce::from_slice(decoded_nonce.as_slice());
-        debug!("Nonce: {:?}", nonce);
 
         // Decode cookie using base64
         let decoded_cookie = match base64engine.decode(cookie.as_bytes()) {
             Ok(s) => s,
             Err(e) => {
-                warn!("The cookie could not be decoded: {}", e);
+                warn!("the cookie could not be decoded: {}", e);
                 return Err(e.to_string());
             }
         };
@@ -107,22 +106,24 @@ impl AuthorizationState {
         let decrypted_cookie = match cipher.decrypt(nonce, decoded_cookie.as_slice()) {
             Ok(s) => s,
             Err(e) => {
-                warn!("The cookie could not be decrypted: {}", e);
+                warn!("the cookie could not be decrypted: {}", e);
                 return Err(e.to_string());
             }
         };
+
+        debug!("decrypted cookie");
 
         // Parse cookie into a struct
         match serde_json::from_slice::<AuthorizationState>(&decrypted_cookie) {
 
             // If deserialization was successful, set the cookie and resume the request
             Ok(state) => {
-                debug!("State: {:?}", state);
+                debug!("authorization state: {:?}", state);
                 return Ok(state)
             },
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
-                warn!("The cookie didn't match the expected format: {}", e);
+                warn!("the cookie didn't match the expected format: {}", e);
                 return Err(e.to_string())
             }
         }
