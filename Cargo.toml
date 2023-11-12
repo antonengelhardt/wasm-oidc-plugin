@@ -40,6 +40,9 @@ pkce = "0.2.0"
 # aes256
 aes-gcm = "0.10.3"
 
+# thiserror
+thiserror = "1.0.24"
+
 [profile.release]
 lto = true
 opt-level = 3

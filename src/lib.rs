@@ -39,6 +39,10 @@ mod discovery;
 mod responses;
 use responses::Callback;
 
+/// This module contains the error types for the plugin
+mod error;
+use error::PluginError;
+
 /// The PauseRequests Context is the filter struct which is used when the filter is not configured.
 /// All requests are paused and queued by the RootContext. Once the filter is configured, the
 /// request is resumed by the RootContext.
@@ -262,9 +266,7 @@ impl ConfiguredOidc {
                     let cookie_name_end = cookie_string.find('=').unwrap_or(0);
                     let cookie_name = &cookie_string[0..cookie_name_end];
                     if cookie_name.trim() == name {
-                        return Some(
-                            cookie_string[(cookie_name_end + 1)..cookie_string.len()].to_owned(),
-                        );
+                        return Some(cookie_string[(cookie_name_end + 1)..cookie_string.len()].to_owned());
                     }
                 }
             }
@@ -308,21 +310,20 @@ impl ConfiguredOidc {
     /// The cookie is parsed into the `AuthorizationState` struct. The token is validated using the
     /// `validate_token` function. If the token is valid, this function returns Ok(()). If the token
     /// is invalid, this function returns Err(String) and redirects the requester to the `authorization endpoint`.
-    fn validate_cookie(&self) -> Result<AuthorizationState, String> {
-        debug!("cookie found, checking validity");
+    fn validate_cookie(&self) -> Result<AuthorizationState, PluginError> {
 
         // Get cookie and nonce
         let cookie = match self.get_session_cookie_as_string() {
             Some(cookie) => cookie,
             None => {
-                return Err("No values in cookie found".to_string());
+                return Err(PluginError::SessionCookieNotFoundError);
             }
-        }; // TODO: Idiomatically handle the error
+        };
 
         let nonce = match self.get_nonce() {
             Some(nonce) => nonce,
             None => {
-                return Err("No nonce found in cookie".to_string());
+                return Err(PluginError::NonceCookieNotFoundError);
             }
         };
 
@@ -338,7 +339,7 @@ impl ConfiguredOidc {
                         let auth_state = match session.authorization_state {
                             Some(auth_state) => auth_state,
                             None => {
-                                return Err("No authorization state found in cookie".to_string());
+                                return Err(PluginError::AuthorizationStateNotFoundError);
                             }
                         }; // TODO: Idiomatically handle the error (potential crash)
 
@@ -350,25 +351,22 @@ impl ConfiguredOidc {
                                 Ok(auth_state)
                             }
                             // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
-                            Err(e) => Err(format!("token validation failed: {:?}", e)),
+                            Err(e) => return Err(e),
                         }
                     }
                     false => Ok(session.authorization_state.unwrap()),
                 }
-            }
+            },
             // If the cookie cannot be parsed, this filter redirects the requester to the `authorization_endpoint`
-            Err(err) => Err(format!(
-                "authorisation state couldn't be loaded from the cookie: {:?}",
-                err
-            )),
+            Err(e) => return Err(PluginError::CookieValidationError(e.to_string()))
         }
     }
 
     /// Validate the token using the JWT library.
     /// This function checks for the correct issuer and audience and verifies the signature with the
     /// public keys loaded from the JWKs endpoint.
-    /// * `token` - The token to be validated
-    fn validate_token(&self, token: &str) -> Result<(), String> {
+    fn validate_token(&self, token: &str) -> Result<(), PluginError> {
+
         // Define allowed issuers and audiences
         let mut allowed_issuers = HashSet::new();
         allowed_issuers.insert(self.open_id_config.issuer.to_string());
@@ -389,23 +387,18 @@ impl ConfiguredOidc {
 
             // Check if the token is valid, the aud and iss are correct and the signature is valid.
             match validation_result {
-                Ok(_) => {
-                    debug!("token validated with key");
-                    return Ok(());
-                }
-                Err(_) => {
-                    continue;
-                }
+                Ok(_) => return Ok(()),
+                Err(_) => continue
             }
         }
-        Err("No key worked".to_string())
+        return Err(PluginError::NoKeyError);
     }
 
     /// Exchange the code for a token using the token endpoint.
     /// This function is called when the user is redirected back to the callback URL.
     /// The code is extracted from the URL and exchanged for a token using the token endpoint.
     /// * `path` - The path of the request
-    fn exchange_code_for_token(&mut self, path: String) -> Result<(), String> {
+    fn exchange_code_for_token(&mut self, path: String) -> Result<(), PluginError> {
         debug!("received request for OIDC callback");
 
         // Get Query String from URL
@@ -415,7 +408,7 @@ impl ConfiguredOidc {
         let callback_params = match serde_urlencoded::from_str::<Callback>(query) {
             Ok(callback) => callback,
             Err(e) => {
-                return Err(e.to_string());
+                return Err(PluginError::CodeNotFoundInCallbackError(e.to_string()));
             }
         };
 
@@ -423,17 +416,17 @@ impl ConfiguredOidc {
         let encoded_cookie = match self.get_session_cookie_as_string() {
             Some(cookie) => cookie,
             None => {
-                return Err("No values in cookie found".to_string());
+                return Err(PluginError::SessionCookieNotFoundError);
             }
-        }; // TODO: Idiomatically handle the error
+        };
 
         // Get nonce from cookie
         let encoded_nonce = match self.get_nonce() {
             Some(nonce) => nonce,
             None => {
-                return Err("No nonce found in cookie".to_string());
+                return Err(PluginError::NonceCookieNotFoundError);
             }
-        }; // TODO: Idiomatically handle the error
+        };
         debug!("nonce from cookie: {}", encoded_nonce);
 
         // Get session
@@ -441,7 +434,7 @@ impl ConfiguredOidc {
             match Session::decode_and_decrypt(encoded_cookie, self.cipher.clone(), encoded_nonce) {
                 Ok(session) => session,
                 Err(e) => {
-                    return Err(format!("Failed to decode and decrypt cookie: {:?}", e));
+                    return Err(PluginError::DecryptionError(e.to_string()));
                 }
             }; // TODO: Idiomatically handle the error
 
@@ -454,7 +447,7 @@ impl ConfiguredOidc {
 
         // Compare state
         if state != session.state {
-            return Err("state does not match.".to_string());
+            return Err(PluginError::StateMismatchError);
         }
 
         // Hardcoded values for request to token endpoint
@@ -501,21 +494,18 @@ impl ConfiguredOidc {
                 Ok(())
             }
             // If the request fails, this filter logs the error and pauses the request
-            Err(err) => Err(format!(
-                "Failed to dispatch HTTP request to Token Endpoint: {:?}",
-                err
-            )),
+            Err(_) => return Err(PluginError::DispatchError)
         }
     }
 
     /// Store the token from the token response in a cookie.
     /// Parse the token with the `AuthorizationState` struct and store it in an encoded cookie.
     /// Then, redirect the requester to the original URL.
-    fn store_token_in_cookie(&mut self, token_id: u32, body_size: usize) -> Result<(), String> {
+    fn store_token_in_cookie(&mut self, token_id: u32, body_size: usize) -> Result<(), PluginError> {
         // Assess token id
         if self.token_id != Some(token_id) {
             warn!("Token id does not match.");
-            return Err("Token id does not match.".to_string());
+            return Err(PluginError::TokenIdMismatchError);
         }
 
         // Check if the response is valid. If its not 200, investigate the response
@@ -526,19 +516,13 @@ impl ConfiguredOidc {
                 Some(body) => {
                     // Decode body
                     match String::from_utf8(body) {
-                        Ok(decoded) => {
-                            return Err(format!("Token response is not valid: {:?}", decoded));
-                        }
+                        Ok(decoded) => return Err(PluginError::TokenResponseFormatError(decoded)),
                         // If decoding fails, log the error
-                        Err(_) => {
-                            return Err("Token could not be decoded".to_string());
-                        }
+                        Err(e) => return Err(PluginError::Utf8Error(e))
                     }
                 }
                 // If no body is found, log the error
-                None => {
-                    return Err("No body in token response with invalid status code.".to_string());
-                }
+                None => return Err(PluginError::NoBodyError)
             }
         }
 
@@ -549,15 +533,20 @@ impl ConfiguredOidc {
                 debug!("token response: {:?}", body);
 
                 // Get nonce from cookie
-                let encoded_nonce = self.get_nonce().unwrap_or_default();
+                let encoded_nonce = match self.get_nonce() {
+                    Some(nonce) => nonce,
+                    None => {
+                        return Err(PluginError::NonceCookieNotFoundError);
+                    }
+                };
 
                 // Get cookie
                 let encoded_cookie = match self.get_session_cookie_as_string() {
                     Some(cookie) => cookie,
                     None => {
-                        return Err("No values in cookie found".to_string());
+                        return Err(PluginError::SessionCookieNotFoundError);
                     }
-                }; // TODO: Idiomatically handle the error
+                };
 
                 // Get session from cookie
                 let mut session = match Session::decode_and_decrypt(
@@ -567,16 +556,13 @@ impl ConfiguredOidc {
                 ) {
                     Ok(session) => session,
                     Err(e) => {
-                        return Err(format!(
-                            "Failed to decode and decrypt cookie: {:?}",
-                            e.as_str()
-                        ));
+                        return Err(PluginError::DecryptionError(e.to_string()));
                     }
-                }; // TODO: Idiomatically handle the error
+                };
 
                 // Create authorization state from token response
                 let authorization_state =
-                    serde_json::from_slice::<AuthorizationState>(&body).unwrap(); // TODO: Idiomatically handle the error
+                    serde_json::from_slice::<AuthorizationState>(&body).unwrap();
 
                 // Add authorization state to session
                 session.authorization_state = Some(authorization_state);
@@ -607,7 +593,7 @@ impl ConfiguredOidc {
                 Ok(())
             }
             // If no body is found, return the error
-            None => Err("no body in token response with invalid status code".to_string()),
+            None => Err(PluginError::CookieStoreError("No body in response".to_string()))
         }
     }
 
