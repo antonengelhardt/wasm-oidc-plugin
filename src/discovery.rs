@@ -1,10 +1,5 @@
-// proxy-wasm
-use proxy_wasm::hostcalls;
-use proxy_wasm::traits::*;
-use proxy_wasm::types::*;
-
-// log
-use log::{debug, info, warn};
+// aes256
+use aes_gcm::{Aes256Gcm, KeyInit};
 
 // regex
 use regex::Regex;
@@ -13,17 +8,22 @@ use regex::Regex;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-// url
-use url::Url;
-
 // base64
 use base64::{engine::general_purpose::STANDARD as base64engine, Engine as _};
 
 // duration
 use std::time::Duration;
 
-// aes256
-use aes_gcm::{Aes256Gcm, KeyInit};
+// log
+use log::{debug, info, warn};
+
+// proxy-wasm
+use proxy_wasm::hostcalls;
+use proxy_wasm::traits::*;
+use proxy_wasm::types::*;
+
+// url
+use url::Url;
 
 // crate
 use crate::config::PluginConfiguration;
@@ -308,6 +308,12 @@ impl RootContext for OidcDiscovery {
 /// 4. `Ready` is not expected, as the root context doesn't dispatch any calls in that state.
 impl Context for OidcDiscovery {
 
+    /// Called when the response from the http call is received.
+    /// It also utilised the state enum to determine what to do with the response.
+    /// 1. If the state is `Uninitialized`, the plugin is not initialized and the response is ignored.
+    /// 2. If the state is `LoadingConfig`, the open id configuration is expected.
+    /// 3. If the state is `LoadingJwks`, the jwks endpoint is expected.
+    /// 4. `Ready` is not expected, as the root context doesn't dispatch any calls in that state.
     fn on_http_call_response(&mut self, token_id: u32, _num_headers: usize, _body_size: usize, _num_trailers: usize) {
 
         // Check for each state what to do with the response.

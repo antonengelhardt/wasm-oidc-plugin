@@ -1,8 +1,9 @@
 // aes-256
 use aes_gcm::{aead::OsRng, AeadCore, Aes256Gcm};
 
-// log
-use log::{debug, info, warn};
+// arc
+use std::sync::Arc;
+use std::vec;
 
 // base64
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
@@ -10,16 +11,15 @@ use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as
 // duration
 use std::time::Duration;
 
-// arc
-use std::sync::Arc;
-use std::vec;
+// jwt
+use jwt_simple::prelude::*;
+
+// log
+use log::{debug,warn,info};
 
 // proxy-wasm
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
-
-// jwt
-use jwt_simple::prelude::*;
 
 // url
 use url::{form_urlencoded, Url};
@@ -347,7 +347,7 @@ impl ConfiguredOidc {
                             None => {
                                 return Err(PluginError::AuthorizationStateNotFoundError);
                             }
-                        }; // TODO: Idiomatically handle the error (potential crash)
+                        };
 
                         // Validate token
                         match self.validate_token(&auth_state.id_token) {
@@ -357,7 +357,7 @@ impl ConfiguredOidc {
                                 Ok(auth_state)
                             }
                             // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
-                            Err(e) => return Err(e),
+                            Err(e) => return Err(PluginError::TokenValidationError(e.into())),
                         }
                     }
                     false => Ok(session.authorization_state.unwrap()),
@@ -414,7 +414,7 @@ impl ConfiguredOidc {
         let callback_params = match serde_urlencoded::from_str::<Callback>(query) {
             Ok(callback) => callback,
             Err(e) => {
-                return Err(PluginError::CodeNotFoundInCallbackError(e.to_string()));
+                return Err(PluginError::CodeNotFoundInCallbackError(e));
             }
         };
 
@@ -440,9 +440,9 @@ impl ConfiguredOidc {
             match Session::decode_and_decrypt(encoded_cookie, self.cipher.clone(), encoded_nonce) {
                 Ok(session) => session,
                 Err(e) => {
-                    return Err(PluginError::DecryptionError(e.to_string()));
+                    return Err(e);
                 }
-            }; // TODO: Idiomatically handle the error
+            };
 
         // Get state and code from query
         let state = callback_params.state;
@@ -456,13 +456,11 @@ impl ConfiguredOidc {
             return Err(PluginError::StateMismatchError);
         }
 
-        // Hardcoded values for request to token endpoint
-        let client_id = &self.plugin_config.client_id;
-        let client_secret = &self.plugin_config.client_secret;
-
         // Encode client_id and client_secret and build the Authorization header using base64encoding
-        let encoded = base64engine.encode(format!("{client_id}:{client_secret}").as_bytes());
-        let auth = format!("Basic {}", encoded);
+        let auth = format!("Basic {}", base64engine.encode(format!("{}:{}",
+            &self.plugin_config.client_id,
+            &self.plugin_config.client_secret
+        ).as_bytes()));
 
         // Get code verifier from cookie
         let code_verifier = session.code_verifier;
@@ -492,8 +490,7 @@ impl ConfiguredOidc {
             ],
             Some(data.as_bytes()),
             vec![],
-            Duration::from_secs(10),
-        ) {
+            Duration::from_secs(10)) {
             // If the request is dispatched successfully, this filter pauses the request
             Ok(id) => {
                 self.token_id = Some(id);
@@ -505,12 +502,11 @@ impl ConfiguredOidc {
     }
 
     /// Store the token from the token response in a cookie.
-    /// Parse the token with the `AuthorizationState` struct and store it in an encoded cookie.
+    /// Parse the token with the `AuthorizationState` struct and store it in an encoded and encrypted cookie.
     /// Then, redirect the requester to the original URL.
     fn store_token_in_cookie(&mut self, token_id: u32, body_size: usize) -> Result<(), PluginError> {
         // Assess token id
         if self.token_id != Some(token_id) {
-            warn!("Token id does not match.");
             return Err(PluginError::TokenIdMismatchError);
         }
 
@@ -562,7 +558,7 @@ impl ConfiguredOidc {
                 ) {
                     Ok(session) => session,
                     Err(e) => {
-                        return Err(PluginError::DecryptionError(e.to_string()));
+                        return Err(e)
                     }
                 };
 
