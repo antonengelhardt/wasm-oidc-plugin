@@ -7,11 +7,13 @@ use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as
 // log
 use log::debug;
 
-// serde
-use serde::{Deserialize, Serialize};
-
 // std
 use std::fmt::Debug;
+
+// serde
+use serde::{Deserialize, Serialize};
+use serde_json;
+
 use crate::error::PluginError;
 
 /// Struct parse the cookie from the request into a struct in order to access the fields and
@@ -132,24 +134,17 @@ impl Session {
         encoded_nonce: String,
     ) -> Result<Session, PluginError> {
         // Decode nonce using base64
-        let decoded_nonce = match base64engine.decode(encoded_nonce.as_bytes()) {
-            Ok(s) => s,
-            Err(e) => return Err(PluginError::DecodeError(e))
-        };
-
-        // Build nonce from decoded nonce
-        let nonce = Nonce::from_slice(decoded_nonce.as_slice());
+        let decoded_nonce = base64engine.decode(encoded_nonce.as_bytes())?;
+        let nonce = aes_gcm::Nonce::from_slice(decoded_nonce.as_slice());
+        debug!("Nonce: {:?}", nonce);
 
         // Decode cookie using base64
-        let decoded_cookie = match base64engine.decode(encoded_cookie.as_bytes()) {
-            Ok(s) => s,
-            Err(e) => return Err(PluginError::DecodeError(e))
-        };
+        let decoded_cookie = base64engine.decode(encoded_cookie.as_bytes())?;
 
         // Decrypt with cipher
         let decrypted_cookie = match cipher.decrypt(nonce, decoded_cookie.as_slice()) {
             Ok(s) => s,
-            Err(e) => return Err(PluginError::DecryptionError(e.to_string()))
+            Err(e) => return Err(PluginError::DecryptionError(e))
         };
 
         // Parse cookie into a struct
