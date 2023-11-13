@@ -41,7 +41,7 @@ pkce = "0.2.0"
 aes-gcm = "0.10.3"
 
 # thiserror
-thiserror = "1.0.24"
+thiserror = "1.0.50"
 
 [profile.release]
 lto = true
