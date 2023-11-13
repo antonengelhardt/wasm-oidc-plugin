@@ -1,17 +1,16 @@
+// aes_gcm
+use aes_gcm::{Aes256Gcm, aead::{OsRng, AeadMut}, AeadCore};
+
+// base64
+use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
+
+// log
+use log::{warn,debug};
 use std::fmt::Debug;
 
 // serde
 use serde::{Deserialize, Serialize};
 use serde_json;
-
-// log
-use log::{warn,debug};
-
-// base64
-use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
-
-// aes_gcm
-use aes_gcm::{Aes256Gcm, aead::{OsRng, AeadMut}, AeadCore};
 
 use crate::error::PluginError;
 
@@ -85,23 +84,17 @@ impl AuthorizationState {
     pub fn decode_and_decrypt_cookie(cookie: String, mut cipher: Aes256Gcm, nonce: String) -> Result<AuthorizationState, PluginError> {
 
         // Decode nonce using base64
-        let decoded_nonce = match base64engine.decode(nonce.as_bytes()) {
-            Ok(s) => s,
-            Err(e) => return Err(PluginError::DecodeError(e))
-        };
+        let decoded_nonce = base64engine.decode(nonce.as_bytes())?;
         let nonce = aes_gcm::Nonce::from_slice(decoded_nonce.as_slice());
         debug!("Nonce: {:?}", nonce);
 
         // Decode cookie using base64
-        let decoded_cookie = match base64engine.decode(cookie.as_bytes()) {
-            Ok(s) => s,
-            Err(e) => return Err(PluginError::DecodeError(e))
-        };
+        let decoded_cookie = base64engine.decode(cookie.as_bytes())?;
 
         // Decrypt with cipher
         let decrypted_cookie = match cipher.decrypt(nonce, decoded_cookie.as_slice()) {
             Ok(s) => s,
-            Err(e) => return Err(PluginError::DecryptionError(e.to_string()))
+            Err(e) => return Err(PluginError::DecryptionError(e))
         };
 
         // Parse cookie into a struct

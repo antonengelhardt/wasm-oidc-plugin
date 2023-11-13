@@ -1,14 +1,14 @@
-// serde
-use serde::Deserialize;
-
-// log
-use log::{info, debug};
-
 // base64
 use {base64::engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, base64::Engine as _};
 
 // jwt_simple
 use jwt_simple::{self, prelude::{RSAPublicKeyLike, VerificationOptions, JWTClaims}, Error, claims::NoCustomClaims};
+
+// log
+use log::{info, debug};
+
+// serde
+use serde::Deserialize;
 
 /// [OpenID Connect Discovery Response](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig)
 #[derive(Deserialize, Debug)]

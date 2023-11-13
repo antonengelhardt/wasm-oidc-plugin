@@ -1,6 +1,9 @@
-use error::PluginError;
-// log
-use log::{debug,warn,info};
+// aes-256
+use aes_gcm::Aes256Gcm;
+
+// arc
+use std::sync::Arc;
+use std::vec;
 
 // base64
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
@@ -8,22 +11,18 @@ use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as
 // duration
 use std::time::Duration;
 
-// arc
-use std::sync::Arc;
-use std::vec;
+// jwt
+use jwt_simple::prelude::*;
+
+// log
+use log::{debug,warn,info};
 
 // proxy-wasm
 use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
 
-// jwt
-use jwt_simple::prelude::*;
-
 // url
 use url::{form_urlencoded, Url};
-
-// aes-256
-use aes_gcm::Aes256Gcm;
 
 /// This module contains logic to parse and save the current authorization state in a cookie
 mod cookie;
@@ -42,6 +41,7 @@ use responses::Callback;
 
 /// This module contains the error types for the plugin
 mod error;
+use error::PluginError;
 
 /// The PauseRequests Context is the filter struct which is used when the filter is not configured.
 /// All requests are paused and queued by the RootContext. Once the filter is configured, the
@@ -141,7 +141,7 @@ impl HttpContext for ConfiguredOidc {
                     return Action::Pause;
                 },
                 Err(e) => {
-                    warn!("Token exchange failed: {}", e);
+                    warn!("token exchange failed: {}", e);
                     self.send_http_response(503,
                         vec![
                             ("Cache-Control", "no-cache"),
@@ -231,7 +231,7 @@ impl Context for ConfiguredOidc {
                 debug!("Token stored in cookie.");
             },
             Err(e) => {
-                warn!("Storing token in cookie failed: {}", e);
+                warn!("{}", e);
                 // Send a 503 if storing the token in the cookie failed
                 self.send_http_response(503,
                     vec![
@@ -292,7 +292,7 @@ impl ConfiguredOidc {
                                 Ok(auth_state)
                             }
                             // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
-                            Err(e) => return Err(e),
+                            Err(e) => return Err(PluginError::TokenValidationError(e.into())),
                         }
                     }
                     false => {
@@ -348,30 +348,20 @@ impl ConfiguredOidc {
         let query = path.split("?").last().unwrap_or_default();
 
         // Extract code from the url
-        let code = match serde_urlencoded::from_str::<Callback>(&query) {
-            Ok(callback) => callback.code,
-            Err(e) => return Err(PluginError::CodeNotFoundInCallbackError(e.to_string()))
-        };
+        let code = serde_urlencoded::from_str::<Callback>(&query)?.code;
 
         debug!("Code: {}", code);
 
-        // Hardcoded values for request to token endpoint
-        let client_id = &self.plugin_config.client_id;
-        let client_secret = &self.plugin_config.client_secret;
-
         // Encode client_id and client_secret and build the Authorization header using base64encoding
-        let encoded = base64engine.encode(format!("{client_id}:{client_secret}").as_bytes());
-        let auth = format!("Basic {}", encoded);
+        let auth = format!("Basic {}", base64engine.encode(format!("{}:{}",
+            &self.plugin_config.client_id,
+            &self.plugin_config.client_secret
+        ).as_bytes()));
 
         // Get code verifier from cookie
         let code_verifier = self.get_cookie("code-verifier").unwrap_or_default();
-        let code_verifier_decoded = match base64engine.decode(code_verifier) {
-            Ok(decoded) => match String::from_utf8(decoded) {
-                Ok(decoded) => decoded,
-                Err(e) => return Err(PluginError::Utf8Error(e))
-            }
-            Err(e) => return Err(PluginError::DecodeError(e))
-        };
+        let code_verifier_decoded = base64engine.decode(code_verifier)?;
+        let code_verifier_decoded = String::from_utf8(code_verifier_decoded)?;
 
         // Build the request body for the token endpoint
         let data = form_urlencoded::Serializer::new(String::new())
@@ -398,8 +388,7 @@ impl ConfiguredOidc {
             ],
             Some(data.as_bytes()),
             vec![],
-            Duration::from_secs(10),
-        ) {
+            Duration::from_secs(10)) {
             // If the request is dispatched successfully, this filter pauses the request
             Ok(id) => {
                 self.token_id = Some(id);
@@ -411,12 +400,11 @@ impl ConfiguredOidc {
     }
 
     /// Store the token from the token response in a cookie.
-    /// Parse the token with the `AuthorizationState` struct and store it in an encoded cookie.
+    /// Parse the token with the `AuthorizationState` struct and store it in an encoded and encrypted cookie.
     /// Then, redirect the requester to the original URL.
     fn store_token_in_cookie(&mut self, token_id: u32, body_size: usize) -> Result<(), PluginError> {
         // Assess token id
         if self.token_id != Some(token_id) {
-            warn!("Token id does not match.");
             return Err(PluginError::TokenIdMismatchError);
         }
 
@@ -455,26 +443,9 @@ impl ConfiguredOidc {
                         debug!("Nonce: {:?}", &nonce);
 
                         // Get original-path cookie
-                        let original_path = match self.get_cookie("original-path") {
-                            Some(original_path_encoded) => {
-                                match base64engine.decode(original_path_encoded) {
-                                    Ok(original_path_decoded) => {
-                                        match String::from_utf8(original_path_decoded) {
-                                            Ok(original_path_decoded) => original_path_decoded,
-                                            Err(e) => {
-                                                warn!("error when casting utf8 to string: {}", e);
-                                                "/".to_string()
-                                            }
-                                        }
-                                    }
-                                    Err(e) => {
-                                        warn!("decode original path error: {}", e);
-                                        "/".to_string()
-                                    }
-                                }
-                            }
-                            None => "/".to_string()
-                        };
+                        let original_path_cookie = self.get_cookie("original-path").unwrap_or("".to_string());
+                        let original_path_decoded = base64engine.decode(original_path_cookie)?;
+                        let original_path = String::from_utf8(original_path_decoded).unwrap_or("/".to_string());
                         debug!("Original Path: {:?}", &original_path);
 
                         // Split every 4000 bytes and push it to the cookie_parts vector
@@ -487,7 +458,7 @@ impl ConfiguredOidc {
                         // Iterate over the cookie parts and set the cookie reply headers
                         let mut cookie_values = vec![];
                         for (i, cookie_part) in cookie_parts.enumerate() {
-                            let cookie_value = String::from(format!("{}-{}={}; Path=/; HttpOnly; Max-Age={}",
+                            let cookie_value = String::from(format!("{}-{}={}; Path=/; HttpOnly; Secure; Max-Age={}",
                                 self.plugin_config.cookie_name,
                                 i,
                                 cookie_part,
@@ -506,7 +477,7 @@ impl ConfiguredOidc {
                         set_cookie_headers.push(location_header);
 
                         // Set the nonce cookie
-                        let nonce_cookie = format!("{}={}; Path=/; HttpOnly; Max-Age={}", "nonce",
+                        let nonce_cookie = format!("{}={}; Path=/; HttpOnly; Secure; Max-Age={}", "nonce",
                             nonce, self.plugin_config.cookie_duration);
                         set_cookie_headers.push(("Set-Cookie", nonce_cookie.as_str()));
 
@@ -517,7 +488,7 @@ impl ConfiguredOidc {
                             Some(b"Redirecting..."),
                         );
                         Ok(())
-                    }
+                    },
                     Err(e) => Err(PluginError::CookieStoreError(e.to_string())),
                 }
             }
@@ -562,9 +533,9 @@ impl ConfiguredOidc {
             307,
             vec![
                 // Original path to redirect back to
-                ("Set-Cookie", &format!("original-path={}; Max-Age={}", &original_path_encoded, 180)),
+                ("Set-Cookie", &format!("original-path={}; HttpOnly; Secure; Max-Age={}", &original_path_encoded, 180)),
                 // Set the pkce challenge as a cookie to verify the callback.
-                ("Set-Cookie", &format!("code-verifier={}; Max-Age={}", &pkce_encoded, 180)),
+                ("Set-Cookie", &format!("code-verifier={}; HttpOnly; Secure; Max-Age={}", &pkce_encoded, 180)),
                 // Redirect to `authorization endpoint`
                 ("Location", url.as_str()),
                 ],
