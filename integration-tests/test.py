@@ -13,7 +13,9 @@ import pytest
 
 load_dotenv()
 
-BASE_URL = "http://localhost:10000"
+BASE_URL = "http://" + os.getenv("GATEWAY") + ":10000" if os.getenv("GATEWAY") is not None else "http://localhost:10000"
+print(BASE_URL)
+
 WASM_OIDC_PLUGIN_TEST_EMAIL = os.getenv("WASM_OIDC_PLUGIN_TEST_EMAIL")
 WASM_OIDC_PLUGIN_TEST_PASSWORD = os.getenv("WASM_OIDC_PLUGIN_TEST_PASSWORD")
 
@@ -92,8 +94,9 @@ def test_modified_cookie() -> None:
 
     set_up()
     login(driver)
-    driver.delete_cookie("oidcSession-0")
-    driver.refresh()
+
+    driver.delete_all_cookies()
+    driver.get(BASE_URL)
     assert driver.title != "httpbin.org"
     tear_down()
 
@@ -105,3 +108,4 @@ def test_ignore_ignore_path() -> None:
     print(driver.title)
     assert driver.title == ""
     tear_down()
+
