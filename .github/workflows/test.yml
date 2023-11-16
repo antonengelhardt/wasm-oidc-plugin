@@ -47,7 +47,7 @@ jobs:
           run: |
             cargo build --target wasm32-wasi --release
 
-        - name: Make plugin available to next job
+        - name: Upload plugin as artifact
           uses: actions/upload-artifact@v2
           with:
             name: plugin
@@ -56,26 +56,10 @@ jobs:
     integration-test:
       runs-on: ubuntu-latest
       container:
-        image: antonengelhardt/rust-docker-tools
+        image: alpine:latest
       needs: [build]
 
-      # services:
-      #   envoy:
-      #     image: docker.io/envoyproxy/envoy:v1.24-latest
-      #     ports:
-      #       - "10000:10000"
-      #     volumes:
-      #       - ./envoy.yaml:/etc/envoy/envoy.yaml
-      #       - ../target/wasm32-wasi/release:/etc/envoy/proxy-wasm-plugins
-      #     options: envoy -c /etc/envoy/envoy.yaml --concurrency 1
-
-      #   httpbin:
-      #     image: docker.io/kennethreitz/httpbin
-      #     ports:
-      #       - "80:80"
-
       steps:
-
         - name: Checkout code
           uses: actions/checkout@v3
 
@@ -97,26 +81,28 @@ jobs:
             apk update
             apk add chromium
             apk add chromium-chromedriver
+            apk add dbus
             apk add docker
             apk add python3
             apk add py3-pip
-            apk add tree
+            apk add curl
 
         - name: Install Requirements
           run: |
             pip install -r integration-tests/requirements.txt
 
-        - name: Tree
+        - name: Start Containers & Run Integration tests
           run: |
-            tree
+            cd integration-tests
+            docker run -d -p 80:80 --name httpin docker.io/kennethreitz/httpbin
+            docker run -d -v $(pwd)/envoy.yaml:/etc/envoy/envoy.yaml -v $(pwd)/../target/wasm32-wasi/release:/etc/envoy/proxy-wasm-plugins -p 10000:10000 --name envoy docker.io/envoyproxy/envoy:v1.24-latest envoy -c /etc/envoy/envoy.yaml --concurrency 1
 
-        - name: Start Containers
-          run: |
-            docker run -d -v $(pwd)/envoy.yaml:~/envoy/envoy.yaml -v $(pwd)/target/wasm32-wasi/release:~/envoy/proxy-wasm-plugins -p 10000:10000 docker.io/envoyproxy/envoy:v1.24-latest envoy -c ~/envoy/envoy.yaml --concurrency 1
-            docker run -d -p 80:80 docker.io/kennethreitz/httpbin
+            sleep 5
 
-        - name: Run Integration tests
-          run: |
-            chromium-browser
-            chromedriver --silent
+            docker ps -a
+            docker logs envoy
+
+            curl localhost:10000 -v
+
+            chromedriver --silent &
             pytest test.py
