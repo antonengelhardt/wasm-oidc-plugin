@@ -61,7 +61,7 @@ static_resources:
                         runtime: "envoy.wasm.runtime.v8"
                         code:
                           local:
-                            filename: "~/envoy/proxy-wasm-plugins/wasm_oidc_plugin.wasm"
+                            filename: "/etc/envoy/proxy-wasm-plugins/wasm_oidc_plugin.wasm"
                 - name: envoy.filters.http.router
                   typed_config:
                     "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router

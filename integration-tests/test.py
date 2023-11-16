@@ -43,6 +43,8 @@ def set_up() -> None:
         driver = webdriver.Chrome()
 
 def login(driver: webdriver) -> None:
+    """ Logs in to the application. """
+
     driver.get(BASE_URL)
     driver.find_element(By.ID, "username").send_keys(WASM_OIDC_PLUGIN_TEST_EMAIL)
     driver.find_element(By.ID, "password").send_keys(WASM_OIDC_PLUGIN_TEST_PASSWORD)
@@ -50,6 +52,8 @@ def login(driver: webdriver) -> None:
 
 def tear_down() -> None:
     """Tears down the Selenium driver."""
+
+    driver.delete_all_cookies()
 
     driver.quit()
 
@@ -89,7 +93,7 @@ def test_modified_cookie() -> None:
     set_up()
     login(driver)
     driver.delete_cookie("oidcSession-0")
-    driver.refresh() 
+    driver.refresh()
     assert driver.title != "httpbin.org"
     tear_down()
 
