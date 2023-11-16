@@ -4,6 +4,7 @@ services:
   envoy:
     image: envoyproxy/envoy:v1.24-latest
     hostname: envoy
+    container_name: envoy
     ports:
       - "10000:10000"
     volumes:
@@ -16,6 +17,7 @@ services:
   httpbin:
     image: kennethreitz/httpbin
     hostname: httpbin
+    container_name: httpbin
     ports:
       - "80:80"
     networks:

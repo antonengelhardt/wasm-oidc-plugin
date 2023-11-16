@@ -56,7 +56,7 @@ jobs:
     integration-test:
       runs-on: ubuntu-latest
       container:
-        image: alpine:latest
+        image: docker:24.0.7-dind-alpine3.18
       needs: [build]
 
       steps:
@@ -76,33 +76,39 @@ jobs:
             echo "WASM_OIDC_PLUGIN_TEST_PASSWORD={{ secrets.WASM_OIDC_PLUGIN_TEST_PASSWORD }}" >> integration-tests/.env
             sed -i 's/client_secret: \"redacted\"/client_secret: \"${{ secrets.WASM_OIDC_PLUGIN_TEST_CLIENT_SECRET }}\"/g' integration-tests/envoy.yaml
 
-        - name: Install Chrome, Chromedriver, Docker and Python (and pip)
+        - name: Install Docker
           run: |
             apk update
-            apk add chromium
-            apk add chromium-chromedriver
-            apk add dbus
-            apk add docker
-            apk add python3
-            apk add py3-pip
+            # apk add docker
             apk add curl
-
-        - name: Install Requirements
-          run: |
-            pip install -r integration-tests/requirements.txt
 
         - name: Start Containers & Run Integration tests
           run: |
             cd integration-tests
-            docker run -d -p 80:80 --name httpin docker.io/kennethreitz/httpbin
-            docker run -d -v $(pwd)/envoy.yaml:/etc/envoy/envoy.yaml -v $(pwd)/../target/wasm32-wasi/release:/etc/envoy/proxy-wasm-plugins -p 10000:10000 --name envoy docker.io/envoyproxy/envoy:v1.24-latest envoy -c /etc/envoy/envoy.yaml --concurrency 1
+            ls -la
+
+            echo "Building Integration Tests Docker Image"
+            docker build -t integration-tests -f Dockerfile .
+
+            echo "Creating Docker Network"
+            docker network create --driver bridge integration-tests
+
+            echo "Starting httpbin container"
+            docker run -d -p 80:80 --name httpin --network integration-tests docker.io/kennethreitz/httpbin
+
+            echo "Creating Envoy container"
+            docker container create --name envoy -p 10000:10000 --network integration-tests docker.io/envoyproxy/envoy:v1.24-latest envoy -c /etc/envoy/envoy.yaml --concurrency 1
+
+            echo "Copying files to Envoy container because Alpine doesn't like mounting files to files"
+            docker cp ../target/wasm32-wasi/release/wasm_oidc_plugin.wasm envoy:/etc/envoy/proxy-wasm-plugins
+            docker cp envoy.yaml envoy:/etc/envoy/envoy.yaml
+
+            echo "Starting Envoy container"
+            docker start envoy
 
             sleep 5
-
-            docker ps -a
+            docker ps
             docker logs envoy
 
-            curl localhost:10000 -v
-
-            chromedriver --silent &
-            pytest test.py
+            echo "Starting Alpine container to run Integration Tests"
+            docker run --name alpine --network integration-tests -e GATEWAY=$(docker ps | grep 'dindalpine' | awk '{print $11}') integration-tests
