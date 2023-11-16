@@ -8,6 +8,7 @@ jobs:
       runs-on: ubuntu-latest
       container:
         image: antonengelhardt/rust-docker-tools
+
       steps:
         - name: Checkout code
           uses: actions/checkout@v3
@@ -27,7 +28,7 @@ jobs:
             cargo clippy
             cargo test --workspace --verbose
 
-    integration-test:
+    build:
       runs-on: ubuntu-latest
       container:
         image: antonengelhardt/rust-docker-tools
@@ -36,6 +37,54 @@ jobs:
         - name: Checkout code
           uses: actions/checkout@v3
 
+        - name: Cache dependencies
+          uses: actions/cache@v2
+          with:
+            path: target
+            key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+        - name: Build WASM OIDC Plugin
+          run: |
+            cargo build --target wasm32-wasi --release
+
+        - name: Make plugin available to next job
+          uses: actions/upload-artifact@v2
+          with:
+            name: plugin
+            path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
+
+    integration-test:
+      runs-on: ubuntu-latest
+      container:
+        image: antonengelhardt/rust-docker-tools
+      needs: [build]
+
+      # services:
+      #   envoy:
+      #     image: docker.io/envoyproxy/envoy:v1.24-latest
+      #     ports:
+      #       - "10000:10000"
+      #     volumes:
+      #       - ./envoy.yaml:/etc/envoy/envoy.yaml
+      #       - ../target/wasm32-wasi/release:/etc/envoy/proxy-wasm-plugins
+      #     options: envoy -c /etc/envoy/envoy.yaml --concurrency 1
+
+      #   httpbin:
+      #     image: docker.io/kennethreitz/httpbin
+      #     ports:
+      #       - "80:80"
+
+      steps:
+
+        - name: Checkout code
+          uses: actions/checkout@v3
+
+        - name: Download plugin from build job
+          uses: actions/download-artifact@v2
+          with:
+            name: plugin
+            path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
+
         - name: Create .env for Integration tests
           run: |
             echo "CI=true" >> integration-tests/.env
@@ -43,28 +92,28 @@ jobs:
             echo "WASM_OIDC_PLUGIN_TEST_PASSWORD={{ secrets.WASM_OIDC_PLUGIN_TEST_PASSWORD }}" >> integration-tests/.env
             sed -i 's/client_secret: \"redacted\"/client_secret: \"${{ secrets.WASM_OIDC_PLUGIN_TEST_CLIENT_SECRET }}\"/g' integration-tests/envoy.yaml
 
-        - name: Install Chrome, Chromedriver, Docker, Docker-Compose and Python (and pip)
+        - name: Install Chrome, Chromedriver, Docker and Python (and pip)
           run: |
             apk update
             apk add chromium
             apk add chromium-chromedriver
             apk add docker
-            apk add docker-compose
             apk add python3
             apk add py3-pip
+            apk add tree
 
         - name: Install Requirements
           run: |
             pip install -r integration-tests/requirements.txt
 
-        - name: Build WASM OIDC Plugin
+        - name: Tree
           run: |
-            cargo build --target wasm32-wasi --release
+            tree
 
-        - name: Docker-Compose up
+        - name: Start Containers
           run: |
-            cd integration-tests
-            docker-compose up -d
+            docker run -d -v $(pwd)/envoy.yaml:~/envoy/envoy.yaml -v $(pwd)/target/wasm32-wasi/release:~/envoy/proxy-wasm-plugins -p 10000:10000 docker.io/envoyproxy/envoy:v1.24-latest envoy -c ~/envoy/envoy.yaml --concurrency 1
+            docker run -d -p 80:80 docker.io/kennethreitz/httpbin
 
         - name: Run Integration tests
           run: |
