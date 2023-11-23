@@ -9,3 +9,7 @@ target
 
 # peformance
 /performance
+
+# vscode
+.vscode
+settings.json
