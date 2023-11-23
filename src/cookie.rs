@@ -142,10 +142,8 @@ impl Session {
         let decoded_cookie = base64engine.decode(encoded_cookie.as_bytes())?;
 
         // Decrypt with cipher
-        let decrypted_cookie = match cipher.decrypt(nonce, decoded_cookie.as_slice()) {
-            Ok(s) => s,
-            Err(e) => return Err(PluginError::DecryptionError(e))
-        };
+        let decrypted_cookie = cipher.decrypt(nonce, decoded_cookie.as_slice())
+            .map_err(|e| PluginError::DecryptionError(e))?;
 
         // Parse cookie into a struct
         match serde_json::from_slice::<Session>(&decrypted_cookie) {
