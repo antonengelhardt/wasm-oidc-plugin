@@ -56,8 +56,7 @@ impl AuthorizationState {
         let encoded_nonce = base64engine.encode(nonce.as_slice());
 
         // Encrypt cookie
-        let encrypted_cookie = cipher.encrypt(&nonce, serde_json::to_vec(&state).unwrap().as_slice())
-            .map_err(|e| PluginError::DecryptionError(e))?;
+        let encrypted_cookie = cipher.encrypt(&nonce, serde_json::to_vec(&state).unwrap().as_slice())?;
 
         // Encode cookie
         let encoded_cookie = base64engine.encode(encrypted_cookie.as_slice());

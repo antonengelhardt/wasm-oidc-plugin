@@ -34,7 +34,7 @@ pub enum PluginError {
 
     // Cookie errors
     #[error("decryption failed: {0}")]
-    DecryptionError(aes_gcm::aead::Error),
+    DecryptionError(#[from] aes_gcm::aead::Error),
     #[error("token could not be stored in cookie: {0}")]
     CookieStoreError(String),
     #[error("cookie is not valid: {0}")]
