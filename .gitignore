@@ -10,3 +10,7 @@ Cargo.lock
 
 # peformance
 /performance
+
+# vscode
+.vscode
+settings.json

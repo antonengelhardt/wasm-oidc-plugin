@@ -281,6 +281,8 @@ impl ConfiguredOidc {
             // corrupted the encrypted state
             Ok(auth_state) => {
 
+                debug!("state: {:?}", auth_state);
+
                 // Only validate the token if the configuration option is set
                 match self.plugin_config.token_validation {
                     true => {
@@ -428,73 +430,65 @@ impl ConfiguredOidc {
 
         // Catching token response from token endpoint. Previously we checked for the status code and
         // the body, so we can assume that the response is valid.
-        match self.get_http_call_response_body(0, body_size) {
-            Some(body) => {
-                debug!("Token response: {:?}", body);
+        let body = self.get_http_call_response_body(0, body_size).ok_or(PluginError::NoBodyError)?;
+            debug!("Token response: {:?}", body);
 
-                // Build Cookie Struct using create_cookie_from_response from cookie.rs
-                match cookie::AuthorizationState::create_cookie_from_response(self.cipher.clone(), body.as_slice()) {
-                    Ok(res) => {
+        // Build Cookie Struct using create_cookie_from_response from cookie.rs
+        let res = cookie::AuthorizationState::create_cookie_from_response(self.cipher.clone(), body.as_slice())
+            .map_err(|e| PluginError::CookieStoreError(e.to_string()))?;
 
-                        let auth_cookie = res.encoded_cookie;
-                        let nonce = res.encoded_nonce;
+        let auth_cookie = res.encoded_cookie;
+        let nonce = res.encoded_nonce;
 
-                        debug!("Cookie: {:?}", &auth_cookie);
-                        debug!("Nonce: {:?}", &nonce);
+        debug!("Cookie: {:?}", &auth_cookie);
+        debug!("Nonce: {:?}", &nonce);
 
-                        // Get original-path cookie
-                        let original_path_cookie = self.get_cookie("original-path").unwrap_or("".to_string());
-                        let original_path_decoded = base64engine.decode(original_path_cookie)?;
-                        let original_path = String::from_utf8(original_path_decoded).unwrap_or("/".to_string());
-                        debug!("Original Path: {:?}", &original_path);
+        // Get original-path cookie
+        let original_path_cookie = self.get_cookie("original-path").unwrap_or("".to_string());
+        let original_path_decoded = base64engine.decode(original_path_cookie)?;
+        let original_path = String::from_utf8(original_path_decoded).unwrap_or("/".to_string());
+        debug!("Original Path: {:?}", &original_path);
 
-                        // Split every 4000 bytes and push it to the cookie_parts vector
-                        let cookie_parts = auth_cookie
-                            .as_bytes()
-                            .chunks(4000)
-                            .map(|chunk| std::str::from_utf8(chunk)
-                            .expect("auth_cookie is base64 encoded, which means ASCII, which means one character = one byte, so this is valid"));
+        // Split every 4000 bytes and push it to the cookie_parts vector
+        let cookie_parts = auth_cookie
+            .as_bytes()
+            .chunks(4000)
+            .map(|chunk| std::str::from_utf8(chunk)
+            .expect("auth_cookie is base64 encoded, which means ASCII, which means one character = one byte, so this is valid"));
 
-                        // Iterate over the cookie parts and set the cookie reply headers
-                        let mut cookie_values = vec![];
-                        for (i, cookie_part) in cookie_parts.enumerate() {
-                            let cookie_value = String::from(format!("{}-{}={}; Path=/; HttpOnly; Secure; Max-Age={}",
-                                self.plugin_config.cookie_name,
-                                i,
-                                cookie_part,
-                                self.plugin_config.cookie_duration));
-                            cookie_values.push(cookie_value);
-                        };
+        // Iterate over the cookie parts and set the cookie reply headers
+        let mut cookie_values = vec![];
+        for (i, cookie_part) in cookie_parts.enumerate() {
+            let cookie_value = String::from(format!("{}-{}={}; Path=/; HttpOnly; Secure; Max-Age={}",
+                self.plugin_config.cookie_name,
+                i,
+                cookie_part,
+                self.plugin_config.cookie_duration));
+            cookie_values.push(cookie_value);
+        };
 
-                        // Build the cookie headers
-                        let mut set_cookie_headers: Vec<(&str,&str)> = cookie_values
-                            .iter()
-                            .map(|v| ("Set-Cookie", v.as_str()))
-                            .collect();
+        // Build the cookie headers
+        let mut set_cookie_headers: Vec<(&str,&str)> = cookie_values
+            .iter()
+            .map(|v| ("Set-Cookie", v.as_str()))
+            .collect();
 
-                        // Set the location header to the original path
-                        let location_header = ("Location", original_path.as_str());
-                        set_cookie_headers.push(location_header);
+        // Set the location header to the original path
+        let location_header = ("Location", original_path.as_str());
+        set_cookie_headers.push(location_header);
 
-                        // Set the nonce cookie
-                        let nonce_cookie = format!("{}={}; Path=/; HttpOnly; Secure; Max-Age={}", "nonce",
-                            nonce, self.plugin_config.cookie_duration);
-                        set_cookie_headers.push(("Set-Cookie", nonce_cookie.as_str()));
+        // Set the nonce cookie
+        let nonce_cookie = format!("{}={}; Path=/; HttpOnly; Secure; Max-Age={}", "nonce",
+            nonce, self.plugin_config.cookie_duration);
+        set_cookie_headers.push(("Set-Cookie", nonce_cookie.as_str()));
 
-                        // Redirect back to the original URL and set the cookie.
-                        self.send_http_response(
-                            307,
-                            set_cookie_headers,
-                            Some(b"Redirecting..."),
-                        );
-                        Ok(())
-                    },
-                    Err(e) => Err(PluginError::CookieStoreError(e.to_string())),
-                }
-            }
-            // If no body is found, return the error
-            None => Err(PluginError::NoBodyError)
-        }
+        // Redirect back to the original URL and set the cookie.
+        self.send_http_response(
+            307,
+            set_cookie_headers,
+            Some(b"Redirecting..."),
+        );
+        Ok(())
     }
 
     /// Redirect to the` authorization endpoint` by sending a HTTP response with a 307 status code.

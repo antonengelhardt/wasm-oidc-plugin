@@ -5,7 +5,7 @@ use aes_gcm::{Aes256Gcm, aead::{OsRng, AeadMut}, AeadCore};
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
 
 // log
-use log::{warn,debug};
+use log::debug;
 use std::fmt::Debug;
 
 // serde
@@ -49,34 +49,25 @@ impl AuthorizationState {
     pub fn create_cookie_from_response(mut cipher: Aes256Gcm, res: &[u8]) -> Result<EncodedCookies, String> {
 
         // Format the response into a slice and parse it in a struct
-        match serde_json::from_slice::<AuthorizationState>(&res) {
+        let state = serde_json::from_slice::<AuthorizationState>(&res)?;
 
-            // If deserialization was successful, return the encrypted and encoded cookie
-            Ok(state) => {
+        // Generate nonce and encode it
+        let nonce = Aes256Gcm::generate_nonce(OsRng);
+        let encoded_nonce = base64engine.encode(nonce.as_slice());
 
-                // Generate nonce and encode it
-                let nonce = Aes256Gcm::generate_nonce(OsRng);
-                let encoded_nonce = base64engine.encode(nonce.as_slice());
+        // Encrypt cookie
+        let encrypted_cookie = cipher.encrypt(&nonce, serde_json::to_vec(&state).unwrap().as_slice())
+            .map_err(|e| PluginError::DecryptionError(e))?;
 
-                // Encrypt cookie
-                let encrypted_cookie = cipher.encrypt(&nonce, serde_json::to_vec(&state).unwrap().as_slice()).unwrap();
+        // Encode cookie
+        let encoded_cookie = base64engine.encode(encrypted_cookie.as_slice());
 
-                // Encode cookie
-                let encoded_cookie = base64engine.encode(encrypted_cookie.as_slice());
-
-                Ok(EncodedCookies {
-                    encoded_cookie,
-                    encoded_nonce,
-                    access_token: state.access_token,
-                    id_token: state.id_token,
-                })
-            },
-            // If the cookie cannot be parsed into a struct, return an error
-            Err(e) => {
-                warn!("The token response is not in the required format: {}", e);
-                return Err(PluginError::JsonError(e))
-            }
-        }
+        Ok(EncodedCookies {
+            encoded_cookie,
+            encoded_nonce,
+            access_token: state.access_token,
+            id_token: state.id_token,
+        })
     }
 
     /// Decode cookie, parse into a struct in order to access the fields and
@@ -92,21 +83,10 @@ impl AuthorizationState {
         let decoded_cookie = base64engine.decode(cookie.as_bytes())?;
 
         // Decrypt with cipher
-        let decrypted_cookie = match cipher.decrypt(nonce, decoded_cookie.as_slice()) {
-            Ok(s) => s,
-            Err(e) => return Err(PluginError::DecryptionError(e))
-        };
+        let decrypted_cookie = cipher.decrypt(nonce, decoded_cookie.as_slice())
+            .map_err(|e| PluginError::DecryptionError(e))?;
 
-        // Parse cookie into a struct
-        match serde_json::from_slice::<AuthorizationState>(&decrypted_cookie) {
-
-            // If deserialization was successful, set the cookie and resume the request
-            Ok(state) => {
-                debug!("State: {:?}", state);
-                return Ok(state)
-            },
-            // If the cookie cannot be parsed into a struct, return an error
-            Err(e) => return Err(PluginError::JsonError(e))
-        }
+        // Parse into struct and return
+        Ok(serde_json::from_slice::<AuthorizationState>(&decrypted_cookie)?)
     }
 }
