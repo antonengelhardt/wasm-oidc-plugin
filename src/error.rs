@@ -5,6 +5,8 @@ use thiserror::Error;
 #[derive(Error, Debug)]
 pub enum PluginError {
     // Parsing Errors
+    #[error("url is not valid: {0}")]
+    UrlError(#[from] url::ParseError),
     #[error("error while parsing the configuration file: {0}")]
     YamlError(#[from] serde_yaml::Error),
     #[error("error while parsing from json: {0}")]
