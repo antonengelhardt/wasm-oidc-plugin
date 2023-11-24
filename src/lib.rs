@@ -126,7 +126,8 @@ impl HttpContext for ConfiguredOidc {
             return Action::Continue;
         }
 
-        let url = Url::parse(&format!("{}{}", host, path)).unwrap();
+        let scheme = self.get_http_request_header(":scheme").unwrap_or("http".into());
+        let url = Url::parse(&format!("{}://{}{}", scheme, host, path)).map_err(PluginError::UrlError).unwrap();
         if self.plugin_config.exclude_urls.iter().any(|x| x.is_match(&url.as_str())) {
             debug!("Url {} is excluded. Forwarding request.", url.as_str());
             return Action::Continue;

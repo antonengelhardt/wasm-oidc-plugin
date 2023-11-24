@@ -46,7 +46,7 @@ pub struct EncodedCookies {
 impl AuthorizationState {
 
     /// Create a new encoded cookie from the response coming from the Token Endpoint
-    pub fn create_cookie_from_response(mut cipher: Aes256Gcm, res: &[u8]) -> Result<EncodedCookies, String> {
+    pub fn create_cookie_from_response(mut cipher: Aes256Gcm, res: &[u8]) -> Result<EncodedCookies, PluginError> {
 
         // Format the response into a slice and parse it in a struct
         let state = serde_json::from_slice::<AuthorizationState>(&res)?;
