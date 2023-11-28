@@ -464,8 +464,8 @@ impl ConfiguredOidc {
                 match cookie::AuthorizationState::create_cookie_from_response(self.cipher.clone(), body.as_slice()) {
                     Ok(res) => {
 
-                        let auth_cookie = res.first().unwrap().to_string();
-                        let nonce = res.get(1).unwrap().to_string();
+                        let auth_cookie = res.encoded_cookie;
+                        let nonce = res.encoded_nonce;
 
                         debug!("Cookie: {:?}", &auth_cookie);
                         debug!("Nonce: {:?}", &nonce);
