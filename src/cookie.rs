@@ -29,11 +29,23 @@ pub struct AuthorizationState {
     pub id_token: String,
 }
 
+/// Struct that holds the encoded cookie and the encoded nonce as well as the access token and the id token
+pub struct EncodedCookies {
+    /// Encoded cookie
+    pub encoded_cookie: String,
+    /// Encoded nonce
+    pub encoded_nonce: String,
+    /// Access token
+    pub access_token: String,
+    /// ID token
+    pub id_token: String,
+}
+
 /// Implementation of the AuthorizationState struct
 impl AuthorizationState {
 
     /// Create a new encoded cookie from the response coming from the Token Endpoint
-    pub fn create_cookie_from_response(mut cipher: Aes256Gcm, res: &[u8]) -> Result<Vec<String>, String> {
+    pub fn create_cookie_from_response(mut cipher: Aes256Gcm, res: &[u8]) -> Result<EncodedCookies, String> {
 
         // Format the response into a slice and parse it in a struct
         match serde_json::from_slice::<AuthorizationState>(&res) {
@@ -51,7 +63,12 @@ impl AuthorizationState {
                 // Encode cookie
                 let encoded_cookie = base64engine.encode(encrypted_cookie.as_slice());
 
-                Ok(vec![encoded_cookie, encoded_nonce, state.access_token, state.id_token])
+                Ok(EncodedCookies {
+                    encoded_cookie,
+                    encoded_nonce,
+                    access_token: state.access_token,
+                    id_token: state.id_token,
+                })
             },
             // If the cookie cannot be parsed into a struct, return an error
             Err(e) => {
