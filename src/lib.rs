@@ -174,25 +174,29 @@ impl HttpContext for ConfiguredOidc {
             match self.validate_cookie(cookie, nonce) {
                 Ok(auth_state) => {
                     // Forward access token in header, if configured
-                    if self.plugin_config.access_token_header_name.is_some() {
+                    if let Some(header_name) = &self.plugin_config.access_token_header_name {
                         // Get access token
                         let access_token = &auth_state.access_token;
+                        // Forward access token in header
                         self.add_http_request_header(
-                            self.plugin_config.access_token_header_name.as_ref().unwrap(),
+                            &header_name,
                             format!("{}{}",
-                                self.plugin_config.access_token_header_prefix.as_ref().unwrap(), access_token
+                                self.plugin_config.access_token_header_prefix.as_ref().unwrap(),
+                                access_token
                         ).as_str());
                     }
+
                     // Forward id token in header, if configured
-                    if self.plugin_config.id_token_header_name.is_some() {
+                    if let Some(header_name) = &self.plugin_config.id_token_header_name {
                         // Get id token
                         let id_token = &auth_state.id_token;
                         // Forward id token in header
                         self.add_http_request_header(
-                            self.plugin_config.id_token_header_name.as_ref().unwrap(),
+                            &header_name,
                             format!("{}{}",
                                 self.plugin_config.id_token_header_prefix.as_ref().unwrap(),
-                                id_token).as_str());
+                                id_token
+                        ).as_str());
                     }
 
                     // Allow request to pass

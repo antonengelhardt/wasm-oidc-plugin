@@ -32,27 +32,25 @@ static_resources:
                         "@type": "type.googleapis.com/google.protobuf.StringValue"
                         value: |
                           config_endpoint: "https://auth.k8s.wwu.de/.well-known/openid-configuration"
-                          reload_interval_in_h: 1
+                          reload_interval_in_h: 1 # in hours
 
-                          exclude_hosts: []
-                          exclude_paths: []
-                          exclude_urls: []
+                          exclude_hosts: [] # or ["httpbin.org"]
+                          exclude_paths: [] # or ["/anything"]
+                          exclude_urls: [] # or ["http://httpbin.org/anything"]
 
-                          forward_access_token: true
-                          access_token_header_name: "Authorization"
+                          access_token_header_name: # or "Authorization"
                           access_token_header_prefix: "Bearer "
-                          forward_id_token: true
-                          id_token_header_name: "X-Id-Token"
+                          id_token_header_name: # or "X-Id-Token"
                           id_token_header_prefix: "Bearer "
 
                           cookie_name: "oidcSession"
-                          cookie_duration: 86400
-                          token_validation: true
+                          cookie_duration: 86400 # in seconds
+                          token_validation: true # or false
                           aes_key: "SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q"
 
-                          authority: "auth.k8s.wwu.de"
-                          redirect_uri: "http://localhost:10000/oidc/callback"
-                          client_id: "wasm-oidc-plugin"
+                          authority: "auth.k8s.wwu.de" # FQDN of the OIDC provider
+                          redirect_uri: "http://localhost:10000/oidc/callback" # redirect uri that is registered with the OIDC provider
+                          client_id: "wasm-oidc-plugin" # client id that is registered with the OIDC provider
                           scope: "openid profile email"
                           claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
 
