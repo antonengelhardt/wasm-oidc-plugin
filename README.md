@@ -82,7 +82,7 @@ The plugin is configured via the `envoy.yaml` file. The following configuration 
 | `cookie_name` | `string` | The name of the cookie, that is used to store the session. | `oidcSession` |
 | `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` |
 | `token_validation` | bool | Whether to validate the token or not. | `true` |
-| `aes_key` | `string` | A base64 encoded AES-256 Key | `SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q` |
+| `aes_key` | `string` | A base64 encoded AES-256 Key: `openssl rand -base64 32 | tr -d '='` | `SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q` |
 | `authority` | `string` | The authority of the `authorization_endpoint`. | `accounts.google.com` |
 | `redirect_uri` | `string` | The redirect URI, that the `authorization_endpoint` will redirect to. | `http://localhost:10000/oidc/callback` |
 | `client_id` | `string` | The client ID, for getting and exchanging the code. | `wasm-oidc-plugin` |
@@ -93,7 +93,9 @@ The plugin is configured via the `envoy.yaml` file. The following configuration 
 
 With these configuration options, the plugin starts and loads more information itself such as the OIDC providers public keys, issuer, etc.
 
-For that a state is used, which determines, what to load next. The following states are possbile and depending on the outcome, the state is changed or not:
+### States
+
+For that a state is used, which determines, what to load next. The following states are possible and depending on the outcome, the state is changed or not:
 
 | State | Description |
 | ---- | ----------- |
@@ -108,7 +110,7 @@ When a new request arrives, the root context creates a new http context with the
 
 Then, one of the following cases is handled:
 
-1. The filter is not configured yet and still loading the configuration. The request is paused and queued until the configuration is loaded. Then, then, the RootContext resumes the request and the Request is redirected in order to create a new context.
+1. The filter is not configured yet and still loading the configuration. The request is paused and queued until the configuration is loaded. Then, the RootContext resumes the request and the Request is redirected in order to create a new context.
 2. The request has the code parameter in the URL query. This means that the user has been redirected back from the `authorization_endpoint` after successful authentication. The plugin exchanges the code for a token using the `token_endpoint` and stores the token in the session. Then, the user is redirected back to the original request.
 3. The request has a valid session cookie. The plugin decoded, decrypts and then validates the cookie and passes the request depending on the outcome of the validation of the token.
 4. The request has no valid session cookie. The plugin redirects the user to the `authorization_endpoint` to authenticate. Once, the user returns, the second case is handled.
