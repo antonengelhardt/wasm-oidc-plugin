@@ -50,22 +50,19 @@ pub struct PluginConfiguration {
     pub exclude_urls: Vec<Regex>,
 
     // Header forwarding settings
-    /// Forward the access token in a header
-    pub forward_access_token: bool,
     /// The header name that will be used for the access token
-    /// If the header name is empty, the access token will be forwarded in the authorization header
-    pub access_token_header_name: String,
+    /// If the header name is empty, the access token will not be forwarded
+    pub access_token_header_name: Option<String>,
     /// Prefix for the access token header
     /// If the prefix is empty, the access token will be forwarded without a prefix
-    pub access_token_header_prefix: String,
-    /// Forward the id token in a header
-    pub forward_id_token: bool,
+    pub access_token_header_prefix: Option<String>,
+
     /// The header name that will be used for the id token
-    /// If the header name is empty, the id token will be forwarded in X-Id-Token header
-    pub id_token_header_name: String,
+    /// If the header name is empty, the id token will not be forwarded
+    pub id_token_header_name: Option<String>,
     /// Prefix for the id token header
     /// If the prefix is empty, the id token will be forwarded without a prefix
-    pub id_token_header_prefix: String,
+    pub id_token_header_prefix: Option<String>,
 
     // Cookie settings
     /// The cookie name that will be used for the session cookie

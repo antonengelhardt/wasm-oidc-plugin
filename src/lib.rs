@@ -174,35 +174,25 @@ impl HttpContext for ConfiguredOidc {
             match self.validate_cookie(cookie, nonce) {
                 Ok(auth_state) => {
                     // Forward access token in header, if configured
-                    if self.plugin_config.forward_access_token {
+                    if self.plugin_config.access_token_header_name.is_some() {
                         // Get access token
                         let access_token = &auth_state.access_token;
-                        // Forward access token in header
-                        let access_token_header_name = match self.plugin_config.access_token_header_name.is_empty() {
-                            true => "Authorization",
-                            false => &self.plugin_config.access_token_header_name,
-                        };
-                        // Forward access token with prefix
-                        let access_token_header_prefix = match self.plugin_config.access_token_header_prefix.is_empty() {
-                            true => "",
-                            false => &self.plugin_config.access_token_header_prefix,
-                        };
-                        self.add_http_request_header(access_token_header_name, format!("{}{}", access_token_header_prefix, access_token).as_str());
+                        self.add_http_request_header(
+                            self.plugin_config.access_token_header_name.as_ref().unwrap(),
+                            format!("{}{}",
+                                self.plugin_config.access_token_header_prefix.as_ref().unwrap(), access_token
+                        ).as_str());
                     }
                     // Forward id token in header, if configured
-                    if self.plugin_config.forward_id_token {
+                    if self.plugin_config.id_token_header_name.is_some() {
                         // Get id token
                         let id_token = &auth_state.id_token;
                         // Forward id token in header
-                        let id_token_header_name = match self.plugin_config.id_token_header_name.is_empty() {
-                            true => "X-Id-Token",
-                            false => &self.plugin_config.id_token_header_name,
-                        };
-                        let id_token_header_prefix = match self.plugin_config.id_token_header_prefix.is_empty() {
-                            true => "",
-                            false => &self.plugin_config.id_token_header_prefix,
-                        };
-                        self.add_http_request_header(id_token_header_name, format!("{}{}", id_token_header_prefix, id_token).as_str());
+                        self.add_http_request_header(
+                            self.plugin_config.id_token_header_name.as_ref().unwrap(),
+                            format!("{}{}",
+                                self.plugin_config.id_token_header_prefix.as_ref().unwrap(),
+                                id_token).as_str());
                     }
 
                     // Allow request to pass
