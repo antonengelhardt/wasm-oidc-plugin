@@ -14,7 +14,7 @@ use std::sync::Mutex;
 use url::Url;
 
 // base64
-use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
+use base64::{engine::general_purpose::STANDARD as base64engine, Engine as _};
 
 // duration
 use std::time::Duration;
