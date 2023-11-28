@@ -72,7 +72,7 @@ The plugin is configured via the `envoy.yaml` file. The following configuration 
 | ---- | ---- | ----------- | ------- |
 | `config_endpoint` | `string` | The open id configuration endpoint. | `https://accounts.google.com/.well-known/openid-configuration` |
 | `reload_interval_in_hours` | `u64` | The interval in hours, after which the OIDC configuration is reloaded. | `24` |
-| `exclude_hosts` | `Vec<Regex>` | A comma separated list Hosts (in Regex expressions), that are excluded from the filtrr. | `["localhost:10000"]` |
+| `exclude_hosts` | `Vec<Regex>` | A comma separated list Hosts (in Regex expressions), that are excluded from the filter. | `["localhost:10000"]` |
 | `exclude_paths` | `Vec<Regex>` | A comma separated list of paths (in Regex expressions), that are excluded from the filter. | `["/health"]` |
 | `exclude_urls` | `Vec<Regex>` | A comma separated list of URLs (in Regex expressions), that are excluded from the filter. | `["localhost:10000/health"]` |
 | `access_token_header_name` | `string` | If set, this name will be used to forward the access token to the backend. | `X-Access-Token` |
@@ -82,7 +82,7 @@ The plugin is configured via the `envoy.yaml` file. The following configuration 
 | `cookie_name` | `string` | The name of the cookie, that is used to store the session. | `oidcSession` |
 | `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` |
 | `token_validation` | bool | Whether to validate the token or not. | `true` |
-| `aes_key` | `string` | A base64 encoded AES-256 Key: `openssl rand -base64 32 | tr -d '='` | `SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q` |
+| `aes_key` | `string` | A base64 encoded AES-256 Key: `openssl rand -base64 32` | `SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q=` |
 | `authority` | `string` | The authority of the `authorization_endpoint`. | `accounts.google.com` |
 | `redirect_uri` | `string` | The redirect URI, that the `authorization_endpoint` will redirect to. | `http://localhost:10000/oidc/callback` |
 | `client_id` | `string` | The client ID, for getting and exchanging the code. | `wasm-oidc-plugin` |
