@@ -22,7 +22,7 @@ use jwt_simple::prelude::*;
 use url::{form_urlencoded, Url};
 
 // aes-256
-use aes_gcm::Aes256Gcm;
+use aes_gcm::{Aes256Gcm, aead::{OsRng, Aead}, AeadCore};
 
 /// This module contains logic to parse and save the current authorization state in a cookie
 mod cookie;
@@ -388,31 +388,29 @@ impl ConfiguredOidc {
         let query = path.split("?").last().unwrap_or_default();
 
         // Get state from query
-        let state = match serde_urlencoded::from_str::<Callback>(&query) {
+        let state_envoy = match serde_urlencoded::from_str::<Callback>(&query) {
             Ok(callback) => callback.state,
             Err(e) => {
                 return Err(e.to_string());
             }
         };
 
-        // Get state from shared data
-        let request_id = self.get_cookie("request-id").unwrap_or_default();
-        let state_client = match self.get_shared_data(format!("state-{}", request_id).as_str()).0 {
-            Some(state) => {
-                match String::from_utf8(state) {
-                    Ok(state) => state,
-                    Err(e) => {
-                        warn!("error when converting state to utf8: {:?}", e);
-                        "".to_string()
-                    }
-                }
-            }
-            None => "".to_string()
-        };
-        debug!("state: {}", state);
+        // Get nonce from cookie
+        let nonce_cookie = self.get_cookie("nonce").unwrap_or_default();
+        let decoded_nonce = base64engine.decode(nonce_cookie.as_bytes()).unwrap();
+        let nonce = aes_gcm::Nonce::from_slice(decoded_nonce.as_slice());
+
+        // Get state from cookie
+        let encoded_state_client = self.get_cookie("state").unwrap_or("".to_string());
+        let encrypted_state_client = base64engine.decode(encoded_state_client.as_bytes()).unwrap();
+        let state_client = self.cipher.decrypt(
+            nonce,
+encrypted_state_client.as_slice()).unwrap();
+        let state_client_str = String::from_utf8(state_client).unwrap();
+        debug!("state: {}", state_envoy);
 
         // Compare state
-        if state != state_client {
+        if state_envoy != state_client_str {
             warn!("state does not match.");
             return Err("state does not match.".to_string());
         }
@@ -443,15 +441,16 @@ impl ConfiguredOidc {
                 return Err(e.to_string());
             }
         };
-        let code_verifier_decoded = String::from_utf8(code_verifier_decoded).unwrap();
+        let code_verifier = self.cipher.decrypt(nonce, code_verifier_decoded.as_slice()).unwrap();
+        let code_verifier = String::from_utf8(code_verifier).unwrap();
 
         // Build the request body for the token endpoint
         let data = form_urlencoded::Serializer::new(String::new())
             .append_pair("grant_type", "authorization_code")
-            .append_pair("code_verifier", &code_verifier_decoded)
+            .append_pair("code_verifier", &code_verifier)
             .append_pair("code", &code)
             .append_pair("redirect_uri", self.plugin_config.redirect_uri.as_str())
-            .append_pair("state", &state)
+            .append_pair("state", &state_envoy)
             .finish();
 
         // Get path from token endpoint
@@ -526,15 +525,16 @@ impl ConfiguredOidc {
             Some(body) => {
                 debug!("token response: {:?}", body);
 
+                // Get nonce from cookie
+                let nonce = self.get_cookie("nonce").unwrap_or_default();
+
                 // Build Cookie Struct using create_cookie_from_response from cookie.rs
-                match cookie::AuthorizationState::create_cookie_from_response(self.cipher.clone(), body.as_slice()) {
+                match cookie::AuthorizationState::create_cookie_from_response(self.cipher.clone(), body.as_slice(), nonce) {
                     Ok(res) => {
 
                         let auth_cookie = res.encoded_cookie;
-                        let nonce = res.encoded_nonce;
 
                         debug!("encrypted cookie: {:?}", &auth_cookie);
-                        debug!("encoded nonce: {:?}", &nonce);
 
                         // Get original-path cookie
                         let original_path = match self.get_cookie("original-path") {
@@ -619,34 +619,32 @@ impl ConfiguredOidc {
     /// The original path is encoded and stored in a cookie as well as the PKCE code verifier.
     fn redirect_to_authorization_endpoint(&self) -> Action {
 
+        debug!("no cookie found or invalid, redirecting to authorization endpoint");
+
         // Original path
         let original_path = self.get_http_request_header(":path").unwrap_or_default();
         let original_path_encoded = base64engine.encode(original_path.as_bytes());
 
-        debug!("no cookie found or invalid, redirecting to authorization endpoint");
+        // Generate nonce
+        let nonce = Aes256Gcm::generate_nonce(OsRng);
+        let encoded_nonce = base64engine.encode(nonce.as_slice());
 
         // Generate PKCE code verifier and challenge
         let pkce_verifier = pkce::code_verifier(128);
         let pkce_verifier_string = String::from_utf8(pkce_verifier.clone()).unwrap();
-        let pkce_encoded = base64engine.encode(pkce_verifier_string.as_bytes());
         let pkce_challenge = pkce::code_challenge(&pkce_verifier);
+
+        // Encrypt PKCE code verifier with AES256
+        let pkce_verifier_encrypted = self.cipher.encrypt(&nonce, pkce_verifier_string.as_bytes()).unwrap();
+        let pkce_verifier_encoded = base64engine.encode(pkce_verifier_encrypted.as_slice());
 
         // Generate state
         let state_string = String::from_utf8(pkce::code_verifier(128)).unwrap();
         debug!("state: {}", state_string);
 
-        // Store request id in shared data
-        let request_id = self.get_http_request_header("x-request-id").unwrap_or_default();
-        match self.set_shared_data(
-        format!("state-{}", request_id).as_str(),
-        Some(state_string.as_bytes()), None) {
-            Ok(_) => {
-                debug!("state stored in shared data");
-            }
-            Err(e) => {
-                warn!("storing state in shared data failed: {:?}", e);
-            }
-        }
+        // Encrypt state with AES256
+        let encrypted_state = self.cipher.encrypt(&nonce, state_string.as_bytes()).unwrap();
+        let encoded_state = base64engine.encode(encrypted_state.as_slice());
 
         // Build URL
         let url = Url::parse_with_params(
@@ -671,9 +669,11 @@ impl ConfiguredOidc {
                 // Original path to redirect back to
                 ("Set-Cookie", &format!("original-path={}; Max-Age={}", &original_path_encoded, 180)),
                 // Set the pkce challenge as a cookie to verify the callback.
-                ("Set-Cookie", &format!("code-verifier={}; Max-Age={}", &pkce_encoded, 180)),
+                ("Set-Cookie", &format!("code-verifier={}; Max-Age={}", &pkce_verifier_encoded, 180)),
                 // Set request id as a cookie to verify the callback.
-                ("Set-Cookie", &format!("request-id={}; Max-Age={}", &request_id, 180)),
+                ("Set-Cookie", &format!("state={}; Max-Age={}", &encoded_state, 180)),
+                // Set nonce as a cookie to verify the callback.
+                ("Set-Cookie", &format!("nonce={}; Max-Age={}", &encoded_nonce, self.plugin_config.cookie_duration)),
                 // Redirect to `authorization endpoint`
                 ("Location", url.as_str()),
                 ],

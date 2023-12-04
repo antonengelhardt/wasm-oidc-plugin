@@ -1,3 +1,4 @@
+// std
 use std::fmt::Debug;
 
 // serde
@@ -11,7 +12,7 @@ use log::{warn,debug};
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
 
 // aes_gcm
-use aes_gcm::{Aes256Gcm, aead::{OsRng, AeadMut}, AeadCore};
+use aes_gcm::{Aes256Gcm, Nonce, aead::AeadMut};
 
 /// Struct parse the cookie from the request into a struct in order to access the fields and
 /// also to save the cookie on the client side
@@ -34,8 +35,6 @@ pub struct AuthorizationState {
 pub struct EncodedCookies {
     /// Encoded cookie
     pub encoded_cookie: String,
-    /// Encoded nonce
-    pub encoded_nonce: String,
     /// Access token
     pub access_token: String,
     /// ID token
@@ -46,7 +45,7 @@ pub struct EncodedCookies {
 impl AuthorizationState {
 
     /// Create a new encoded cookie from the response coming from the Token Endpoint
-    pub fn create_cookie_from_response(mut cipher: Aes256Gcm, res: &[u8]) -> Result<EncodedCookies, String> {
+    pub fn create_cookie_from_response(mut cipher: Aes256Gcm, res: &[u8], nonce: String) -> Result<EncodedCookies, String> {
 
         // Format the response into a slice and parse it in a struct
         match serde_json::from_slice::<AuthorizationState>(&res) {
@@ -54,9 +53,9 @@ impl AuthorizationState {
             // If deserialization was successful, return the encrypted and encoded cookie
             Ok(state) => {
 
-                // Generate nonce and encode it
-                let nonce = Aes256Gcm::generate_nonce(OsRng);
-                let encoded_nonce = base64engine.encode(nonce.as_slice());
+                // Decode nonce using base64
+                let decoded_nonce = base64engine.decode(nonce).unwrap();
+                let nonce = Nonce::from_slice(decoded_nonce.as_slice());
 
                 // Encrypt cookie
                 let encrypted_cookie = cipher.encrypt(&nonce, serde_json::to_vec(&state).unwrap().as_slice()).unwrap();
@@ -66,7 +65,6 @@ impl AuthorizationState {
 
                 Ok(EncodedCookies {
                     encoded_cookie,
-                    encoded_nonce,
                     access_token: state.access_token,
                     id_token: state.id_token,
                 })
