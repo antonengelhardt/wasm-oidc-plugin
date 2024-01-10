@@ -1,3 +1,6 @@
+// aes-256
+use aes_gcm::{Aes256Gcm, aead::OsRng, AeadCore};
+
 // log
 use log::{debug,warn,info};
 
@@ -21,12 +24,9 @@ use jwt_simple::prelude::*;
 // url
 use url::{form_urlencoded, Url};
 
-// aes-256
-use aes_gcm::{Aes256Gcm, aead::{OsRng, Aead}, AeadCore};
-
 /// This module contains logic to parse and save the current authorization state in a cookie
 mod cookie;
-use cookie::AuthorizationState;
+use cookie::{AuthorizationState, Session};
 
 /// This module contains the structs of the `PluginConfiguration` and `OpenIdConfig`
 mod config;
@@ -151,14 +151,8 @@ impl HttpContext for ConfiguredOidc {
             return Action::Pause;
         }
 
-        // Find all cookies that have the cookie_name, split them by ; and remove the name from the cookie
-        // as well as the leading =. Then join the cookie values together again.
-        let cookie = self.get_http_request_header("cookie").unwrap_or_default();
-        let cookie = cookie.split(";")
-            .filter(|x| x.contains(&self.plugin_config.cookie_name))
-            .map(|x| x.split("=").collect::<Vec<&str>>()[1])
-            .collect::<Vec<&str>>()
-            .join("");
+        // Get cookie
+        let cookie = self.get_session_cookie_as_string();
 
         // Get Nonce from cookie
         let nonce = match self.get_cookie("nonce") {
@@ -210,8 +204,8 @@ impl HttpContext for ConfiguredOidc {
                 Err(e) => {
                     warn!("cookie validation failed: {}", e);
                 }
-            };
-        }
+            }
+        };
 
         // Redirect to `authorization_endpoint` if no cookie is found or previous cases have returned an error.
         // Pausing the request is necessary to create a new context after the redirect.
@@ -304,15 +298,19 @@ impl ConfiguredOidc {
         debug!("cookie found, checking validity");
 
         // Try to parse and decrypt the cookie and handle the result
-        match cookie::AuthorizationState::decode_and_decrypt_cookie(cookie, self.cipher.to_owned(), nonce) {
+        match Session::decode_and_decrypt(cookie, self.cipher.to_owned(), nonce) {
 
             // If the cookie can be parsed, this means that the cookie is trusted because modifications would have
             // corrupted the encrypted state
-            Ok(auth_state) => {
+            Ok(session) => {
 
                 // Only validate the token if the configuration option is set
                 match self.plugin_config.token_validation {
                     true => {
+
+                        // Get authorization state from session
+                        let auth_state = session.authorization_state.unwrap();
+
                         // Validate token
                         match self.validate_token(&auth_state.id_token) {
                             // If the token is valid, this filter passes the request
@@ -327,7 +325,7 @@ impl ConfiguredOidc {
                         }
                     }
                     false => {
-                        Ok(auth_state)
+                        Ok(session.authorization_state.unwrap())
                     }
                 }
             }
@@ -387,6 +385,20 @@ impl ConfiguredOidc {
         // Get Query String from URL
         let query = path.split("?").last().unwrap_or_default();
 
+        // Get nonce from cookie
+        let nonce_cookie = self.get_cookie("nonce").unwrap_or_default();
+
+        // Get cookie
+        let cookie = self.get_session_cookie_as_string();
+
+        // Get session
+        let session = match Session::decode_and_decrypt(cookie, self.cipher.clone(), nonce_cookie) {
+            Ok(session) => session,
+            Err(e) => {
+                return Err(format!("Failed to decode and decrypt cookie: {:?}", e));
+            }
+        }; // TODO: Idiomatically handle the error
+
         // Get state from query
         let state_envoy = match serde_urlencoded::from_str::<Callback>(&query) {
             Ok(callback) => callback.state,
@@ -395,22 +407,8 @@ impl ConfiguredOidc {
             }
         };
 
-        // Get nonce from cookie
-        let nonce_cookie = self.get_cookie("nonce").unwrap_or_default();
-        let decoded_nonce = base64engine.decode(nonce_cookie.as_bytes()).unwrap();
-        let nonce = aes_gcm::Nonce::from_slice(decoded_nonce.as_slice());
-
-        // Get state from cookie
-        let encoded_state_client = self.get_cookie("state").unwrap_or("".to_string());
-        let encrypted_state_client = base64engine.decode(encoded_state_client.as_bytes()).unwrap();
-        let state_client = self.cipher.decrypt(
-            nonce,
-encrypted_state_client.as_slice()).unwrap();
-        let state_client_str = String::from_utf8(state_client).unwrap();
-        debug!("state: {}", state_envoy);
-
         // Compare state
-        if state_envoy != state_client_str {
+        if state_envoy != session.state {
             warn!("state does not match.");
             return Err("state does not match.".to_string());
         }
@@ -434,15 +432,7 @@ encrypted_state_client.as_slice()).unwrap();
         let auth = format!("Basic {}", encoded);
 
         // Get code verifier from cookie
-        let code_verifier = self.get_cookie("code-verifier").unwrap_or_default();
-        let code_verifier_decoded = match base64engine.decode(code_verifier) {
-            Ok(decoded) => decoded,
-            Err(e) => {
-                return Err(e.to_string());
-            }
-        };
-        let code_verifier = self.cipher.decrypt(nonce, code_verifier_decoded.as_slice()).unwrap();
-        let code_verifier = String::from_utf8(code_verifier).unwrap();
+        let code_verifier = session.code_verifier;
 
         // Build the request body for the token endpoint
         let data = form_urlencoded::Serializer::new(String::new())
@@ -528,86 +518,50 @@ encrypted_state_client.as_slice()).unwrap();
                 // Get nonce from cookie
                 let nonce = self.get_cookie("nonce").unwrap_or_default();
 
-                // Build Cookie Struct using create_cookie_from_response from cookie.rs
-                match cookie::AuthorizationState::create_cookie_from_response(self.cipher.clone(), body.as_slice(), nonce) {
-                    Ok(res) => {
+                // Get cookie
+                let cookie = self.get_session_cookie_as_string();
 
-                        let auth_cookie = res.encoded_cookie;
-
-                        debug!("encrypted cookie: {:?}", &auth_cookie);
-
-                        // Get original-path cookie
-                        let original_path = match self.get_cookie("original-path") {
-                            Some(original_path_encoded) => {
-                                match base64engine.decode(original_path_encoded) {
-                                    Ok(original_path_decoded) => {
-                                        match String::from_utf8(original_path_decoded) {
-                                            Ok(original_path_decoded) => {
-                                                original_path_decoded
-                                            }
-                                            Err(e) => {
-                                                warn!("Error: {}", e);
-                                                "/".to_string()
-                                            }
-                                        }
-                                    }
-                                    Err(e) => {
-                                        warn!("Error: {}", e);
-                                        "/".to_string()
-                                    }
-                                }
-                            }
-                            None => "/".to_string()
-                        };
-                        debug!("original path: {:?}", &original_path);
-
-                        // Split every 4000 bytes and push it to the cookie_parts vector
-                        let cookie_parts = auth_cookie
-                            .as_bytes()
-                            .chunks(4000)
-                            .map(|chunk| std::str::from_utf8(chunk)
-                            .expect("auth_cookie is base64 encoded, which means ASCII, which means one character = one byte, so this is valid"));
-
-
-                        // Iterate over the cookie parts and set the cookie reply headers
-                        let mut cookie_values = vec![];
-                        for (i, cookie_part) in cookie_parts.enumerate() {
-                            let cookie_value = String::from(format!("{}-{}={}; Path=/; Secure; HttpOnly; Max-Age={}",
-                                self.plugin_config.cookie_name,
-                                i,
-                                cookie_part,
-                                self.plugin_config.cookie_duration));
-                            cookie_values.push(cookie_value);
-                        };
-
-                        // Build the cookie headers
-                        let mut set_cookie_headers: Vec<(&str,&str)> = cookie_values
-                            .iter()
-                            .map(|v| ("Set-Cookie", v.as_str()))
-                            .collect();
-
-                        // Set the location header to the original path
-                        let location_header = ("Location", original_path.as_str());
-                        set_cookie_headers.push(location_header);
-
-                        // Set the nonce cookie
-                        let nonce_cookie = format!("{}={}; Path=/; Secure; HttpOnly; Max-Age={}", "nonce",
-                            nonce, self.plugin_config.cookie_duration);
-                        set_cookie_headers.push(("Set-Cookie", nonce_cookie.as_str()));
-
-                        // Redirect back to the original URL and set the cookie.
-                        self.send_http_response(
-                            307,
-                            set_cookie_headers,
-                            Some(b"Redirecting..."),
-                        );
-                        Ok(())
-                    }
+                // Get session from cookie
+                let mut session = match Session::decode_and_decrypt(cookie, self.cipher.clone(), nonce.clone()) {
+                    Ok(session) => session,
                     Err(e) => {
-                        Err(format!("Error: {}", e))
+                        return Err(format!("Failed to decode and decrypt cookie: {:?}", e));
                     }
-                }
-            }
+                }; // TODO: Idiomatically handle the error
+
+                // Create authorization state from token response
+                let authorization_state = serde_json::from_slice::<AuthorizationState>(&body).unwrap(); // TODO: Idiomatically handle the error
+
+                // Update session
+                session.authorization_state = Some(authorization_state);
+
+                // Get original path
+                let original_path = session.original_path.clone();
+
+                // Encode and encrypt session
+                let new_session = &session.encrypt_and_encode(self.cipher.clone(), nonce.clone());
+
+                // Build cookie values
+                let set_cookie_values = Session::make_cookie_values(
+                    new_session.to_owned(),
+                    self.plugin_config.cookie_name.clone(),
+                    jwt_simple::prelude::Duration::from_secs(self.plugin_config.cookie_duration) * 60);
+
+                // Build cookie headers
+                let mut set_cookie_headers = Session::make_set_cookie_headers(&set_cookie_values);
+
+                // Set the location header to the original path
+                let location_header = ("Location", original_path.as_str());
+                set_cookie_headers.push(location_header);
+
+                // Redirect back to the original URL and set the cookie.
+                self.send_http_response(
+                    307,
+                    set_cookie_headers.to_vec(),
+                    Some(b"Redirecting..."),
+                );
+                Ok(())
+            },
             // If no body is found, return the error
             None => {
                 Err(format!("no body in token response with invalid status code"))
@@ -623,7 +577,6 @@ encrypted_state_client.as_slice()).unwrap();
 
         // Original path
         let original_path = self.get_http_request_header(":path").unwrap_or_default();
-        let original_path_encoded = base64engine.encode(original_path.as_bytes());
 
         // Generate nonce
         let nonce = Aes256Gcm::generate_nonce(OsRng);
@@ -634,17 +587,31 @@ encrypted_state_client.as_slice()).unwrap();
         let pkce_verifier_string = String::from_utf8(pkce_verifier.clone()).unwrap();
         let pkce_challenge = pkce::code_challenge(&pkce_verifier);
 
-        // Encrypt PKCE code verifier with AES256
-        let pkce_verifier_encrypted = self.cipher.encrypt(&nonce, pkce_verifier_string.as_bytes()).unwrap();
-        let pkce_verifier_encoded = base64engine.encode(pkce_verifier_encrypted.as_slice());
-
         // Generate state
         let state_string = String::from_utf8(pkce::code_verifier(128)).unwrap();
-        debug!("state: {}", state_string);
 
-        // Encrypt state with AES256
-        let encrypted_state = self.cipher.encrypt(&nonce, state_string.as_bytes()).unwrap();
-        let encoded_state = base64engine.encode(encrypted_state.as_slice());
+        // Create session struct
+        let session = cookie::Session{
+            authorization_state: None,
+            original_path: original_path,
+            code_verifier: pkce_verifier_string,
+            state: state_string.clone(),
+        }.encrypt_and_encode(self.cipher.clone(), encoded_nonce.clone());
+
+        // Build cookie values
+        let set_cookie_values = Session::make_cookie_values(
+            session,
+            self.plugin_config.cookie_name.clone(),
+            jwt_simple::prelude::Duration::from_secs(self.plugin_config.cookie_duration) * 60);
+
+        // Build cookie headers
+        let mut headers = Session::make_set_cookie_headers(&set_cookie_values);
+
+        // Build nonce cookie value
+        let nonce_cookie_value = &format!("nonce={}; Max-Age={}; HttpOnly; Secure", &encoded_nonce, self.plugin_config.cookie_duration);
+
+        // Add nonce cookie to headers
+        headers.push(("Set-Cookie", nonce_cookie_value));
 
         // Build URL
         let url = Url::parse_with_params(
@@ -658,27 +625,37 @@ encrypted_state_client.as_slice()).unwrap();
                 ("redirect_uri",&self.plugin_config.redirect_uri.as_str()),
                 ("scope", &self.plugin_config.scope),
                 ("claims", &self.plugin_config.claims),
-            ],
-        )
-        .unwrap();
+                ],
+            )
+            .unwrap();
+
+        // Add location header
+        headers.push(("Location", url.as_str()));
 
         // Send HTTP response
         self.send_http_response(
             307,
-            vec![
-                // Original path to redirect back to
-                ("Set-Cookie", &format!("original-path={}; Max-Age={}", &original_path_encoded, 180)),
-                // Set the pkce challenge as a cookie to verify the callback.
-                ("Set-Cookie", &format!("code-verifier={}; Max-Age={}", &pkce_verifier_encoded, 180)),
-                // Set request id as a cookie to verify the callback.
-                ("Set-Cookie", &format!("state={}; Max-Age={}", &encoded_state, 180)),
-                // Set nonce as a cookie to verify the callback.
-                ("Set-Cookie", &format!("nonce={}; Max-Age={}", &encoded_nonce, self.plugin_config.cookie_duration)),
-                // Redirect to `authorization endpoint`
-                ("Location", url.as_str()),
-                ],
-                Some(b"Redirecting..."),
+            // Redirect to `authorization endpoint` along with the cookie
+            headers.to_vec(),
+            Some(b"Redirecting..."),
             );
             return Action::Pause;
+    }
+
+    /// Helper function to get the session cookie as a string by getting the cookie from the request
+    /// headers and concatenating all cookie parts.
+    pub fn get_session_cookie_as_string(&self) -> String {
+
+        // Find all cookies that have the cookie_name, split them by ; and remove the name from the cookie
+        // as well as the leading =. Then join the cookie values together again.
+        let cookie = self.get_http_request_header("cookie").unwrap_or_default();
+        // Concatenate all cookie parts
+        let cookie = cookie.split(";")
+            .filter(|x| x.contains(self.plugin_config.cookie_name.as_str()))
+            .map(|x| x.split("=").collect::<Vec<&str>>()[1])
+            .collect::<Vec<&str>>()
+            .join("");
+
+        return cookie;
     }
 }
