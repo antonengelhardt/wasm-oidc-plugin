@@ -4,9 +4,6 @@ use aes_gcm::{aead::AeadMut, Aes256Gcm, Nonce};
 // base64
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
 
-// jwt_simple
-use jwt_simple::reexports::coarsetime::Duration;
-
 // log
 use log::{debug, warn};
 
@@ -67,7 +64,7 @@ impl<'a> Session {
     }
 
     /// Make the cookie values from the encoded cookie
-    pub fn make_cookie_values(encoded_cookie: String, cookie_name: String, cookie_duration: Duration) -> Vec<String> {
+    pub fn make_cookie_values(encoded_cookie: String, cookie_name: String, cookie_duration: u64) -> Vec<String> {
 
         // Split every 4000 bytes
         let cookie_parts = encoded_cookie
@@ -82,7 +79,8 @@ impl<'a> Session {
         for (i, cookie_part) in cookie_parts.enumerate() {
             let cookie_value = String::from(format!(
                 "{}-{}={}; Path=/; HttpOnly; Secure; Max-Age={:?}",
-                cookie_name, i, cookie_part, cookie_duration
+                cookie_name, i, cookie_part,
+                cookie_duration
             ));
             cookie_values.push(cookie_value);
         }
@@ -115,9 +113,11 @@ impl<'a> Session {
                 return Err(e.to_string());
             }
         };
+        debug!("decoded nonce: {:?}", decoded_nonce);
 
         // Build nonce from decoded nonce
         let nonce = Nonce::from_slice(decoded_nonce.as_slice());
+        debug!("nonce: {:?}", nonce);
 
         // Decode cookie using base64
         let decoded_cookie = match base64engine.decode(encoded_cookie.as_bytes()) {
@@ -134,7 +134,6 @@ impl<'a> Session {
 
             // If decryption was successful, continue
             Ok(decrypted_cookie) => {
-                debug!("decrypted cookie: {:?}", decrypted_cookie);
 
                 // Parse cookie into a struct
                 match serde_json::from_slice::<Session>(&decrypted_cookie) {
@@ -153,7 +152,7 @@ impl<'a> Session {
             }
             // If decryption failed, return an error
             Err(e) => {
-                warn!("decryption failed: {}", e);
+                warn!("decryption failed: {}", e.to_string());
                 return Err(e.to_string());
             }
         };
