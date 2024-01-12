@@ -1,19 +1,24 @@
-# WASM OIDC Plugin
+# wasm-oidc-plugin
 
 [![Build Status](https://github.com/antonengelhardt/wasm-oidc-plugin/actions/workflows/build.yml/badge.svg)](https://github.com/antonengelhardt/wasm-oidc-plugin/actions/workflows/build.yml) [![Documentation](https://img.shields.io/badge/docs-blue)](https://antonengelhardt.github.io/wasm-oidc-plugin/wasm_oidc_plugin/index.html#)
 
-A plugin for [Envoy](https://www.envoyproxy.io/) written in [Rust](https://www.rust-lang.org).
+A plugin for the [Envoy-Proxy](https://www.envoyproxy.io/) written in [Rust](https://www.rust-lang.org). It is a HTTP Filter, that implements the OIDC Authorization Code Flow. Requests sent to the filter are checked for the presence of a valid session cookie. If the cookie is not present, the user is redirected to the `authorization_endpoint` to authenticate. After successful authentication, the user is redirected back to the original request with a code in the URL query. The plugin then exchanges the code for a token using the `token_endpoint` and stores the token in the session. If the cookie is present, the plugin validates the token and passes the request to the backend, if the token is valid (optional).
 
-It is a HTTP Filter, that implements the OIDC Authorization Code Flow. Requests sent to the filter are checked for the presence of a valid session cookie. If the cookie is not present, the user is redirected to the Authorization endpoint to authenticate. After successful authentication, the user is redirected back to the original request.
+## Why this repo?
+
+This repo is the result of a bachelor thesis in Information Systems. It is inspired by two other projects: [oidc-filter](https://github.com/dgn/oidc-filter) & [wasm-oauth-filter](https://github.com/sonhal/wasm-oauth-filter). This project has several advantages and improvements:
+
+1. **Encryption**: The session in which the authorization state is stored is encrypted using AES-256, by providing a Key in the config and a session-based nonce. This prevents the session from being read by the user and potentially modified. If the user tries to modify the session, the decryption fails and the user is redirected to the `authorization_endpoint` to authenticate again.
+2. **Configuration**: Many configuration options are available to customize the plugin to your needs. More are coming ;)
+3. **No crash during startup**: The plugin does not crash during startup, if the OIDC configuration is not available. Instead, it waits until the configuration is loaded and then starts handling requests by pausing them and resuming them once the configuration is loaded.
+4. **Optional validation**: The plugin can be configured to validate the token or not. If the validation is disabled, the plugin only checks for the presence of the token and passes the request to the backend. This is because the validation is taking a considerable amount of time. This time becomes worse with the length of the signing key. Cryptographic support is not fully mature in WASM yet, but [there is hope](https://github.com/WebAssembly/wasi-crypto/blob/main/docs/HighLevelGoals.md).
+5. **Documentation and comments**: The code is documented and commented, so that it is easy to understand and extend.
 
 ## Install
 
 ### Install Toolchain for WASM in Rust
 
-For developing the [Rust Toolchain](https://www.rust-lang.org/tools/install)
-has to be installed and the WASM target has to be enabled.
-
-E.g. for Ubuntu this can be achieved by:
+For developing the [Rust Toolchain](https://www.rust-lang.org/tools/install) has to be installed and the WASM target has to be enabled. E.g. for Ubuntu this can be achieved by:
 
 ```sh
 # Install Build essentials
@@ -24,49 +29,57 @@ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 cargo build --target wasm32-wasi --release
 ```
 
-## Try it out
+## Run
 
-Shortcut:
+**Shortcut** (make sure to have [make](https://www.gnu.org/software/make/) installed):
 
 ```sh
 make simulate
 ```
 
-### The long version
+---
 
-Building the plugin:
+### Detailed variant
+
+1. **Building the plugin:**
 
 ```sh
 cargo build --target wasm32-wasi --release
 ```
 
-Testing locally with Envoy:
-
-To test [docker](https://www.docker.com/) and [docker-compose](https://docs.docker.com/compose/install/) are needed.
+1. **Testing locally with Envoy** ([docker](https://www.docker.com/) and [docker-compose](https://docs.docker.com/compose/install/) are needed):
 
 ```sh
 docker compose up
 ```
 
-Requests to the locally running envoy with the plugin enabled:
+1. **Requests to the locally running envoy with the plugin enabled:**
 
 ```sh
 curl localhost:10000
 ```
 
+## Deploy
+
+To deploy the plugin to production, the following steps are needed (either manually or via a CI/CD pipeline):
+
+1. Build the plugin with `cargo build --target wasm32-wasi --release`. This can be done in a `initContainer` in Kubernetes (see k8s folder).
+2. Copy the `target/wasm32-wasi/release/wasm_oidc_plugin.wasm` to path `/etc/envoy/proxy-wasm-plugins/` on the server.
+3. Run envoy as a container.
+
+For reference, see the [k8s folder](./k8s).
+
 ## Documentation
 
-To generate a detailed documentation, run:
+To generate a detailed documentation, run (also [hosted on GitHub Pages](https://antonengelhardt.github.io/wasm-oidc-plugin/wasm_oidc_plugin/index.html#)):
 
 ```sh
 cargo doc --document-private-items --open
 ```
 
-Documentation is also [hosted on GitHub Pages](https://antonengelhardt.github.io/wasm-oidc-plugin/wasm_oidc_plugin/index.html#)
-
 ### Configuration
 
-The plugin is configured via the `envoy.yaml` file. The following configuration options are required:
+The plugin is configured via the `envoy.yaml`-file. The following configuration options are required:
 
 | Name | Type | Description | Example |
 | ---- | ---- | ----------- | ------- |
