@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: example-envoy-config
+  labels:
+    app: example-config-map
+  namespace: example-namespace
+data:
+  envoy.yaml: |
+    static_resources:
+      listeners:
+        address:
+          socket_address:
+            address: 0.0.0.0
+            port_value: 10000
+        filter_chains:
+          - filters:
+              - name: envoy.filters.network.http_connection_manager
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                  stat_prefix: ingress_http
+                  codec_type: AUTO
+                  route_config:
+                    name: local_route
+                    virtual_hosts:
+                      - name: local_service
+                        domains:
+                          - "*"
+                        routes:
+                          - match:
+                              prefix: "/"
+                            route:
+                              cluster: example-cluster #! This name must match the name of the cluster in the clusters section.
+
+                  http_filters:
+                    - name: envoy.filters.http.wasm
+                      typed_config:
+                        "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+                        config:
+                          name: "name-of-your-wasm-plugin" #! This name must match the name of the plugin in the plugin's code.
+                          configuration:
+                            "@type": "type.googleapis.com/google.protobuf.StringValue"
+                            value: |
+
+                          vm_config:
+                            runtime: "envoy.wasm.runtime.v8"
+                            code:
+                              local:
+                                filename: "/etc/envoy/proxy-wasm-plugins/name_of_your_wasm_plugin.wasm" #! This path must match the path in the init container.
+                    - name: envoy.filters.http.router
+                      typed_config:
+                        "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+      clusters:
+        - name: example-cluster
+          connect_timeout: 5s
+          type: LOGICAL_DNS
+          dns_lookup_family: V4_ONLY
+          load_assignment:
+            cluster_name: example-cluster #! This name must match the name of the cluster in the listener and also in the code.
+            endpoints:
+              - lb_endpoints:
+                  - endpoint:
+                      address:
+                        socket_address:
+                          address: your-domain.com #! This must be the domain of your service.
+                          port_value: 443
+          transport_socket:
+            name: envoy.transport_sockets.tls
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+              sni: "your-domain.com" #! Here as well.
