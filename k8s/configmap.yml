@@ -30,7 +30,7 @@ data:
                           - match:
                               prefix: "/"
                             route:
-                              cluster: example-cluster #! This name must match the name of the cluster in the clusters section.
+                              cluster: httpbin #! Your upstream cluster name.
 
                   http_filters:
                     - name: envoy.filters.http.wasm
@@ -51,18 +51,32 @@ data:
                       typed_config:
                         "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
       clusters:
-        - name: example-cluster
+      - name: httpbin #! This name must match the name of the cluster in the route_config section.
+      connect_timeout: 5s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      load_assignment:
+        cluster_name: httpbin #! This name must match the name of the cluster in the route_config section.
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: httpbin
+                      port_value: 80
+                  hostname: "httpbin.org" #! This is the hostname of the service you want to access.
+        - name: oidc
           connect_timeout: 5s
           type: LOGICAL_DNS
           dns_lookup_family: V4_ONLY
           load_assignment:
-            cluster_name: example-cluster #! This name must match the name of the cluster in the listener and also in the code.
+            cluster_name: oidc
             endpoints:
               - lb_endpoints:
                   - endpoint:
                       address:
                         socket_address:
-                          address: your-domain.com #! This must be the domain of your service.
+                          address: your-domain.com #! Your Auth Server's domain name.
                           port_value: 443
           transport_socket:
             name: envoy.transport_sockets.tls
