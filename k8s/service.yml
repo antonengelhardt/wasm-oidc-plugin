@@ -11,5 +11,3 @@ spec:
     targetPort: 10000
   selector:
     app: example-app #! this name must match the name of the deployment in the deployment.yml
-
-
