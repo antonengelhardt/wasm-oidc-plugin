@@ -59,13 +59,14 @@ docker compose up
 curl localhost:10000
 ```
 
-## Deploy
+## Deploy to Kubernetes
 
-To deploy the plugin to production, the following steps are needed (either manually or via a CI/CD pipeline):
+To deploy the plugin to production, the following steps are needed (either manually or via a [CI/CD pipeline](./k8s/ci.yml)):
 
-1. Build the plugin with `cargo build --target wasm32-wasi --release`. This can be done in a `initContainer` in Kubernetes (see k8s folder).
+1. Build the plugin with `cargo build --target wasm32-wasi --release`. This can be done in a [initContainer](./k8s/deployment.yaml) (see [k8s](./k8s) folder).
 2. Copy the `target/wasm32-wasi/release/wasm_oidc_plugin.wasm` to path `/etc/envoy/proxy-wasm-plugins/` on the server.
-3. Run envoy as a container.
+3. Run envoy as a container with the `envoy.yaml` file mounted through the [ConfigMap](./k8s/configmap.yml).
+4. Set up [Service](./k8s/service.yml), [Certificate](./k8s/certificate-production.yml), [Ingress](./k8s/ingress.yml) to expose the Envoy to the internet.
 
 For reference, see the [k8s folder](./k8s).
 
@@ -117,6 +118,8 @@ For that a state is used, which determines, what to load next. The following sta
 | `LoadingJwks` | The plugin is loading the public keys from the `jwks_uri`. |
 | `Ready` | The plugin is ready to handle requests and will reload the configuration after the `reload_interval_in_hours` has passed. |
 
+![State Diagram](./docs/sequence-discovery.png)
+
 ### Handling a request
 
 When a new request arrives, the root context creates a new http context with the information that has been loaded previously.
@@ -127,6 +130,8 @@ Then, one of the following cases is handled:
 2. The request has the code parameter in the URL query. This means that the user has been redirected back from the `authorization_endpoint` after successful authentication. The plugin exchanges the code for a token using the `token_endpoint` and stores the token in the session. Then, the user is redirected back to the original request.
 3. The request has a valid session cookie. The plugin decoded, decrypts and then validates the cookie and passes the request depending on the outcome of the validation of the token.
 4. The request has no valid session cookie. The plugin redirects the user to the `authorization_endpoint` to authenticate. Once, the user returns, the second case is handled.
+
+![Sequence Diagram](./docs/sequence-authorization-code-flow.png)
 
 ## Tools
 
