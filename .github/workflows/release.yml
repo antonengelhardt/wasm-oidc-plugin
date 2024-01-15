@@ -1,0 +1,47 @@
+name: Release new version
+
+on:
+  push:
+    tags:
+      - v*
+
+jobs:
+
+    build:
+        runs-on: ubuntu-latest
+        container:
+          image: antonengelhardt/rust-docker-tools
+        steps:
+          - name: Checkout code
+            uses: actions/checkout@v3
+
+          - name: Build
+            run: |
+              cargo build --target wasm32-wasi --release
+
+          - name: Archive production artifacts
+            uses: actions/upload-artifact@v2
+            with:
+              name: wasm_oidc_plugin.wasm
+              path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
+
+    docker-image:
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v3
+
+            - name: Login
+              uses: docker/login-action@v2
+              with:
+                username: ${{ secrets.DOCKERHUB_USERNAME }}
+                password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+            - name: Push to Docker Hub
+              uses: docker/build-push-action@v2
+              with:
+                context: .
+                push: true
+                tags: antonengelhardt/wasm-oidc-plugin:${{ github.ref }}
+
