@@ -542,7 +542,9 @@ impl ConfiguredOidc {
                 let set_cookie_values = Session::make_cookie_values(
                     new_session.to_owned(),
                     self.plugin_config.cookie_name.clone(),
-                    self.plugin_config.cookie_duration);
+                    self.plugin_config.cookie_duration,
+                    self.get_number_of_cookies() as u64
+                );
 
                 // Build cookie headers
                 let mut set_cookie_headers = Session::make_set_cookie_headers(&set_cookie_values);
@@ -599,7 +601,9 @@ impl ConfiguredOidc {
         let set_cookie_values = Session::make_cookie_values(
             session,
             self.plugin_config.cookie_name.clone(),
-            self.plugin_config.cookie_duration);
+            self.plugin_config.cookie_duration,
+            self.get_number_of_cookies() as u64
+        );
 
         // Build cookie headers
         let mut headers = Session::make_set_cookie_headers(&set_cookie_values);
@@ -657,5 +661,11 @@ impl ConfiguredOidc {
             .join("");
 
         return cookie;
+    }
+
+    /// Helper function to get the number of cookies from the request headers.
+    pub fn get_number_of_cookies(&self) -> usize {
+        let cookie = self.get_http_request_header("cookie").unwrap_or_default();
+        cookie.split(";").count()
     }
 }
