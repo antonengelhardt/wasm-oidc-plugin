@@ -10,4 +10,4 @@ spec:
     kind: ClusterIssuer
   commonName: your-domain.com #! this is the domain name you want to use
   dnsNames:
-  - your-domain.com
+    - your-domain.com

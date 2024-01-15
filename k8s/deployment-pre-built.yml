@@ -4,13 +4,12 @@ apiVersion: apps/v1
 kind: Deployment
 
 metadata:
-  name:  example-app
+  name: example-app
   namespace: example-namespace
   labels:
     app: example-app
 
 spec:
-
   selector:
     matchLabels:
       app: example-envoy
@@ -29,27 +28,28 @@ spec:
 
     spec:
       containers:
-      - name: envoy
-        image: antonengelhardt/wasm-oidc-plugin:latest
+        - name: envoy
+          image: antonengelhardt/wasm-oidc-plugin:latest
 
-        resources:
-          requests:
-            cpu: 1000m
-            memory: 1000Mi
-          limits:
-            cpu: 1000m
-            memory: 1000Mi
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 1000Mi
+            limits:
+              cpu: 1000m
+              memory: 1000Mi
 
-        volumeMounts:
-          - name: envoy-config
-            mountPath: /etc/envoy
+          volumeMounts:
+            - name: envoy-config
+              mountPath: /etc/envoy
 
-        ports:
-          - containerPort: 10000
-            name: http
-            protocol: TCP
+          ports:
+            - containerPort: 10000
+              name: http
+              protocol: TCP
 
-        command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--concurrency", "1"]
+          command:
+            ["envoy", "-c", "/etc/envoy/envoy.yaml", "--concurrency", "1"]
 
       volumes:
         - name: envoy-config
