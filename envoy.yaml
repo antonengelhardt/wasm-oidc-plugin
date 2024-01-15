@@ -31,12 +31,12 @@ static_resources:
                       configuration:
                         "@type": "type.googleapis.com/google.protobuf.StringValue"
                         value: |
-                          config_endpoint: "https://auth.k8s.wwu.de/.well-known/openid-configuration"
+                          config_endpoint: "https://accounts.google.com/.well-known/openid-configuration"
                           reload_interval_in_h: 1 # in hours
 
                           exclude_hosts: [] # or ["httpbin.org"]
-                          exclude_paths: [] # or ["/anything"]
-                          exclude_urls: [] # or ["http://httpbin.org/anything"]
+                          exclude_paths: [] # or ["/favicon.ico"]
+                          exclude_urls: [] # or ["http://localhost:10000/#/HTTP_Methods/get_get"]
 
                           access_token_header_name: # or "Authorization"
                           access_token_header_prefix: "Bearer "
@@ -46,9 +46,9 @@ static_resources:
                           cookie_name: "oidcSession"
                           cookie_duration: 86400 # in seconds
                           token_validation: true # or false
-                          aes_key: "WnIU7c7OJp90eRobUfz9G18VH8JbdNdwbEyBAr+85xo="
+                          aes_key: "WnIU7c7OJp90eRobUfz9G18VH8JbdNdwbEyBAr+85xo=" # generate with `openssl rand -base64 32`
 
-                          authority: "auth.k8s.wwu.de" # FQDN of the OIDC provider
+                          authority: "accounts.google.com" # FQDN of the OIDC provider
                           redirect_uri: "http://localhost:10000/oidc/callback" # redirect uri that is registered with the OIDC provider
                           client_id: "wasm-oidc-plugin" # client id that is registered with the OIDC provider
                           scope: "openid profile email"
