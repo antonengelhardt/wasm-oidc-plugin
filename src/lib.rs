@@ -112,6 +112,7 @@ impl HttpContext for ConfiguredOidc {
         let host = self.get_http_request_header(":authority").unwrap_or_default();
         if self.plugin_config.exclude_hosts.iter().any(|x| x.is_match(&host)) {
             debug!("Host {} is excluded. Forwarding request.", host);
+            self.filter_proxy_cookies();
             return Action::Continue;
         }
 
@@ -119,12 +120,14 @@ impl HttpContext for ConfiguredOidc {
         let path = self.get_http_request_header(":path").unwrap_or_default();
         if self.plugin_config.exclude_paths.iter().any(|x| x.is_match(&path)) {
             debug!("Path {} is excluded. Forwarding request.", path);
+            self.filter_proxy_cookies();
             return Action::Continue;
         }
 
         let url = Url::parse(&format!("{}{}", host, path)).unwrap();
         if self.plugin_config.exclude_urls.iter().any(|x| x.is_match(&url.as_str())) {
             debug!("Url {} is excluded. Forwarding request.", url.as_str());
+            self.filter_proxy_cookies();
             return Action::Continue;
         }
 
@@ -198,6 +201,8 @@ impl HttpContext for ConfiguredOidc {
                                 id_token
                         ).as_str());
                     }
+
+                    self.filter_proxy_cookies();
 
                     // Allow request to pass
                     return Action::Continue;
@@ -598,5 +603,22 @@ impl ConfiguredOidc {
                 Some(b"Redirecting..."),
             );
             return Action::Pause;
+    }
+
+    /// Filter non proxy cookies by checking the cookie name.
+    fn filter_proxy_cookies(&self) {
+
+        // Get all cookies
+        let all_cookies = self.get_http_request_header("cookie").unwrap_or_default();
+
+        // Remove non proxy cookies from request
+        let mut filtered_cookies = String::new();
+        for cookie in all_cookies.split(";") {
+            if !cookie.contains(&self.plugin_config.cookie_name) {
+                filtered_cookies.push_str(cookie);
+                filtered_cookies.push_str(";");
+            }
+        }
+        self.set_http_request_header("Cookie", Some(&filtered_cookies));
     }
 }
