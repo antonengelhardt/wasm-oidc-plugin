@@ -63,10 +63,13 @@ curl localhost:10000
 
 To deploy the plugin to production, the following steps are needed (either manually or via a [CI/CD pipeline](./k8s/ci.yml)):
 
-1. Build the plugin with `cargo build --target wasm32-wasi --release`. This can be done in a [initContainer](./k8s/deployment.yaml) (see [k8s](./k8s) folder).
-2. Copy the `target/wasm32-wasi/release/wasm_oidc_plugin.wasm` to path `/etc/envoy/proxy-wasm-plugins/` on the server.
-3. Run envoy as a container with the `envoy.yaml` file mounted through the [ConfigMap](./k8s/configmap.yml).
-4. Set up [Service](./k8s/service.yml), [Certificate](./k8s/certificate-production.yml), [Ingress](./k8s/ingress.yml) to expose the Envoy to the internet.
+1. Build the plugin
+
+    1.1 with `cargo build --target wasm32-wasi --release` - this can be done in a [initContainer](./k8s/deployment.yaml) (see [k8s](./k8s) folder) and then copy the binary to the path `/etc/envoy/proxy-wasm-plugins/` in the envoy container.
+
+    1.2 by using the pre-built Docker image [antonengelhardt/wasm-oidc-plugin](https://hub.docker.com/r/antonengelhardt/wasm-oidc-plugin).
+2. Run envoy as a container with the `envoy.yaml` file mounted through the [ConfigMap](./k8s/configmap.yml) as a volume.
+3. Set up [Service](./k8s/service.yml), [Certificate](./k8s/certificate-production.yml), [Ingress](./k8s/ingress.yml) to expose the Envoy to the internet.
 
 For reference, see the [k8s folder](./k8s).
 
