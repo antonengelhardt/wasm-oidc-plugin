@@ -64,7 +64,7 @@ impl<'a> Session {
     }
 
     /// Make the cookie values from the encoded cookie
-    pub fn make_cookie_values(encoded_cookie: String, cookie_name: String, cookie_duration: u64) -> Vec<String> {
+    pub fn make_cookie_values(encoded_cookie: String, cookie_name: String, cookie_duration: u64, number_current_cookies: u64) -> Vec<String> {
 
         // Split every 4000 bytes
         let cookie_parts = encoded_cookie
@@ -83,6 +83,12 @@ impl<'a> Session {
                 cookie_duration
             ));
             cookie_values.push(cookie_value);
+        }
+
+        // Overwrite the old cookies because decryption will fail if older and expired cookies are
+        // still present.
+        for i in cookie_values.len()..number_current_cookies as usize {
+            cookie_values.push(format!("{}-{}=; Path=/; HttpOnly; Secure; Max-Age=0", cookie_name, i));
         }
 
         return cookie_values;
