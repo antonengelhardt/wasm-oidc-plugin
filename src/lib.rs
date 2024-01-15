@@ -269,6 +269,23 @@ impl ConfiguredOidc {
         return None;
     }
 
+    /// Filter non proxy cookies by checking the cookie name.
+    fn filter_proxy_cookies(&self) {
+
+        // Get all cookies
+        let all_cookies = self.get_http_request_header("cookie").unwrap_or_default();
+
+        // Remove non proxy cookies from request
+        let filtered_cookies = all_cookies.split(";")
+            .filter(|x| !x.contains(&self.plugin_config.cookie_name))
+            .filter(|x| !x.contains("nonce"))
+            .collect::<Vec<&str>>()
+            .join(";");
+
+        // Set the cookie header
+        self.set_http_request_header("Cookie", Some(&filtered_cookies));
+    }
+
     /// Parse the cookie and validate the token.
     /// The cookie is parsed into the `AuthorizationState` struct. The token is validated using the
     /// `validate_token` function. If the token is valid, this function returns Ok(()). If the token
@@ -603,22 +620,5 @@ impl ConfiguredOidc {
                 Some(b"Redirecting..."),
             );
             return Action::Pause;
-    }
-
-    /// Filter non proxy cookies by checking the cookie name.
-    fn filter_proxy_cookies(&self) {
-
-        // Get all cookies
-        let all_cookies = self.get_http_request_header("cookie").unwrap_or_default();
-
-        // Remove non proxy cookies from request
-        let mut filtered_cookies = String::new();
-        for cookie in all_cookies.split(";") {
-            if !cookie.contains(&self.plugin_config.cookie_name) {
-                filtered_cookies.push_str(cookie);
-                filtered_cookies.push_str(";");
-            }
-        }
-        self.set_http_request_header("Cookie", Some(&filtered_cookies));
     }
 }
