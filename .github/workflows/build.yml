@@ -52,10 +52,23 @@ jobs:
           name: wasm_oidc_plugin.wasm
           path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
 
-      - name: Create Docker Image
+  docker-image:
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Push to Docker Hub
         uses: docker/build-push-action@v2
         with:
           context: .
-          file: ./Dockerfile
           push: true
           tags: antonengelhardt/wasm-oidc-plugin:latest
