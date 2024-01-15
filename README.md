@@ -10,7 +10,7 @@ This repo is the result of a bachelor thesis in Information Systems. It is inspi
 
 1. **Encryption**: The session in which the authorization state is stored is encrypted using AES-256, by providing a Key in the config and a session-based nonce. This prevents the session from being read by the user and potentially modified. If the user tries to modify the session, the decryption fails and the user is redirected to the `authorization_endpoint` to authenticate again.
 2. **Configuration**: Many configuration options are available to customize the plugin to your needs. More are coming ;)
-3. **No crash during startup**: The plugin does not crash during startup, if the OIDC configuration is not available. Instead, it waits until the configuration is loaded and then starts handling requests by pausing them and resuming them once the configuration is loaded.
+3. **Stability**: The plugin aims to be stable and ready for production. All forceful value unwraps are expected to be valid. If the value may be invalid or in the wrong format, error handling is in place.
 4. **Optional validation**: The plugin can be configured to validate the token or not. If the validation is disabled, the plugin only checks for the presence of the token and passes the request to the backend. This is because the validation is taking a considerable amount of time. This time becomes worse with the length of the signing key. Cryptographic support is not fully mature in WASM yet, but [there is hope](https://github.com/WebAssembly/wasi-crypto/blob/main/docs/HighLevelGoals.md).
 5. **Documentation and comments**: The code is documented and commented, so that it is easy to understand and extend.
 
