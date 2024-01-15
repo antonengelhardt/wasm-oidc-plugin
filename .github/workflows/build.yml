@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - why-this-repo
 
 env:
   CARGO_TERM_COLOR: always

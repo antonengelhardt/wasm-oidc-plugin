@@ -4,13 +4,12 @@ apiVersion: apps/v1
 kind: Deployment
 
 metadata:
-  name:  example-app
+  name: example-app
   namespace: example-namespace
   labels:
     app: example-app
 
 spec:
-
   selector:
     matchLabels:
       app: example-envoy
@@ -29,53 +28,54 @@ spec:
 
     spec:
       initContainers:
-      - name: build-plugin
-        image: antonengelhardt/rust-docker-tools:latest
-        command:
-          - /bin/sh
-          - -c
-          - |
-            apk add git
-            git clone https://${GITHUB_PAT}@github.com/your-org/your-repo.git #! Change URL
-            cd your-repo #! Change directory
-            cargo build --target wasm32-wasi --release
-            cp target/wasm32-wasi/release/name_of_your_wasm_plugin.wasm /plugins/name_of_your_wasm_plugin.wasm #! Rename, if necessary
+        - name: build-plugin
+          image: antonengelhardt/rust-docker-tools:latest
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apk add git
+              git clone https://${GITHUB_PAT}@github.com/your-org/your-repo.git #! Change URL
+              cd your-repo #! Change directory
+              cargo build --target wasm32-wasi --release
+              cp target/wasm32-wasi/release/name_of_your_wasm_plugin.wasm /plugins/name_of_your_wasm_plugin.wasm #! Rename, if necessary
 
-        env:
-          - name: GITHUB_PAT #? if your repo is private, you need to provide a github personal access token in a secret
-            valueFrom:
-              secretKeyRef:
-                name: github-pat
-                key: password
+          env:
+            - name: GITHUB_PAT #? if your repo is private, you need to provide a github personal access token in a secret
+              valueFrom:
+                secretKeyRef:
+                  name: github-pat
+                  key: password
 
-        volumeMounts:
-          - name: plugins
-            mountPath: /plugins
+          volumeMounts:
+            - name: plugins
+              mountPath: /plugins
 
       containers:
-      - name: envoy
-        image: envoyproxy/envoy:v1.24-latest
+        - name: envoy
+          image: envoyproxy/envoy:v1.24-latest
 
-        resources:
-          requests:
-            cpu: 1000m
-            memory: 1000Mi
-          limits:
-            cpu: 1000m
-            memory: 1000Mi
+          resources:
+            requests:
+              cpu: 1000m
+              memory: 1000Mi
+            limits:
+              cpu: 1000m
+              memory: 1000Mi
 
-        volumeMounts:
-          - name: plugins
-            mountPath: /etc/envoy/proxy-wasm-plugins
-          - name: envoy-config
-            mountPath: /etc/envoy
+          volumeMounts:
+            - name: plugins
+              mountPath: /etc/envoy/proxy-wasm-plugins
+            - name: envoy-config
+              mountPath: /etc/envoy
 
-        ports:
-          - containerPort: 10000
-            name: http
-            protocol: TCP
+          ports:
+            - containerPort: 10000
+              name: http
+              protocol: TCP
 
-        command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "--concurrency", "1"]
+          command:
+            ["envoy", "-c", "/etc/envoy/envoy.yaml", "--concurrency", "1"]
 
       volumes:
         - name: plugins
