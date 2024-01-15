@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - why-this-repo
 
 env:
   CARGO_TERM_COLOR: always
@@ -50,3 +51,11 @@ jobs:
         with:
           name: wasm_oidc_plugin.wasm
           path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
+
+      - name: Create Docker Image
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: antonengelhardt/wasm-oidc-plugin:latest
