@@ -40,7 +40,7 @@ jobs:
       - name: Extract version from Github Ref
         id: extract_version
         run: |
-          echo VERSION=${echo ${{ github.ref }} | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+"} >> $GITHUB_ENV
+          echo VERSION=$(echo ${{ github.ref }} | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+") >> $GITHUB_ENV
 
       - name: Push to Docker Hub
         uses: docker/build-push-action@v2
