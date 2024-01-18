@@ -38,7 +38,7 @@ jwt-simple = {git = "https://github.com/antonengelhardt/rust-jwt-simple", rev = 
 pkce = "0.2.0"
 
 # aes256
-aes-gcm = "0.10.2"
+aes-gcm = "0.10.3"
 
 [profile.release]
 lto = true
