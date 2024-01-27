@@ -49,11 +49,11 @@ pub enum JsonWebKey {
 }
 
 /// Enum that holds the public keys that will be used for the validation of the ID Token
-/// Essentially a wrapper to connect the `JWKsResponse` with the `jwt_simple` crate to use
-/// the `verify_token` function
+/// Essentially a wrapper to connect the `JWKsResponse` struct with the `jwt_simple` crate
+/// to use the `verify_token` function
 #[derive(Clone, Debug)]
 pub enum SigningKey {
-    /// A RSA Key of 256 bits
+    /// A [RSA Key](https://github.com/antonengelhardt/rust-jwt-simple/blob/master/src/algorithms/rsa.rs) of 256 bits
     RS256PublicKey(jwt_simple::algorithms::RS256PublicKey),
     // Add more key types here
 }
@@ -102,7 +102,7 @@ impl From<JsonWebKey> for SigningKey {
     }
 }
 
-/// Struct that defines how the callback looks like to serialize it better
+/// Struct that defines how the callback looks like to serialize it better with serde
 #[derive(Deserialize, Debug)]
 pub struct Callback {
     /// The code that is returned from the authorization endpoint

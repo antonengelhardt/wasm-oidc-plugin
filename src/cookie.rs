@@ -30,22 +30,25 @@ pub struct AuthorizationState {
     pub id_token: String,
 }
 
-/// Struct that holds all information about the current session
+/// Struct that holds all information about the current session including the authorization state,
+/// the original path, the PKCE code verifier and the state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
     /// Authorization state
     pub authorization_state: Option<AuthorizationState>,
-    /// Original Path
+    /// Original Path to which the user should be redirected after login
     pub original_path: String,
-    /// PKCE Code Verifier
+    /// PKCE Code Verifier used to generate the PKCE Code Challenge
     pub code_verifier: String,
-    /// State
+    /// State used to prevent CSRF attacks
     pub state: String,
 }
 
 impl<'a> Session {
 
-    /// Create a new session, encrypt it and encode it
+    /// Create a new session, encrypt it and encode it by using the given cipher and nonce
+    /// * `cipher` - Cipher used to encrypt the cookie
+    /// * `encoded_nonce` - Nonce used to encrypt the cookie
     pub fn encrypt_and_encode(self, mut cipher: Aes256Gcm, encoded_nonce: String) -> String {
 
         // Decode nonce using base64
@@ -63,7 +66,12 @@ impl<'a> Session {
         return base64engine.encode(encrypted_cookie.as_slice());
     }
 
-    /// Make the cookie values from the encoded cookie
+    /// Make the cookie values from the encoded cookie by splitting it into chunks of 4000 bytes and
+    /// then building the values to be set in the Set-Cookie headers
+    /// * `encoded_cookie` - Encoded cookie to be split into chunks of 4000 bytes
+    /// * `cookie_name` - Name of the cookie
+    /// * `cookie_duration` - Duration of the cookie in seconds
+    /// * `number_current_cookies` - Number of cookies that are currently set (important because otherwise decryption will fail if older and expired cookies are still present)
     pub fn make_cookie_values(encoded_cookie: String, cookie_name: String, cookie_duration: u64, number_current_cookies: u64) -> Vec<String> {
 
         // Split every 4000 bytes
@@ -94,7 +102,8 @@ impl<'a> Session {
         return cookie_values;
     }
 
-    /// Make the Set-Cookie headers from the encoded cookie
+    /// Make the Set-Cookie headers from the cookie values
+    /// * `cookie_values` - Cookie values to be set in the Set-Cookie headers
     pub fn make_set_cookie_headers(cookie_values: &'a Vec<String>) -> Vec<(&'static str, &'a str)> {
 
         // Build the cookie headers
@@ -108,6 +117,9 @@ impl<'a> Session {
     }
 
     /// Decode cookie, parse into a struct in order to access the fields
+    /// * `encoded_cookie` - Encoded cookie to be decoded and parsed into a struct
+    /// * `cipher` - Cipher used to decrypt the cookie
+    /// * `encoded_nonce` - Nonce used to decrypt the cookie
     pub fn decode_and_decrypt(encoded_cookie: String, mut cipher: Aes256Gcm, encoded_nonce: String) -> Result<Session, String> {
 
         // Decode nonce using base64
@@ -119,11 +131,9 @@ impl<'a> Session {
                 return Err(e.to_string());
             }
         };
-        debug!("decoded nonce: {:?}", decoded_nonce);
 
         // Build nonce from decoded nonce
         let nonce = Nonce::from_slice(decoded_nonce.as_slice());
-        debug!("nonce: {:?}", nonce);
 
         // Decode cookie using base64
         let decoded_cookie = match base64engine.decode(encoded_cookie.as_bytes()) {

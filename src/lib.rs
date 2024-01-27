@@ -257,6 +257,8 @@ impl ConfiguredOidc {
     }
 
     /// Filter non proxy cookies by checking the cookie name.
+    /// This function removes all cookies from the request that do not match the cookie name to prevent
+    /// the cookie from being forwarded to the upstream service.
     fn filter_proxy_cookies(&self) {
 
         // Get all cookies
@@ -294,7 +296,7 @@ impl ConfiguredOidc {
         match Session::decode_and_decrypt(cookie, self.cipher.to_owned(), nonce) {
 
             // If the cookie can be parsed, this means that the cookie is trusted because modifications would have
-            // corrupted the encrypted state
+            // corrupted the encrypted state. Token validation is only performed if the configuration option is set.
             Ok(session) => {
 
                 // Only validate the token if the configuration option is set
@@ -333,6 +335,7 @@ impl ConfiguredOidc {
     /// Validate the token using the JWT library.
     /// This function checks for the correct issuer and audience and verifies the signature with the
     /// public keys loaded from the JWKs endpoint.
+    /// * `token` - The token to be validated
     fn validate_token(&self, token: &str) -> Result<(), String> {
 
         // Define allowed issuers and audiences
@@ -371,12 +374,24 @@ impl ConfiguredOidc {
     /// Exchange the code for a token using the token endpoint.
     /// This function is called when the user is redirected back to the callback URL.
     /// The code is extracted from the URL and exchanged for a token using the token endpoint.
+    /// * `path` - The path of the request
     fn exchange_code_for_token(&mut self, path: String) -> Result<(), String>{
 
         debug!("received request for OIDC callback");
 
         // Get Query String from URL
         let query = path.split("?").last().unwrap_or_default();
+
+        // Get state from query
+        let callback_params = match serde_urlencoded::from_str::<Callback>(&query) {
+            Ok(callback) => callback,
+            Err(e) => {
+                return Err(e.to_string());
+            }
+        };
+
+        // Get cookie
+        let encoded_cookie = self.get_session_cookie_as_string();
 
         // Get nonce from cookie
         let encoded_nonce = match self.get_cookie("nonce") {
@@ -387,9 +402,6 @@ impl ConfiguredOidc {
         }; // TODO: Idiomatically handle the error
         debug!("nonce from cookie: {}", encoded_nonce);
 
-        // Get cookie
-        let encoded_cookie = self.get_session_cookie_as_string();
-
         // Get session
         let session = match Session::decode_and_decrypt(encoded_cookie, self.cipher.clone(), encoded_nonce) {
             Ok(session) => session,
@@ -398,25 +410,16 @@ impl ConfiguredOidc {
             }
         }; // TODO: Idiomatically handle the error
 
-        // Get state from query
-        let callback_params = match serde_urlencoded::from_str::<Callback>(&query) {
-            Ok(callback) => callback,
-            Err(e) => {
-                return Err(e.to_string());
-            }
-        };
-
         // Get state and code from query
         let state = callback_params.state;
         let code = callback_params.code;
+        debug!("authorization code: {}", code);
 
         // Compare state
         if state != session.state {
             warn!("state does not match.");
             return Err("state does not match.".to_string());
         }
-
-        debug!("authorization code: {}", code);
 
         // Hardcoded values for request to token endpoint
         let client_id = &self.plugin_config.client_id;
