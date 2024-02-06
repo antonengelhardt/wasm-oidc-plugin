@@ -67,6 +67,9 @@ pub struct PluginConfiguration {
     // Cookie settings
     /// The cookie name that will be used for the session cookie
     pub cookie_name: String,
+    /// Filter out the cookies created and controlled by the plugin
+    /// If the value is true, the cookies will be filtered out
+    pub filter_plugin_cookies: bool,
     /// The cookie duration in seconds
     pub cookie_duration: u64,
     /// Option to skip Token Validation
