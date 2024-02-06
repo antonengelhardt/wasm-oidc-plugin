@@ -261,6 +261,11 @@ impl ConfiguredOidc {
     /// the cookie from being forwarded to the upstream service.
     fn filter_proxy_cookies(&self) {
 
+        // Check if the filter_plugin_cookies option is set
+        if !self.plugin_config.filter_plugin_cookies {
+            return;
+        }
+
         // Get all cookies
         let all_cookies = self.get_http_request_header("cookie").unwrap_or_default();
 
