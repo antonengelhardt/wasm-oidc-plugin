@@ -141,7 +141,7 @@ impl RootContext for OidcDiscovery {
                                 info!("plugin configuration is valid");
                             }
                             Err(e) => {
-                                warn!("plugin configuration is invalid: {:?}", e);
+                                panic!("plugin configuration is invalid: {:?}", e);
                             }
                         }
 
@@ -482,17 +482,17 @@ impl OidcDiscovery {
 
         // Config Endpoint
         if Url::parse(&plugin_config.config_endpoint).is_err() {
-            return Err("config endpoint is not a valid url".to_string());
+            return Err("`config_endpoint` is not a valid url".to_string());
         }
 
         // Reload Interval
         if plugin_config.reload_interval_in_h == 0 {
-            return Err("reload interval is 0".to_string());
+            return Err("`reload_interval` is 0".to_string());
         }
 
         // Cookie Name
         if plugin_config.cookie_name.len() > 32 {
-            return Err("cookie name is too long, max 32".to_string());
+            return Err("`cookie_name` is too long, max 32".to_string());
         }
 
         if plugin_config.cookie_name.len() == 0
@@ -502,57 +502,47 @@ impl OidcDiscovery {
             && plugin_config.cookie_name.contains("=")
             && plugin_config.cookie_name.contains(":")
             && plugin_config.cookie_name.contains("/") {
-            return Err("cookie name is not valid, contains invalid characters like ;, =, :, /, space".to_string());
-        }
-
-        // Filter plugin config flag
-        if plugin_config.filter_plugin_cookies != true && plugin_config.filter_plugin_cookies != false {
-            return Err("filter plugin cookies is not a boolean".to_string());
+            return Err("`cookie_name` is not valid, contains invalid characters like ;, =, :, /, space".to_string());
         }
 
         // Cookie Duration
         if plugin_config.cookie_duration == 0 {
-            return Err("cookie duration is 0".to_string());
-        }
-
-        // Token validation flag
-        if plugin_config.token_validation != true && plugin_config.token_validation != false {
-            return Err("validate token is not a boolean".to_string());
+            return Err("`cookie_duration` is 0".to_string());
         }
 
         // AES Key
         if plugin_config.aes_key.len() != 44 {
-            return Err("aes key is not 44 characters long, but must be".to_string());
+            return Err("`aes_key` is not 44 characters long, but must be".to_string());
         }
 
         // Authority
         if plugin_config.authority.len() == 0 {
-            return Err("authority is empty".to_string());
+            return Err("`authority` is empty".to_string());
         }
 
         // Redirect Uri
         if plugin_config.redirect_uri.len() == 0 {
-            return Err("redirect uri is empty".to_string());
+            return Err("`redirect_uri` is empty".to_string());
         }
 
         // Client Id
         if plugin_config.client_id.len() == 0 {
-            return Err("client id is empty".to_string());
+            return Err("`client_id` is empty".to_string());
         }
 
         // Scope
         if plugin_config.scope.len() == 0 {
-            return Err("scope is empty".to_string());
+            return Err("`scope` is empty".to_string());
         }
 
         // Claims
         if plugin_config.claims.len() == 0 {
-            return Err("claims is empty".to_string());
+            return Err("`claims` is empty".to_string());
         }
 
         // Client Secret
         if plugin_config.client_secret.len() == 0 {
-            return Err("client secret is empty".to_string());
+            return Err("client_secret is empty".to_string());
         }
 
         // Audience
