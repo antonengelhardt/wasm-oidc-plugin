@@ -231,7 +231,7 @@ impl RootContext for OidcDiscovery {
             } => {
 
                 // Tick every 250ms to not overload the openid configuration endpoint.
-                self.set_tick_period(Duration::from_millis(250));
+                self.set_tick_period(Duration::from_millis(300));
 
                 // Make call to openid configuration endpoint
                 // The response is handled in `on_http_call_response`.
@@ -496,13 +496,13 @@ impl OidcDiscovery {
         }
 
         if plugin_config.cookie_name.len() == 0
-            && plugin_config.cookie_name.contains(";")
-            && plugin_config.cookie_name.contains(",")
-            && plugin_config.cookie_name.contains(" ")
-            && plugin_config.cookie_name.contains("=")
-            && plugin_config.cookie_name.contains(":")
-            && plugin_config.cookie_name.contains("/") {
-            return Err("`cookie_name` is not valid, contains invalid characters like ;, =, :, /, space".to_string());
+            || plugin_config.cookie_name.contains(";")
+            || plugin_config.cookie_name.contains(",")
+            || plugin_config.cookie_name.contains(" ")
+            || plugin_config.cookie_name.contains("=")
+            || plugin_config.cookie_name.contains(":")
+            || plugin_config.cookie_name.contains("/") {
+            return Err("`cookie_name` is empty or not valid meaning that it contains invalid characters like ;, =, :, /, space".to_string());
         }
 
         // Cookie Duration
