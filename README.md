@@ -85,28 +85,29 @@ cargo doc --document-private-items --open
 
 The plugin is configured via the `envoy.yaml`-file. The following configuration options are required:
 
-| Name | Type | Description | Example |
-| ---- | ---- | ----------- | ------- |
-| `config_endpoint` | `string` | The open id configuration endpoint. | `https://accounts.google.com/.well-known/openid-configuration` |
-| `reload_interval_in_hours` | `u64` | The interval in hours, after which the OIDC configuration is reloaded. | `24` |
-| `exclude_hosts` | `Vec<Regex>` | A comma separated list Hosts (in Regex expressions), that are excluded from the filter. | `["localhost:10000"]` |
-| `exclude_paths` | `Vec<Regex>` | A comma separated list of paths (in Regex expressions), that are excluded from the filter. | `["/health"]` |
-| `exclude_urls` | `Vec<Regex>` | A comma separated list of URLs (in Regex expressions), that are excluded from the filter. | `["localhost:10000/health"]` |
-| `access_token_header_name` | `string` | If set, this name will be used to forward the access token to the backend. | `X-Access-Token` |
-| `access_token_header_prefix` | `string` | The prefix of the header, that is used to forward the access token, if empty "" is used. | `Bearer ` |
-| `id_token_header_name` | `string` | If set, this name will be used to forward the id token to the backend. | `X-Id-Token` |
-| `id_token_header_prefix` | `string` | The prefix of the header, that is used to forward the id token, if empty "" is used. | `Bearer ` |
-| `cookie_name` | `string` | The name of the cookie, that is used to store the session. | `oidcSession` |
-| `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` |
-| `token_validation` | bool | Whether to validate the token or not. | `true` |
-| `aes_key` | `string` | A base64 encoded AES-256 Key: `openssl rand -base64 32` | `SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q=` |
-| `authority` | `string` | The authority of the `authorization_endpoint`. | `accounts.google.com` |
-| `redirect_uri` | `string` | The redirect URI, that the `authorization_endpoint` will redirect to. | `http://localhost:10000/oidc/callback` |
-| `client_id` | `string` | The client ID, for getting and exchanging the code. | `wasm-oidc-plugin` |
-| `scope` | `string` | The scope, to validate | `openid email` |
-| `claims` | `string` | The claims, to validate. Make sure to escape quotes with a backslash | `{\"id_token\":{\"groups\":null,\"username\":null}}` |
-| `client_secret` | `string` | The client secret, that is used to authenticate with the `authorization_endpoint`. | `secret` |
-| `audience` | `string` | The audience, that is used to validate the token. | `wasm-oidc-plugin` |
+| Name | Type | Description | Example | Required |
+| ---- | ---- | ----------- | ------- | -------- |
+| `config_endpoint` | `string` | The open id configuration endpoint. | `https://accounts.google.com/.well-known/openid-configuration` | `true` |
+| `reload_interval_in_hours` | `u64` | The interval in hours, after which the OIDC configuration is reloaded. | `24` | `true` |
+| `exclude_hosts` | `Vec<Regex>` | A comma separated list Hosts (in Regex expressions), that are excluded from the filter. | `["localhost:10000"]` | `false` |
+| `exclude_paths` | `Vec<Regex>` | A comma separated list of paths (in Regex expressions), that are excluded from the filter. | `["/health"]` | `false` |
+| `exclude_urls` | `Vec<Regex>` | A comma separated list of URLs (in Regex expressions), that are excluded from the filter. | `["localhost:10000/health"]` | `false` |
+| `access_token_header_name` | `string` | If set, this name will be used to forward the access token to the backend. | `X-Access-Token` | `false` |
+| `access_token_header_prefix` | `string` | The prefix of the header, that is used to forward the access token, if empty "" is used. | `Bearer ` | `false` |
+| `id_token_header_name` | `string` | If set, this name will be used to forward the id token to the backend. | `X-Id-Token` | `false` |
+| `id_token_header_prefix` | `string` | The prefix of the header, that is used to forward the id token, if empty "" is used. | `Bearer ` | `false` |
+| `cookie_name` | `string` | The name of the cookie, that is used to store the session. | `oidcSession` | `true` |
+| `filter_plugin_cookies | `bool` | Whether to filter the cookies that are managed and controlled by the plugin (namely cookie_name and `nonce`). | `true` | `true` |
+| `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` | `true` |
+| `token_validation` | bool | Whether to validate the token or not. | `true` | `true` |
+| `aes_key` | `string` | A base64 encoded AES-256 Key: `openssl rand -base64 32` | `SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q=` | `true` |
+| `authority` | `string` | The authority of the `authorization_endpoint`. | `accounts.google.com` | `true` |
+| `redirect_uri` | `string` | The redirect URI, that the `authorization_endpoint` will redirect to. | `http://localhost:10000/oidc/callback` | `true` |
+| `client_id` | `string` | The client ID, for getting and exchanging the code. | `wasm-oidc-plugin` | `true` |
+| `scope` | `string` | The scope, to validate | `openid email` | `true` |
+| `claims` | `string` | The claims, to validate. Make sure to escape quotes with a backslash | `{\"id_token\":{\"groups\":null,\"username\":null}}` | `true` |
+| `client_secret` | `string` | The client secret, that is used to authenticate with the `authorization_endpoint`. | `secret` | `true` |
+| `audience` | `string` | The audience, that is used to validate the token. | `wasm-oidc-plugin` | `true` |
 
 With these configuration options, the plugin starts and loads more information itself such as the OIDC providers public keys, issuer, etc.
 
