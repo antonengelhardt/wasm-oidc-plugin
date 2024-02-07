@@ -272,7 +272,7 @@ impl ConfiguredOidc {
         // Remove non proxy cookies from request
         let filtered_cookies = all_cookies.split(";")
             .filter(|x| !x.contains(&self.plugin_config.cookie_name))
-            .filter(|x| !x.contains("nonce"))
+            .filter(|x| !x.contains(&format!("{}-nonce", self.plugin_config.cookie_name)))
             .collect::<Vec<&str>>()
             .join(";");
 
@@ -290,7 +290,7 @@ impl ConfiguredOidc {
 
         // Get cookie and nonce
         let cookie = self.get_session_cookie_as_string();
-        let nonce = match self.get_cookie("nonce") {
+        let nonce = match self.get_nonce() {
             Some(nonce) => nonce,
             None => {
                 return Err("No nonce found in cookie".to_string());
@@ -309,7 +309,12 @@ impl ConfiguredOidc {
                     true => {
 
                         // Get authorization state from session
-                        let auth_state = session.authorization_state.unwrap(); // TODO: Idiomatically handle the error
+                        let auth_state = match session.authorization_state {
+                            Some(auth_state) => auth_state,
+                            None => {
+                                return Err("No authorization state found in cookie".to_string());
+                            }
+                        }; // TODO: Idiomatically handle the error (potential crash)
 
                         // Validate token
                         match self.validate_token(&auth_state.id_token) {
@@ -399,7 +404,7 @@ impl ConfiguredOidc {
         let encoded_cookie = self.get_session_cookie_as_string();
 
         // Get nonce from cookie
-        let encoded_nonce = match self.get_cookie("nonce") {
+        let encoded_nonce = match self.get_nonce() {
             Some(nonce) => nonce,
             None => {
                 return Err("No nonce found in cookie".to_string());
@@ -519,7 +524,7 @@ impl ConfiguredOidc {
                 debug!("token response: {:?}", body);
 
                 // Get nonce from cookie
-                let encoded_nonce = self.get_cookie("nonce").unwrap_or_default();
+                let encoded_nonce = self.get_nonce().unwrap_or_default();
 
                 // Get cookie
                 let encoded_cookie = self.get_session_cookie_as_string();
@@ -617,7 +622,10 @@ impl ConfiguredOidc {
         let mut headers = Session::make_set_cookie_headers(&set_cookie_values);
 
         // Build nonce cookie value
-        let nonce_cookie_value = &format!("nonce={}; Max-Age={}; HttpOnly; Secure", &encoded_nonce, self.plugin_config.cookie_duration);
+        let nonce_cookie_value = &format!("{}-nonce={}; Max-Age={}; HttpOnly; Secure",
+            self.plugin_config.cookie_name,
+            &encoded_nonce,
+            self.plugin_config.cookie_duration);
 
         // Add nonce cookie to headers
         headers.push(("Set-Cookie", nonce_cookie_value));
@@ -662,13 +670,20 @@ impl ConfiguredOidc {
         // Split cookie by ; and filter for the cookie name.
         let cookie = cookie.split(";")
             .filter(|x| x.contains(self.plugin_config.cookie_name.as_str()))
+            .filter(|x| !x.contains(format!("{}-nonce", self.plugin_config.cookie_name).as_str()))
             // Then split by = and get the second element.
-            .map(|x| x.split("=").collect::<Vec<&str>>()[1])
+            .map(|x| x.split("=")
+            .collect::<Vec<&str>>()[1])
             .collect::<Vec<&str>>()
             // Join the cookie values together again.
             .join("");
 
         return cookie;
+    }
+
+    // Get the encoded nonce from the cookie
+    pub fn get_nonce(&self) -> Option<String> {
+        self.get_cookie(format!("{}-nonce", self.plugin_config.cookie_name).as_str())
     }
 
     /// Helper function to get the number of cookies from the request headers.
