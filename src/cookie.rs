@@ -24,7 +24,8 @@ pub struct AuthorizationState {
     /// Time in seconds until the access token expires
     pub expires_in: u32,
     /// Refresh token to be used to refresh the access token
-    pub refresh_token: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refresh_token: Option<String>,
     /// ID token in JWT format
     pub id_token: String,
 }
