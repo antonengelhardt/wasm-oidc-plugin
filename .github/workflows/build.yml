@@ -75,6 +75,7 @@ jobs:
 
   ghcr-image:
     runs-on: ubuntu-latest
+    needs: build
     permissions:
       contents: read
       packages: write
@@ -91,6 +92,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Push to GHCR
-        run:
-          docker build -t ghcr.io/antonengelhardt/wasm-oidc-plugin:latest . &&
+        run: |
+          docker build -t ghcr.io/antonengelhardt/wasm-oidc-plugin:latest .
           docker push ghcr.io/antonengelhardt/wasm-oidc-plugin:latest
