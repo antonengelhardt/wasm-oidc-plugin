@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - hotfix-url-headers
 
 env:
   CARGO_TERM_COLOR: always
