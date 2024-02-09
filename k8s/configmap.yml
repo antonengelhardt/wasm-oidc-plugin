@@ -31,22 +31,48 @@ data:
                               prefix: "/"
                             route:
                               cluster: httpbin #! Your upstream cluster name.
+                              host_rewrite_literal: your-service.com #! You might need this if your service is running in the same cluster (the reverse proxy looks for the host and if it is not changed, it will talk to envoy again).
 
                   http_filters:
                     - name: envoy.filters.http.wasm
                       typed_config:
                         "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
                         config:
-                          name: "name-of-your-wasm-plugin" #! This name must match the name of the plugin in the plugin's code.
+                          name: "wasm-oidc-plugin" #! This name must match the name of the plugin in the plugin's code.
                           configuration:
                             "@type": "type.googleapis.com/google.protobuf.StringValue"
                             value: |
+                              config_endpoint: "https://accounts.google.com/.well-known/openid-configuration"
+                              reload_interval_in_h: 1 # in hours
+
+                              exclude_hosts: [] # or ["httpbin.org"]
+                              exclude_paths: [] # or ["/favicon.ico"]
+                              exclude_urls: [] # or ["http://localhost:10000/#/HTTP_Methods/get_get"]
+
+                              access_token_header_name: # or "Authorization"
+                              access_token_header_prefix: "Bearer "
+                              id_token_header_name: # or "X-Id-Token"
+                              id_token_header_prefix: "Bearer "
+
+                              cookie_name: "oidcSession"
+                              cookie_duration: 86400 # in seconds
+                              token_validation: true # or false
+                              aes_key: "WnIU7c7OJp90eRobUfz9G18VH8JbdNdwbEyBAr+85xo=" # generate with `openssl rand -base64 32`
+
+                              authority: "accounts.google.com" # FQDN of the OIDC provider
+                              redirect_uri: "http://localhost:10000/oidc/callback" # redirect uri that is registered with the OIDC provider
+                              client_id: "wasm-oidc-plugin" # client id that is registered with the OIDC provider
+                              scope: "openid profile email"
+                              claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+
+                              client_secret: "redacted"
+                              audience: "wasm-oidc-plugin"
 
                           vm_config:
                             runtime: "envoy.wasm.runtime.v8"
                             code:
                               local:
-                                filename: "/etc/envoy/proxy-wasm-plugins/name_of_your_wasm_plugin.wasm" #! This path must match the path in the init container.
+                                filename: "/etc/envoy/proxy-wasm-plugins/wasm_oidc_plugin.wasm" #! Must match the path where you copy the plugin (when using initContainer)
                     - name: envoy.filters.http.router
                       typed_config:
                         "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
@@ -62,10 +88,10 @@ data:
               - endpoint:
                   address:
                     socket_address:
-                      address: httpbin
+                      address: httpbin #! This is the hostname of the service you want to access.
                       port_value: 80
                   hostname: "httpbin.org" #! This is the hostname of the service you want to access.
-        - name: oidc
+        - name: oidc #! dont change it
           connect_timeout: 5s
           type: LOGICAL_DNS
           dns_lookup_family: V4_ONLY
