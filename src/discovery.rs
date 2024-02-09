@@ -330,7 +330,13 @@ impl Context for OidcDiscovery {
                 debug!("loading from openid config endpoint");
 
                 // Parse the response body as json.
-                let body = self.get_http_call_response_body(0, _body_size).unwrap();
+                let body = match self.get_http_call_response_body(0, _body_size) {
+                    Some(body) => body,
+                    None => {
+                        warn!("no body in response");
+                        return;
+                    }
+                };
 
                 // Parse body
                 match serde_json::from_slice::<OidcDiscoveryResponse>(&body) {
