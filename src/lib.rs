@@ -109,7 +109,8 @@ impl HttpContext for ConfiguredOidc {
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
 
         // Check if the host regex matches one of the exclude hosts. If so, forward the request.
-        let host = self.get_http_request_header(":authority").unwrap_or_default();
+        let host = self.get_host().unwrap_or_default();
+
         if self.plugin_config.exclude_hosts.iter().any(|x| x.is_match(&host)) {
             debug!("Host {} is excluded. Forwarding request.", host);
             self.filter_proxy_cookies();
@@ -267,6 +268,25 @@ impl ConfiguredOidc {
             }
         }
         return None;
+    }
+
+    /// Get the host of the HTTP request
+    /// The host is searched in the request headers. If the host is found, the value is returned.
+    fn get_host(&self) -> Option<String> {
+        match self.get_http_request_header(":authority") {
+            host => host,
+            None => {
+                match self.get_http_request_header("X-Forwarded-Host") {
+                    host => host,
+                    None => {
+                        match self.get_http_request_header("host") {
+                            host => host,
+                            None => None,
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /// Filter non proxy cookies by checking the cookie name.
