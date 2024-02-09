@@ -64,7 +64,7 @@ jobs:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} #! Here i have used a K8s Cluster managed by DigitalOcean. You can use any other K8s Cluster as well, but you need to provide the kubeconfig in a secret.
 
       - name: Save DigitalOcean kubeconfig with short-lived credentials
-        run: doctl kubernetes cluster kubeconfig save --expiry-seconds 600 ss-k8s-02 #! Applies for DigitalOcean only: https://docs.digitalocean.com/products/kubernetes/how-to/deploy-using-github-actions/
+        run: doctl kubernetes cluster kubeconfig save --expiry-seconds 600 <name-of-your-cluster> #! Applies for DigitalOcean only: https://docs.digitalocean.com/products/kubernetes/how-to/deploy-using-github-actions/
 
       - name: Deploy to Kubernetes
         run: kubectl rollout restart deployment example-app -n example-namespace # Trigger a rollout of the deployment to update the plugin.
