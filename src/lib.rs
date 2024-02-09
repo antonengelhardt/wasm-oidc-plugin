@@ -552,7 +552,7 @@ impl ConfiguredOidc {
                         // Iterate over the cookie parts and set the cookie reply headers
                         let mut cookie_values = vec![];
                         for (i, cookie_part) in cookie_parts.enumerate() {
-                            let cookie_value = String::from(format!("{}-{}={}; Path=/; HttpOnly; Max-Age={}",
+                            let cookie_value = String::from(format!("{}-{}={}; Path=/; Secure; HttpOnly; Max-Age={}",
                                 self.plugin_config.cookie_name,
                                 i,
                                 cookie_part,
@@ -571,7 +571,7 @@ impl ConfiguredOidc {
                         set_cookie_headers.push(location_header);
 
                         // Set the nonce cookie
-                        let nonce_cookie = format!("{}={}; Path=/; HttpOnly; Max-Age={}", "nonce",
+                        let nonce_cookie = format!("{}={}; Path=/; Secure; HttpOnly; Max-Age={}", "nonce",
                             nonce, self.plugin_config.cookie_duration);
                         set_cookie_headers.push(("Set-Cookie", nonce_cookie.as_str()));
 
