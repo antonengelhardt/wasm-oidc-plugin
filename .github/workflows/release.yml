@@ -51,6 +51,9 @@ jobs:
 
   ghcr-image:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout code
@@ -72,3 +75,4 @@ jobs:
         run:
           docker build -t ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }} .
           docker push ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }}
+          
