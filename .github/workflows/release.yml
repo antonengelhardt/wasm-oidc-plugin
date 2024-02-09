@@ -48,3 +48,27 @@ jobs:
           context: .
           push: true
           tags: antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }}
+
+  ghcr-image:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from Github Ref
+        id: extract_version
+        run: |
+          echo VERSION=$(echo ${{ github.ref }} | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+") >> $GITHUB_ENV
+
+      - name: Push to GHCR
+        run:
+          docker build -t ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }} .
+          docker push ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }}
