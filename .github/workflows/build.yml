@@ -92,6 +92,5 @@ jobs:
 
       - name: Push to GHCR
         run:
-          docker build -t ghcr.io/antonengelhardt/wasm-oidc-plugin:latest .
+          docker buildx build -t ghcr.io/antonengelhardt/wasm-oidc-plugin:latest .
           docker push ghcr.io/antonengelhardt/wasm-oidc-plugin:latest
-
