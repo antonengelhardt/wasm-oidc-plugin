@@ -57,7 +57,7 @@ data:
                               cookie_name: "oidcSession"
                               cookie_duration: 86400 # in seconds
                               token_validation: true # or false
-                              aes_key: "WnIU7c7OJp90eRobUfz9G18VH8JbdNdwbEyBAr+85xo=" # generate with `openssl rand -base64 32`
+                              aes_key: "i-am-a-forty-four-characters-long-string-key" # generate with `openssl rand -base64 32`
 
                               authority: "accounts.google.com" # FQDN of the OIDC provider
                               redirect_uri: "http://localhost:10000/oidc/callback" # redirect uri that is registered with the OIDC provider
