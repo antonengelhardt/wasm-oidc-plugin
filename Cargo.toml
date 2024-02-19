@@ -20,7 +20,7 @@ proxy-wasm = "0.2.1"
 # json, yaml & url parsing
 url = "2.5.0"
 serde = { version = "1.0.196", features = ["derive"] }
-serde_yaml = "0.9.31"
+serde_yaml = "0.9.32"
 serde_json = "1.0.113"
 serde_urlencoded = "0.7.1"
 
