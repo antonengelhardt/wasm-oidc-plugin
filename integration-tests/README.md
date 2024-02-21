@@ -17,8 +17,8 @@ pip install -r requirements.txt
 
 ## Running the tests
 
-!!! warning
-    Adjust the `.env` and `envoy.yaml` files to your needs.
+> [!IMPORTANT]
+> Adjust the `.env` and `envoy.yaml` files to your needs.
 
 ```bash
 docker-compose up -d
