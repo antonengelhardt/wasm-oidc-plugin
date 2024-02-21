@@ -106,9 +106,6 @@ jobs:
             docker ps
             docker logs envoy
 
-            # Testing curl
-            curl -X GET http://localhost:10000/get
-
             # Get the gateway of the envoy container
             export GATEWAY=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}' envoy)
 
