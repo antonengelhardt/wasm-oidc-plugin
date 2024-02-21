@@ -41,7 +41,7 @@ static_resources:
                           cookie_name: "oidcSession"
                           cookie_duration: 86400
                           token_validation: true
-                          aes_key: "SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q"
+                          aes_key: "redacted"
 
                           authority: "dev-wivqmfr2j1pfl1nt.us.auth0.com"
                           redirect_uri: "http://localhost:10000/oidc/callback"

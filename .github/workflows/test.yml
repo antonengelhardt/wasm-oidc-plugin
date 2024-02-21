@@ -32,6 +32,7 @@ jobs:
       runs-on: ubuntu-latest
       container:
         image: antonengelhardt/rust-docker-tools
+      # needs: [test]
 
       steps:
         - name: Checkout code
@@ -75,6 +76,7 @@ jobs:
             echo "WASM_OIDC_PLUGIN_TEST_EMAIL={{ secrets.WASM_OIDC_PLUGIN_TEST_EMAIL }}" >> integration-tests/.env
             echo "WASM_OIDC_PLUGIN_TEST_PASSWORD={{ secrets.WASM_OIDC_PLUGIN_TEST_PASSWORD }}" >> integration-tests/.env
             sed -i 's/client_secret: \"redacted\"/client_secret: \"${{ secrets.WASM_OIDC_PLUGIN_TEST_CLIENT_SECRET }}\"/g' integration-tests/envoy.yaml
+            sed -i 's/aes_key: \"redacted\"/aes_key: \"${{ secrets.WASM_OIDC_PLUGIN_TEST_AES_KEY }}\"/g' integration-tests/envoy.yaml
 
         - name: Install Docker
           run: |
@@ -91,7 +93,7 @@ jobs:
             docker run -d -p 80:80 --name httpin docker.io/kennethreitz/httpbin
 
             echo "Creating Envoy container"
-            docker container create --name envoy -p 10000:10000 docker.io/envoyproxy/envoy:v1.24-latest envoy -c /etc/envoy/envoy.yaml --concurrency 1
+            docker container create --name envoy -p 10000:10000 docker.io/envoyproxy/envoy:v1.29-latest envoy -c /etc/envoy/envoy.yaml --concurrency 1
 
             echo "Copying files to Envoy container because Alpine doesn't like mounting files to files"
             docker cp ../target/wasm32-wasi/release/wasm_oidc_plugin.wasm envoy:/etc/envoy/proxy-wasm-plugins
