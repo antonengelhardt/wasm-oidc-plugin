@@ -274,17 +274,9 @@ impl ConfiguredOidc {
     /// The host is searched in the request headers. If the host is found, the value is returned.
     fn get_host(&self) -> Option<String> {
 
-        let host = if self.get_http_request_header(":authority").is_some() {
-            self.get_http_request_header(":authority")
-        } else if self.get_http_request_header("X-Forwarded-Host").is_some() {
-            self.get_http_request_header("X-Forwarded-Host")
-        } else if self.get_http_request_header("host").is_some() {
-            self.get_http_request_header("host")
-        } else {
-            None
-        };
-
-        host
+        self.get_http_request_header(":authority")
+            .or_else(|| self.get_http_request_header("host"))
+            .or_else(|| self.get_http_request_header("x-forwarded-host"))
     }
 
     /// Filter non proxy cookies by checking the cookie name.
