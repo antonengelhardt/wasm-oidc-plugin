@@ -111,6 +111,6 @@ jobs:
             export GATEWAY=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}' envoy)
 
             echo "Running Integration Tests"
-            export WASM_OIDC_PLUGIN_TEST_EMAIL=${{ secrets.WASM_OIDC_PLUGIN_TEST_EMAIL }}
-            export WASM_OIDC_PLUGIN_TEST_PASSWORD=${{ secrets.WASM_OIDC_PLUGIN_TEST_PASSWORD }}
+            # export WASM_OIDC_PLUGIN_TEST_EMAIL=${{ secrets.WASM_OIDC_PLUGIN_TEST_EMAIL }}
+            # export WASM_OIDC_PLUGIN_TEST_PASSWORD=${{ secrets.WASM_OIDC_PLUGIN_TEST_PASSWORD }}
             pytest test.py
