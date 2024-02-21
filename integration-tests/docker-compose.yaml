@@ -16,6 +16,7 @@ services:
 
   httpbin:
     image: kennethreitz/httpbin
+    platform: linux/amd64
     hostname: httpbin
     container_name: httpbin
     ports:
