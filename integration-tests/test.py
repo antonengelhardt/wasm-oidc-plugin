@@ -7,8 +7,6 @@ from time import sleep
 import os
 from dotenv import load_dotenv
 
-import pytest
-
 # Global variables
 
 load_dotenv()
@@ -60,7 +58,6 @@ def tear_down() -> None:
     driver.quit()
 
 # Tests
-
 def test_home_page() -> None:
     """Tests if the home page is accessible."""
 
@@ -107,7 +104,6 @@ def test_ignore_ignore_path() -> None:
 
     set_up()
     driver.get(BASE_URL+"/anything")
-    print(driver.title)
     assert driver.title == ""
     tear_down()
 
