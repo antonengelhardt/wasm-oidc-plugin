@@ -145,7 +145,7 @@ impl HttpContext for ConfiguredOidc {
                         vec![
                             ("Cache-Control", "no-cache"),
                         ],
-                    Some(b"Token exchange failed."));
+                    Some(b"Token exchange failed. Please try again or delete your cookies."));
                 }
             }
             return Action::Pause;
@@ -216,7 +216,7 @@ impl Context for ConfiguredOidc {
                     vec![
                         ("Cache-Control", "no-cache"),
                     ],
-                Some(b"Storing token in cookie failed."));
+                Some(b"Storing token in cookie failed. Please try again or delete your cookies."));
             }
         }
     }
@@ -429,7 +429,6 @@ impl ConfiguredOidc {
 
         // Compare state
         if state != session.state {
-            warn!("state does not match.");
             return Err("state does not match.".to_string());
         }
 
