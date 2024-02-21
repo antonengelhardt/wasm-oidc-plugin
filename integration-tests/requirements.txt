@@ -1,3 +1,4 @@
 python-dotenv>=1.0.0
 selenium>=4.8.2
 pytest>=7.4.3
+dotenv>=0.0.5
