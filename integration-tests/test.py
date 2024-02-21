@@ -74,7 +74,7 @@ def test_success() -> None:
 
     set_up()
     login(driver)
-    sleep(2)
+    sleep(5)
     assert driver.title == "httpbin.org"
     assert driver.get_cookie("oidcSession-0") is not None
     tear_down()
