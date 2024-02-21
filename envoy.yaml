@@ -27,25 +27,30 @@ static_resources:
                   typed_config:
                     "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
                     config:
-                      name: "oidc-wasm-plugin"
+                      name: "wasm-oidc-plugin"
                       configuration:
                         "@type": "type.googleapis.com/google.protobuf.StringValue"
                         value: |
-                          config_endpoint: "https://auth.k8s.wwu.de/.well-known/openid-configuration"
-                          reload_interval_in_h: 1
+                          config_endpoint: "https://accounts.google.com/.well-known/openid-configuration"
+                          reload_interval_in_h: 1 # in hours
 
-                          exclude_hosts: []
-                          exclude_paths: []
-                          exclude_urls: []
+                          exclude_hosts: [] # or ["httpbin.org"]
+                          exclude_paths: [] # or ["/favicon.ico"]
+                          exclude_urls: [] # or ["http://localhost:10000/#/HTTP_Methods/get_get"]
+
+                          access_token_header_name: # or "Authorization"
+                          access_token_header_prefix: "Bearer "
+                          id_token_header_name: # or "X-Id-Token"
+                          id_token_header_prefix: "Bearer "
 
                           cookie_name: "oidcSession"
-                          cookie_duration: 86400
-                          token_validation: true
-                          aes_key: "SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q"
+                          cookie_duration: 86400 # in seconds
+                          token_validation: true # or false
+                          aes_key: "i-am-a-forty-four-characters-long-string-key" # generate with `openssl rand -base64 32`
 
-                          authority: "auth.k8s.wwu.de"
-                          redirect_uri: "http://localhost:10000/oidc/callback"
-                          client_id: "wasm-oidc-plugin"
+                          authority: "accounts.google.com" # FQDN of the OIDC provider
+                          redirect_uri: "http://localhost:10000/oidc/callback" # redirect uri that is registered with the OIDC provider
+                          client_id: "wasm-oidc-plugin" # client id that is registered with the OIDC provider
                           scope: "openid profile email"
                           claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
 
@@ -85,11 +90,11 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: auth.k8s.wwu.de
+                      address: accounts.google.com
                       port_value: 443
-                  # hostname: "auth.k8s.wwu.de"
+                  # hostname: "accounts.google.com"
       transport_socket:
         name: envoy.transport_sockets.tls
         typed_config:
           "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
-          sni: "auth.k8s.wwu.de"
+          sni: "accounts.google.com"

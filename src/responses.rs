@@ -13,6 +13,7 @@ use jwt_simple::{self, prelude::{RSAPublicKeyLike, VerificationOptions, JWTClaim
 /// [OpenID Connect Discovery Response](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig)
 #[derive(Deserialize, Debug)]
 pub struct OidcDiscoveryResponse {
+    /// The issuer of the OpenID Connect Provider
     pub issuer: String,
     /// The authorization endpoint to start the code flow
     pub authorization_endpoint: String,

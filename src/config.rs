@@ -49,6 +49,21 @@ pub struct PluginConfiguration {
     #[serde(with = "serde_regex")]
     pub exclude_urls: Vec<Regex>,
 
+    // Header forwarding settings
+    /// The header name that will be used for the access token
+    /// If the header name is empty, the access token will not be forwarded
+    pub access_token_header_name: Option<String>,
+    /// Prefix for the access token header
+    /// If the prefix is empty, the access token will be forwarded without a prefix
+    pub access_token_header_prefix: Option<String>,
+
+    /// The header name that will be used for the id token
+    /// If the header name is empty, the id token will not be forwarded
+    pub id_token_header_name: Option<String>,
+    /// Prefix for the id token header
+    /// If the prefix is empty, the id token will be forwarded without a prefix
+    pub id_token_header_prefix: Option<String>,
+
     // Cookie settings
     /// The cookie name that will be used for the session cookie
     pub cookie_name: String,

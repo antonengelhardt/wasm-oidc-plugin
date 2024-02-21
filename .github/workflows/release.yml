@@ -1,39 +1,12 @@
-name: Test and Build Wasm OIDC Plugin
+name: Release new version
 
 on:
   push:
-    branches:
-      - main
-
-env:
-  CARGO_TERM_COLOR: always
+    tags:
+      - v*
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    container:
-      image: antonengelhardt/rust-docker-tools
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Run tests
-        run: |
-          rustc --version && cargo --version
-          cargo clippy
-          cargo test --workspace --verbose
-
-      - name: Cargo Deny
-        uses: EmbarkStudios/cargo-deny-action@v1
-
   build:
-    needs: test
     runs-on: ubuntu-latest
     container:
       image: antonengelhardt/rust-docker-tools
@@ -52,7 +25,6 @@ jobs:
           path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
 
   docker-image:
-    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -65,16 +37,20 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
+      - name: Extract version from Github Ref
+        id: extract_version
+        run: |
+          echo VERSION=$(echo ${{ github.ref }} | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+") >> $GITHUB_ENV
+
       - name: Push to Docker Hub
         uses: docker/build-push-action@v2
         with:
           context: .
           push: true
-          tags: antonengelhardt/wasm-oidc-plugin:latest
+          tags: antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }}
 
   ghcr-image:
     runs-on: ubuntu-latest
-    needs: test
     permissions:
       contents: read
       packages: write
@@ -90,7 +66,12 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract version from Github Ref
+        id: extract_version
+        run: |
+          echo VERSION=$(echo ${{ github.ref }} | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+") >> $GITHUB_ENV
+
       - name: Push to GHCR
         run: |
-          docker build -t ghcr.io/antonengelhardt/wasm-oidc-plugin:latest .
-          docker push ghcr.io/antonengelhardt/wasm-oidc-plugin:latest
+          docker build -t ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }} .
+          docker push ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }}

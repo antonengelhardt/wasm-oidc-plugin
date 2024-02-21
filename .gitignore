@@ -3,7 +3,6 @@ notes
 
 # rust
 target
-Cargo.lock
 
 # env (secrets)
 .env

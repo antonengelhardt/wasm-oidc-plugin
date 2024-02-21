@@ -26,6 +26,7 @@ use aes_gcm::Aes256Gcm;
 
 /// This module contains logic to parse and save the current authorization state in a cookie
 mod cookie;
+use cookie::AuthorizationState;
 
 /// This module contains the structs of the `PluginConfiguration` and `OpenIdConfig`
 mod config;
@@ -108,9 +109,11 @@ impl HttpContext for ConfiguredOidc {
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
 
         // Check if the host regex matches one of the exclude hosts. If so, forward the request.
-        let host = self.get_http_request_header(":authority").unwrap_or_default();
+        let host = self.get_host().unwrap_or_default();
+
         if self.plugin_config.exclude_hosts.iter().any(|x| x.is_match(&host)) {
             debug!("Host {} is excluded. Forwarding request.", host);
+            self.filter_proxy_cookies();
             return Action::Continue;
         }
 
@@ -118,12 +121,14 @@ impl HttpContext for ConfiguredOidc {
         let path = self.get_http_request_header(":path").unwrap_or_default();
         if self.plugin_config.exclude_paths.iter().any(|x| x.is_match(&path)) {
             debug!("Path {} is excluded. Forwarding request.", path);
+            self.filter_proxy_cookies();
             return Action::Continue;
         }
 
-        let url = Url::parse(&format!("{}{}", host, path)).unwrap();
+        let url = Url::parse(&format!("{}{}", host, path)).unwrap_or(Url::parse("http://example.com").unwrap());
         if self.plugin_config.exclude_urls.iter().any(|x| x.is_match(&url.as_str())) {
             debug!("Url {} is excluded. Forwarding request.", url.as_str());
+            self.filter_proxy_cookies();
             return Action::Continue;
         }
 
@@ -166,11 +171,41 @@ impl HttpContext for ConfiguredOidc {
                 return Action::Pause;
             }
         };
+        debug!("Nonce found in cookie: {:?}", nonce);
 
-        // Validate the cookie
+        // Validate the cookie and forward the request if the cookie is valid
         if cookie != "" {
             match self.validate_cookie(cookie, nonce) {
-                Ok(_) => {
+                Ok(auth_state) => {
+                    // Forward access token in header, if configured
+                    if let Some(header_name) = &self.plugin_config.access_token_header_name {
+                        // Get access token
+                        let access_token = &auth_state.access_token;
+                        // Forward access token in header
+                        self.add_http_request_header(
+                            &header_name,
+                            format!("{}{}",
+                                self.plugin_config.access_token_header_prefix.as_ref().unwrap(),
+                                access_token
+                        ).as_str());
+                    }
+
+                    // Forward id token in header, if configured
+                    if let Some(header_name) = &self.plugin_config.id_token_header_name {
+                        // Get id token
+                        let id_token = &auth_state.id_token;
+                        // Forward id token in header
+                        self.add_http_request_header(
+                            &header_name,
+                            format!("{}{}",
+                                self.plugin_config.id_token_header_prefix.as_ref().unwrap(),
+                                id_token
+                        ).as_str());
+                    }
+
+                    self.filter_proxy_cookies();
+
+                    // Allow request to pass
                     return Action::Continue;
                 },
                 Err(e) => {
@@ -235,11 +270,45 @@ impl ConfiguredOidc {
         return None;
     }
 
+    /// Get the host of the HTTP request
+    /// The host is searched in the request headers. If the host is found, the value is returned.
+    fn get_host(&self) -> Option<String> {
+
+        let host = if self.get_http_request_header(":authority").is_some() {
+            self.get_http_request_header(":authority")
+        } else if self.get_http_request_header("X-Forwarded-Host").is_some() {
+            self.get_http_request_header("X-Forwarded-Host")
+        } else if self.get_http_request_header("host").is_some() {
+            self.get_http_request_header("host")
+        } else {
+            None
+        };
+
+        host
+    }
+
+    /// Filter non proxy cookies by checking the cookie name.
+    fn filter_proxy_cookies(&self) {
+
+        // Get all cookies
+        let all_cookies = self.get_http_request_header("cookie").unwrap_or_default();
+
+        // Remove non proxy cookies from request
+        let filtered_cookies = all_cookies.split(";")
+            .filter(|x| !x.contains(&self.plugin_config.cookie_name))
+            .filter(|x| !x.contains("nonce"))
+            .collect::<Vec<&str>>()
+            .join(";");
+
+        // Set the cookie header
+        self.set_http_request_header("Cookie", Some(&filtered_cookies));
+    }
+
     /// Parse the cookie and validate the token.
     /// The cookie is parsed into the `AuthorizationState` struct. The token is validated using the
     /// `validate_token` function. If the token is valid, this function returns Ok(()). If the token
     /// is invalid, this function returns Err(String) and redirects the requester to the `authorization endpoint`.
-    fn validate_cookie(&self, cookie: String, nonce: String) -> Result<(), String> {
+    fn validate_cookie(&self, cookie: String, nonce: String) -> Result<AuthorizationState, String> {
 
         debug!("Cookie found, checking validity.");
 
@@ -258,7 +327,7 @@ impl ConfiguredOidc {
                             // If the token is valid, this filter passes the request
                             Ok(_) => {
                                 debug!("Token is valid, passing request.");
-                                Ok(())
+                                Ok(auth_state)
                             }
                             // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
                             Err(e) => {
@@ -267,7 +336,7 @@ impl ConfiguredOidc {
                         }
                     }
                     false => {
-                        Ok(())
+                        Ok(auth_state)
                     }
                 }
             }
@@ -439,8 +508,8 @@ impl ConfiguredOidc {
                 match cookie::AuthorizationState::create_cookie_from_response(self.cipher.clone(), body.as_slice()) {
                     Ok(res) => {
 
-                        let auth_cookie = res.first().unwrap().to_string();
-                        let nonce = res.last().unwrap().to_string();
+                        let auth_cookie = res.encoded_cookie;
+                        let nonce = res.encoded_nonce;
 
                         debug!("Cookie: {:?}", &auth_cookie);
                         debug!("Nonce: {:?}", &nonce);
@@ -481,7 +550,7 @@ impl ConfiguredOidc {
                         // Iterate over the cookie parts and set the cookie reply headers
                         let mut cookie_values = vec![];
                         for (i, cookie_part) in cookie_parts.enumerate() {
-                            let cookie_value = String::from(format!("{}-{}={}; Path=/; HttpOnly; Max-Age={}",
+                            let cookie_value = String::from(format!("{}-{}={}; Path=/; Secure; HttpOnly; Max-Age={}",
                                 self.plugin_config.cookie_name,
                                 i,
                                 cookie_part,
@@ -500,7 +569,7 @@ impl ConfiguredOidc {
                         set_cookie_headers.push(location_header);
 
                         // Set the nonce cookie
-                        let nonce_cookie = format!("{}={}; Path=/; HttpOnly; Max-Age={}", "nonce",
+                        let nonce_cookie = format!("{}={}; Path=/; Secure; HttpOnly; Max-Age={}", "nonce",
                             nonce, self.plugin_config.cookie_duration);
                         set_cookie_headers.push(("Set-Cookie", nonce_cookie.as_str()));
 
