@@ -424,6 +424,8 @@ impl ConfiguredOidc {
         let state = callback_params.state;
         let code = callback_params.code;
         debug!("authorization code: {}", code);
+        debug!("client state: {}", state);
+        debug!("cookie state: {}", session.state);
 
         // Compare state
         if state != session.state {

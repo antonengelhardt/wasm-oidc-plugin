@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.4
+
+* Check for three Host Headers
+* Default URL Headers
+* Envoy Docker Image to 1.29
+* Missing config in Configmap added
+* OIDC Plugin Name added
+* Fix Pre Built Deployment File Mounting
+* GHCR Image Push
+
 ## v0.3.3
 
 * Fix Docker-Build Version
