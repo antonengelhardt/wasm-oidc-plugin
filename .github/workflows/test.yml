@@ -7,7 +7,7 @@ jobs:
     test:
       runs-on: ubuntu-latest
       container:
-        image: antonengelhardt/rust-docker-tools
+        image: ghcr.io/antonengelhardt/rust-docker-tools
 
       steps:
         - name: Checkout code
@@ -31,7 +31,7 @@ jobs:
     build:
       runs-on: ubuntu-latest
       container:
-        image: antonengelhardt/rust-docker-tools
+        image: ghcr.io/antonengelhardt/rust-docker-tools
       needs: [test]
 
       steps:
@@ -57,7 +57,7 @@ jobs:
     integration-test:
       runs-on: ubuntu-latest
       container:
-        image: antonengelhardt/rust-docker-tools
+        image: ghcr.io/ghcr.io/antonengelhardt/rust-docker-tools
       needs: [build]
 
       steps:
