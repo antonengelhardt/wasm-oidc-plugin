@@ -76,7 +76,7 @@ def test_success() -> None:
     # print body
 
     assert driver.get_page_source() == "Bound to fail but debug the body"
-    assert driver.current_url == "https://httpbin.org"
+    assert driver.current_url() == "https://httpbin.org"
     assert driver.title == "httpbin.org"
     assert driver.get_cookie("oidcSession-0") is not None
     tear_down()
@@ -89,7 +89,7 @@ def test_unsuccessful() -> None:
     driver.find_element(By.ID, "username").send_keys(WASM_OIDC_PLUGIN_TEST_EMAIL)
     driver.find_element(By.ID, "password").send_keys("nottherightpassword")
     driver.find_element(By.XPATH, "/html/body/div/main/section/div/div[2]/div/form/div[2]/button").click()
-    assert driver.getTitle() == "Log in | Wasm Plugin"
+    assert driver.title == "Log in | Wasm Plugin"
     tear_down()
 
 def test_modified_cookie() -> None:
@@ -103,7 +103,7 @@ def test_modified_cookie() -> None:
     assert driver.title != "httpbin.org"
     tear_down()
 
-def test_ignore_ignore_path() -> None:
+def test_excluded_path() -> None:
     """ Test if the request is allowed when it matches the pattern. """
 
     set_up()
