@@ -54,7 +54,7 @@ jobs:
             name: plugin
             path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
 
-    integration-test:
+    integration-tests:
       runs-on: ubuntu-latest
       container:
         image: ghcr.io/ghcr.io/antonengelhardt/rust-docker-tools
@@ -91,7 +91,7 @@ jobs:
             cd integration-tests
 
             echo "Creating Envoy container"
-            docker container create --name envoy -p 10000:10000 docker.io/envoyproxy/envoy:v1.29-latest envoy -c /etc/envoy/envoy.yaml --concurrency 1
+            docker container create --name envoy -p 10000:10000 docker.io/envoyproxy/envoy:v1.29-latest envoy -c /etc/envoy/envoy.yaml --concurrency 1 --component-log-level wasm:debug
 
             echo "Copying files to Envoy container because Alpine doesn't like mounting files to files"
             docker cp ../target/wasm32-wasi/release/wasm_oidc_plugin.wasm envoy:/etc/envoy/proxy-wasm-plugins
