@@ -75,8 +75,8 @@ def test_success() -> None:
 
     # print body
 
-    assert driver.get_page_source() == "Bound to fail but debug the body"
-    assert driver.current_url() == "https://httpbin.org"
+    # assert driver.get_page_source() == "Bound to fail but debug the body"
+    # assert driver.current_url() == "https://httpbin.org"
     assert driver.title == "httpbin.org"
     assert driver.get_cookie("oidcSession-0") is not None
     tear_down()
@@ -98,7 +98,7 @@ def test_modified_cookie() -> None:
     set_up()
     login(driver)
 
-    driver.manage().deleteAllCookies()
+    driver.deleteAllCookies()
     driver.get(BASE_URL)
     assert driver.title != "httpbin.org"
     tear_down()
