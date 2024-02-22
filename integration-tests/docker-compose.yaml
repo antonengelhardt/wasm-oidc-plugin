@@ -14,6 +14,9 @@ services:
       - envoymesh
     command: envoy -c /etc/envoy/envoy.yaml --concurrency 1
 
+  # If you wan to use this local image, change the option in envoy.yaml:
+  # clusters.httpbin.load_assignment.endpoints[0].lb_endpoints[0].endpoint.address.socket_address.address
+  #  to "httpbin"
   httpbin:
     image: kennethreitz/httpbin
     platform: linux/amd64
