@@ -90,9 +90,6 @@ jobs:
           run: |
             cd integration-tests
 
-            echo "Starting httpbin container"
-            docker run -d -p 80:80 --name httpin docker.io/kennethreitz/httpbin
-
             echo "Creating Envoy container"
             docker container create --name envoy -p 10000:10000 docker.io/envoyproxy/envoy:v1.29-latest envoy -c /etc/envoy/envoy.yaml --concurrency 1
 
