@@ -142,7 +142,7 @@ impl HttpContext for ConfiguredOidc {
             .plugin_config
             .exclude_urls
             .iter()
-            .any(|x| x.is_match(&url.as_str()))
+            .any(|x| x.is_match(url.as_str()))
         {
             debug!("Url {} is excluded. Forwarding request.", url.as_str());
             self.filter_proxy_cookies();
@@ -177,7 +177,7 @@ impl HttpContext for ConfiguredOidc {
                     let access_token = &auth_state.access_token;
                     // Forward access token in header
                     self.add_http_request_header(
-                        &header_name,
+                        header_name,
                         format!(
                             "{}{}",
                             self.plugin_config
@@ -196,7 +196,7 @@ impl HttpContext for ConfiguredOidc {
                     let id_token = &auth_state.id_token;
                     // Forward id token in header
                     self.add_http_request_header(
-                        &header_name,
+                        header_name,
                         format!(
                             "{}{}",
                             self.plugin_config.id_token_header_prefix.as_ref().unwrap(),
@@ -257,7 +257,7 @@ impl ConfiguredOidc {
         let headers = self.get_http_request_headers();
         for (key, value) in headers.iter() {
             if key.to_lowercase().trim() == "cookie" {
-                let cookies: Vec<_> = value.split(";").collect();
+                let cookies: Vec<_> = value.split(';').collect();
                 for cookie_string in cookies {
                     let cookie_name_end = cookie_string.find('=').unwrap_or(0);
                     let cookie_name = &cookie_string[0..cookie_name_end];
@@ -269,7 +269,7 @@ impl ConfiguredOidc {
                 }
             }
         }
-        return None;
+        None
     }
 
     /// Get the host of the HTTP request
@@ -294,7 +294,7 @@ impl ConfiguredOidc {
 
         // Remove non proxy cookies from request
         let filtered_cookies = all_cookies
-            .split(";")
+            .split(';')
             .filter(|x| !x.contains(&self.plugin_config.cookie_name))
             .filter(|x| !x.contains(&format!("{}-nonce", self.plugin_config.cookie_name)))
             .collect::<Vec<&str>>()
@@ -344,21 +344,17 @@ impl ConfiguredOidc {
                                 Ok(auth_state)
                             }
                             // If the token is invalid, the error is returned and the requester is redirected to the `authorization endpoint`
-                            Err(e) => {
-                                return Err(format!("token validation failed: {:?}", e));
-                            }
+                            Err(e) => Err(format!("token validation failed: {:?}", e)),
                         }
                     }
                     false => Ok(session.authorization_state.unwrap()),
                 }
             }
             // If the cookie cannot be parsed, this filter redirects the requester to the `authorization_endpoint`
-            Err(err) => {
-                return Err(format!(
-                    "Authorisation state couldn't be loaded from the cookie: {:?}",
-                    err
-                ));
-            }
+            Err(err) => Err(format!(
+                "Authorisation state couldn't be loaded from the cookie: {:?}",
+                err
+            )),
         }
     }
 
@@ -381,8 +377,7 @@ impl ConfiguredOidc {
         // Iterate over all public keys
         for public_key in &self.open_id_config.public_keys {
             // Perform the validation
-            let validation_result =
-                public_key.verify_token(&token, verification_options.to_owned());
+            let validation_result = public_key.verify_token(token, verification_options.to_owned());
 
             // Check if the token is valid, the aud and iss are correct and the signature is valid.
             match validation_result {
@@ -395,7 +390,7 @@ impl ConfiguredOidc {
                 }
             }
         }
-        return Err("No key worked".to_string());
+        Err("No key worked".to_string())
     }
 
     /// Exchange the code for a token using the token endpoint.
@@ -406,10 +401,10 @@ impl ConfiguredOidc {
         debug!("received request for OIDC callback");
 
         // Get Query String from URL
-        let query = path.split("?").last().unwrap_or_default();
+        let query = path.split('?').last().unwrap_or_default();
 
         // Get state from query
-        let callback_params = match serde_urlencoded::from_str::<Callback>(&query) {
+        let callback_params = match serde_urlencoded::from_str::<Callback>(query) {
             Ok(callback) => callback,
             Err(e) => {
                 return Err(e.to_string());
@@ -493,12 +488,10 @@ impl ConfiguredOidc {
                 Ok(())
             }
             // If the request fails, this filter logs the error and pauses the request
-            Err(err) => {
-                return Err(format!(
-                    "Failed to dispatch HTTP request to Token Endpoint: {:?}",
-                    err
-                ));
-            }
+            Err(err) => Err(format!(
+                "Failed to dispatch HTTP request to Token Endpoint: {:?}",
+                err
+            )),
         }
     }
 
@@ -525,15 +518,13 @@ impl ConfiguredOidc {
                         }
                         // If decoding fails, log the error
                         Err(_) => {
-                            return Err(format!("Token could not be decoded"));
+                            return Err("Token could not be decoded".to_string());
                         }
                     }
                 }
                 // If no body is found, log the error
                 None => {
-                    return Err(format!(
-                        "No body in token response with invalid status code."
-                    ));
+                    return Err("No body in token response with invalid status code.".to_string());
                 }
             }
         }
@@ -600,9 +591,7 @@ impl ConfiguredOidc {
                 Ok(())
             }
             // If no body is found, return the error
-            None => Err(format!(
-                "no body in token response with invalid status code"
-            )),
+            None => Err("no body in token response with invalid status code".to_string()),
         }
     }
 
@@ -681,7 +670,7 @@ impl ConfiguredOidc {
             headers,
             Some(b"Redirecting..."),
         );
-        return Action::Pause;
+        Action::Pause
     }
 
     /// Helper function to get the session cookie as a string by getting the cookie from the request
@@ -693,16 +682,16 @@ impl ConfiguredOidc {
 
         // Split cookie by ; and filter for the cookie name.
         let cookie = cookie
-            .split(";")
+            .split(';')
             .filter(|x| x.contains(self.plugin_config.cookie_name.as_str()))
             .filter(|x| !x.contains(format!("{}-nonce", self.plugin_config.cookie_name).as_str()))
             // Then split by = and get the second element.
-            .map(|x| x.split("=").collect::<Vec<&str>>()[1])
+            .map(|x| x.split('=').collect::<Vec<&str>>()[1])
             .collect::<Vec<&str>>()
             // Join the cookie values together again.
             .join("");
 
-        return cookie;
+        cookie
     }
 
     // Get the encoded nonce from the cookie
@@ -713,6 +702,6 @@ impl ConfiguredOidc {
     /// Helper function to get the number of cookies from the request headers.
     pub fn get_number_of_cookies(&self) -> usize {
         let cookie = self.get_http_request_header("cookie").unwrap_or_default();
-        cookie.split(";").count()
+        cookie.split(';').count()
     }
 }

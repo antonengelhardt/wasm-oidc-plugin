@@ -9,7 +9,6 @@ use log::{debug, warn};
 
 // serde
 use serde::{Deserialize, Serialize};
-use serde_json;
 
 // std
 use std::fmt::Debug;
@@ -55,11 +54,11 @@ impl<'a> Session {
             .expect("nonce didn't match the expected format");
 
         // Build nonce from decoded nonce
-        let nonce = Nonce::from_slice(&decoded_nonce.as_slice());
+        let nonce = Nonce::from_slice(decoded_nonce.as_slice());
 
         // Encrypt cookie
         let encrypted_cookie = cipher
-            .encrypt(&nonce, serde_json::to_vec(&self).unwrap().as_slice())
+            .encrypt(nonce, serde_json::to_vec(&self).unwrap().as_slice())
             .unwrap();
 
         // Encode cookie and return
@@ -89,10 +88,10 @@ impl<'a> Session {
 
         // Build the cookie values
         for (i, cookie_part) in cookie_parts.enumerate() {
-            let cookie_value = String::from(format!(
+            let cookie_value = format!(
                 "{}-{}={}; Path=/; HttpOnly; Secure; Max-Age={:?}",
                 cookie_name, i, cookie_part, cookie_duration
-            ));
+            );
             cookie_values.push(cookie_value);
         }
 
@@ -105,7 +104,7 @@ impl<'a> Session {
             ));
         }
 
-        return cookie_values;
+        cookie_values
     }
 
     /// Make the Set-Cookie headers from the cookie values
@@ -118,7 +117,7 @@ impl<'a> Session {
             .collect();
 
         // Return the cookie headers
-        return set_cookie_headers;
+        set_cookie_headers
     }
 
     /// Decode cookie, parse into a struct in order to access the fields
@@ -162,20 +161,20 @@ impl<'a> Session {
                     // If deserialization was successful, return the session
                     Ok(session) => {
                         debug!("authorization state: {:?}", session);
-                        return Ok(session);
+                        Ok(session)
                     }
                     // If the cookie cannot be parsed into a struct, return an error
                     Err(e) => {
                         warn!("the cookie didn't match the expected format: {}", e);
-                        return Err(e.to_string());
+                        Err(e.to_string())
                     }
                 }
             }
             // If decryption failed, return an error
             Err(e) => {
                 warn!("decryption failed: {}", e.to_string());
-                return Err(e.to_string());
+                Err(e.to_string())
             }
-        };
+        }
     }
 }
