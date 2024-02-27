@@ -181,12 +181,12 @@ impl RootContext for OidcDiscovery {
                 debug!("creating http context with root context information");
 
                 // Return the http context.
-                return Some(Box::new(ConfiguredOidc {
+                Some(Box::new(ConfiguredOidc {
                     open_id_config: open_id_config.clone(),
                     plugin_config: plugin_config.clone(),
                     token_id: None,
                     cipher: self.cipher.clone().unwrap(),
-                }));
+                }))
             }
 
             // If the plugin is not ready, return the http context in `Unconfigured` state and add the
@@ -198,9 +198,9 @@ impl RootContext for OidcDiscovery {
                 self.waiting.lock().unwrap().push(context_id);
 
                 // Return the http context in `Unconfigured` state.
-                return Some(Box::new(PauseRequests {
+                Some(Box::new(PauseRequests {
                     original_path: None,
-                }));
+                }))
             }
         }
     }
@@ -246,7 +246,6 @@ impl RootContext for OidcDiscovery {
                     }
                     Err(e) => warn!("error dispatching oidc call: {:?}", e),
                 }
-                return;
             }
 
             // If the plugin is in Loading `LoadingJwks` state, the public keys are loaded from the
@@ -394,7 +393,7 @@ impl Context for OidcDiscovery {
                         debug!("parsed jwks body: {:?}", jwks_response);
 
                         // Check if keys are present
-                        if jwks_response.keys.len() == 0 {
+                        if jwks_response.keys.is_empty() {
                             warn!("no keys found in jwks response, retry in 1 minute");
                             self.set_tick_period(Duration::from_secs(60));
                             return;
@@ -490,7 +489,7 @@ impl OidcDiscovery {
         }
 
         let cookies_name_regex = Regex::new(r"[\w\d-]+").unwrap();
-        if plugin_config.cookie_name.len() == 0
+        if plugin_config.cookie_name.is_empty()
             || !cookies_name_regex.is_match(&plugin_config.cookie_name)
         {
             return Err("`cookie_name` is empty or not valid meaning that it contains invalid characters like ;, =, :, /, space".to_string());
@@ -507,37 +506,37 @@ impl OidcDiscovery {
         }
 
         // Authority
-        if plugin_config.authority.len() == 0 {
+        if plugin_config.authority.is_empty() {
             return Err("`authority` is empty".to_string());
         }
 
         // Redirect Uri
-        if plugin_config.redirect_uri.len() == 0 {
+        if plugin_config.redirect_uri.is_empty() {
             return Err("`redirect_uri` is empty".to_string());
         }
 
         // Client Id
-        if plugin_config.client_id.len() == 0 {
+        if plugin_config.client_id.is_empty() {
             return Err("`client_id` is empty".to_string());
         }
 
         // Scope
-        if plugin_config.scope.len() == 0 {
+        if plugin_config.scope.is_empty() {
             return Err("`scope` is empty".to_string());
         }
 
         // Claims
-        if plugin_config.claims.len() == 0 {
+        if plugin_config.claims.is_empty() {
             return Err("`claims` is empty".to_string());
         }
 
         // Client Secret
-        if plugin_config.client_secret.len() == 0 {
+        if plugin_config.client_secret.is_empty() {
             return Err("client_secret is empty".to_string());
         }
 
         // Audience
-        if plugin_config.audience.len() == 0 {
+        if plugin_config.audience.is_empty() {
             return Err("audience is empty".to_string());
         }
 

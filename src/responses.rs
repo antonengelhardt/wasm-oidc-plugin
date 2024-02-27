@@ -95,15 +95,15 @@ impl From<JsonWebKey> for SigningKey {
                 }
 
                 // Decode and parse the public key components
-                let n_dec = base64engine_urlsafe.decode(&n).unwrap();
-                let e_dec = base64engine_urlsafe.decode(&e).unwrap();
+                let n_dec = base64engine_urlsafe.decode(n).unwrap();
+                let e_dec = base64engine_urlsafe.decode(e).unwrap();
 
                 info!("loaded RS256 public key");
 
-                return SigningKey::RS256PublicKey(
+                SigningKey::RS256PublicKey(
                     jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
                         .unwrap(),
-                );
+                )
             } // Add more key types here
         }
     }
