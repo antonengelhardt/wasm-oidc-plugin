@@ -531,7 +531,7 @@ impl ConfiguredOidc {
                 let encoded_cookie = self.get_session_cookie_as_string();
 
                 // Get session from cookie
-                let session = match Session::decode_and_decrypt(encoded_cookie, self.cipher.clone(), encoded_nonce.clone()) {
+                let mut session = match Session::decode_and_decrypt(encoded_cookie, self.cipher.clone(), encoded_nonce.clone()) {
                     Ok(session) => session,
                     Err(e) => {
                         return Err(format!("Failed to decode and decrypt cookie: {:?}", e.as_str()));
@@ -541,21 +541,19 @@ impl ConfiguredOidc {
                 // Create authorization state from token response
                 let authorization_state = serde_json::from_slice::<AuthorizationState>(&body).unwrap(); // TODO: Idiomatically handle the error
 
+                // Add authorization state to session
+                session.authorization_state = Some(authorization_state);
+
                 // Create new session
-                let new_session = cookie::Session{
-                    authorization_state: Some(authorization_state),
-                    original_path: session.original_path.clone(),
-                    code_verifier: session.code_verifier.clone(),
-                    state: session.state.clone(),
-                }.encrypt_and_encode(self.cipher.clone(), encoded_nonce);
+                let new_session = session.clone().encrypt_and_encode(self.cipher.clone(), encoded_nonce);
 
                 // Get original path
                 let original_path = session.original_path.clone();
 
                 // Build cookie values
                 let set_cookie_values = Session::make_cookie_values(
-                    new_session.to_owned(),
-                    self.plugin_config.cookie_name.clone(),
+                    new_session,
+                    self.plugin_config.cookie_name.as_str(),
                     self.plugin_config.cookie_duration,
                     self.get_number_of_cookies() as u64
                 );
@@ -570,7 +568,7 @@ impl ConfiguredOidc {
                 // Redirect back to the original URL and set the cookie.
                 self.send_http_response(
                     307,
-                    set_cookie_headers.to_vec(),
+                    set_cookie_headers,
                     Some(b"Redirecting..."),
                 );
                 Ok(())
@@ -614,7 +612,7 @@ impl ConfiguredOidc {
         // Build cookie values
         let set_cookie_values = Session::make_cookie_values(
             session,
-            self.plugin_config.cookie_name.clone(),
+            self.plugin_config.cookie_name.as_str(),
             self.plugin_config.cookie_duration,
             self.get_number_of_cookies() as u64
         );
@@ -654,7 +652,7 @@ impl ConfiguredOidc {
         self.send_http_response(
             307,
             // Redirect to `authorization endpoint` along with the cookie
-            headers.to_vec(),
+            headers,
             Some(b"Redirecting..."),
             );
             return Action::Pause;

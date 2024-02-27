@@ -52,7 +52,7 @@ impl<'a> Session {
     pub fn encrypt_and_encode(self, mut cipher: Aes256Gcm, encoded_nonce: String) -> String {
 
         // Decode nonce using base64
-        let decoded_nonce = base64engine.decode(encoded_nonce.as_bytes()).unwrap();
+        let decoded_nonce = base64engine.decode(encoded_nonce.as_bytes()).expect("nonce didn't match the expected format");
 
         // Build nonce from decoded nonce
         let nonce = Nonce::from_slice(&decoded_nonce.as_slice());
@@ -72,7 +72,7 @@ impl<'a> Session {
     /// * `cookie_name` - Name of the cookie
     /// * `cookie_duration` - Duration of the cookie in seconds
     /// * `number_current_cookies` - Number of cookies that are currently set (important because otherwise decryption will fail if older and expired cookies are still present)
-    pub fn make_cookie_values(encoded_cookie: String, cookie_name: String, cookie_duration: u64, number_current_cookies: u64) -> Vec<String> {
+    pub fn make_cookie_values(encoded_cookie: String, cookie_name: &str, cookie_duration: u64, number_current_cookies: u64) -> Vec<String> {
 
         // Split every 4000 bytes
         let cookie_parts = encoded_cookie
