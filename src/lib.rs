@@ -1,8 +1,8 @@
 // aes-256
-use aes_gcm::{Aes256Gcm, aead::OsRng, AeadCore};
+use aes_gcm::{aead::OsRng, AeadCore, Aes256Gcm};
 
 // log
-use log::{debug,warn,info};
+use log::{debug, info, warn};
 
 // base64
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
@@ -49,7 +49,6 @@ struct PauseRequests {
 
 /// The context is used to process incoming HTTP requests when the filter is not configured.
 impl HttpContext for PauseRequests {
-
     /// This function is called when the request headers are received. As the filter is not
     /// configured, the request is paused and queued by the RootContext. Once the filter is
     /// configured, the request is resumed by the RootContext.
@@ -57,7 +56,10 @@ impl HttpContext for PauseRequests {
         warn!("filter not ready, pausing request");
 
         // Get the original path from the request headers
-        self.original_path = Some(self.get_http_request_header(":path").unwrap_or("/".to_string()));
+        self.original_path = Some(
+            self.get_http_request_header(":path")
+                .unwrap_or("/".to_string()),
+        );
 
         Action::Pause
     }
@@ -65,18 +67,19 @@ impl HttpContext for PauseRequests {
     /// When the filter is configured, this function is called once the root context resumes the
     /// request. This function sends a redirect to create a new context for the configured filter.
     fn on_http_response_headers(&mut self, _num_headers: usize, _end_of_stream: bool) -> Action {
-
         info!("filter now ready, sending redirect");
 
         // Send a redirect to the original path
-        self.send_http_response(307,
+        self.send_http_response(
+            307,
             vec![
-            // Redirect to the requested path
-            ("location", self.original_path.as_ref().unwrap()),
-            // Disable caching
-            ("Cache-Control", "no-cache"),
-        ],
-        Some(b"Filter is ready now."));
+                // Redirect to the requested path
+                ("location", self.original_path.as_ref().unwrap()),
+                // Disable caching
+                ("Cache-Control", "no-cache"),
+            ],
+            Some(b"Filter is ready now."),
+        );
         Action::Continue
     }
 }
@@ -104,14 +107,17 @@ struct ConfiguredOidc {
 /// 3. If the request contains a cookie, validate the cookie and forward the request.
 /// 4. Else, redirect the request to the `authorization endpoint`.
 impl HttpContext for ConfiguredOidc {
-
     /// This function is called when the request headers are received.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
-
         // Check if the host regex matches one of the exclude hosts. If so, forward the request.
         let host = self.get_host().unwrap_or_default();
 
-        if self.plugin_config.exclude_hosts.iter().any(|x| x.is_match(&host)) {
+        if self
+            .plugin_config
+            .exclude_hosts
+            .iter()
+            .any(|x| x.is_match(&host))
+        {
             debug!("Host {} is excluded. Forwarding request.", host);
             self.filter_proxy_cookies();
             return Action::Continue;
@@ -119,14 +125,25 @@ impl HttpContext for ConfiguredOidc {
 
         // If the path is one of the exclude paths, forward the request
         let path = self.get_http_request_header(":path").unwrap_or_default();
-        if self.plugin_config.exclude_paths.iter().any(|x| x.is_match(&path)) {
+        if self
+            .plugin_config
+            .exclude_paths
+            .iter()
+            .any(|x| x.is_match(&path))
+        {
             debug!("Path {} is excluded. Forwarding request.", path);
             self.filter_proxy_cookies();
             return Action::Continue;
         }
 
-        let url = Url::parse(&format!("{}{}", host, path)).unwrap_or(Url::parse("http://example.com").unwrap());
-        if self.plugin_config.exclude_urls.iter().any(|x| x.is_match(&url.as_str())) {
+        let url = Url::parse(&format!("{}{}", host, path))
+            .unwrap_or(Url::parse("http://example.com").unwrap());
+        if self
+            .plugin_config
+            .exclude_urls
+            .iter()
+            .any(|x| x.is_match(&url.as_str()))
+        {
             debug!("Url {} is excluded. Forwarding request.", url.as_str());
             self.filter_proxy_cookies();
             return Action::Continue;
@@ -138,14 +155,14 @@ impl HttpContext for ConfiguredOidc {
             match self.exchange_code_for_token(path) {
                 Ok(_) => {
                     return Action::Pause;
-                },
+                }
                 Err(e) => {
                     warn!("token exchange failed: {}", e);
-                    self.send_http_response(503,
-                        vec![
-                            ("Cache-Control", "no-cache"),
-                        ],
-                    Some(b"Token exchange failed. Please try again or delete your cookies."));
+                    self.send_http_response(
+                        503,
+                        vec![("Cache-Control", "no-cache")],
+                        Some(b"Token exchange failed. Please try again or delete your cookies."),
+                    );
                 }
             }
             return Action::Pause;
@@ -161,10 +178,16 @@ impl HttpContext for ConfiguredOidc {
                     // Forward access token in header
                     self.add_http_request_header(
                         &header_name,
-                        format!("{}{}",
-                            self.plugin_config.access_token_header_prefix.as_ref().unwrap(),
+                        format!(
+                            "{}{}",
+                            self.plugin_config
+                                .access_token_header_prefix
+                                .as_ref()
+                                .unwrap(),
                             access_token
-                    ).as_str());
+                        )
+                        .as_str(),
+                    );
                 }
 
                 // Forward id token in header, if configured
@@ -174,17 +197,20 @@ impl HttpContext for ConfiguredOidc {
                     // Forward id token in header
                     self.add_http_request_header(
                         &header_name,
-                        format!("{}{}",
+                        format!(
+                            "{}{}",
                             self.plugin_config.id_token_header_prefix.as_ref().unwrap(),
                             id_token
-                    ).as_str());
+                        )
+                        .as_str(),
+                    );
                 }
 
                 self.filter_proxy_cookies();
 
                 // Allow request to pass
                 return Action::Continue;
-            },
+            }
             Err(e) => {
                 warn!("cookie validation failed: {}", e);
             }
@@ -200,23 +226,23 @@ impl HttpContext for ConfiguredOidc {
 
 /// This context is used to process HTTP responses from the token endpoint.
 impl Context for ConfiguredOidc {
-
     /// This function catches the response from the token endpoint.
     fn on_http_call_response(&mut self, token_id: u32, _: usize, body_size: usize, _: usize) {
-
         // Store the token in the cookie
         match self.store_token_in_cookie(token_id, body_size) {
             Ok(_) => {
                 debug!("token stored in cookie");
-            },
+            }
             Err(e) => {
                 warn!("storing token in cookie failed: {}", e);
                 // Send a 503 if storing the token in the cookie failed
-                self.send_http_response(503,
-                    vec![
-                        ("Cache-Control", "no-cache"),
-                    ],
-                Some(b"Storing token in cookie failed. Please try again or delete your cookies."));
+                self.send_http_response(
+                    503,
+                    vec![("Cache-Control", "no-cache")],
+                    Some(
+                        b"Storing token in cookie failed. Please try again or delete your cookies.",
+                    ),
+                );
             }
         }
     }
@@ -224,7 +250,6 @@ impl Context for ConfiguredOidc {
 
 /// Helper functions for the OIDCFlow struct.
 impl ConfiguredOidc {
-
     /// Get the cookie of the HTTP request by name
     /// The cookie is searched in the request headers. If the cookie is found, the value is returned.
     /// If the cookie is not found, None is returned.
@@ -250,7 +275,6 @@ impl ConfiguredOidc {
     /// Get the host of the HTTP request
     /// The host is searched in the request headers. If the host is found, the value is returned.
     fn get_host(&self) -> Option<String> {
-
         self.get_http_request_header(":authority")
             .or_else(|| self.get_http_request_header("host"))
             .or_else(|| self.get_http_request_header("x-forwarded-host"))
@@ -260,7 +284,6 @@ impl ConfiguredOidc {
     /// This function removes all cookies from the request that do not match the cookie name to prevent
     /// the cookie from being forwarded to the upstream service.
     fn filter_proxy_cookies(&self) {
-
         // Check if the filter_plugin_cookies option is set
         if !self.plugin_config.filter_plugin_cookies {
             return;
@@ -270,7 +293,8 @@ impl ConfiguredOidc {
         let all_cookies = self.get_http_request_header("cookie").unwrap_or_default();
 
         // Remove non proxy cookies from request
-        let filtered_cookies = all_cookies.split(";")
+        let filtered_cookies = all_cookies
+            .split(";")
             .filter(|x| !x.contains(&self.plugin_config.cookie_name))
             .filter(|x| !x.contains(&format!("{}-nonce", self.plugin_config.cookie_name)))
             .collect::<Vec<&str>>()
@@ -285,7 +309,6 @@ impl ConfiguredOidc {
     /// `validate_token` function. If the token is valid, this function returns Ok(()). If the token
     /// is invalid, this function returns Err(String) and redirects the requester to the `authorization endpoint`.
     fn validate_cookie(&self) -> Result<AuthorizationState, String> {
-
         debug!("cookie found, checking validity");
 
         // Get cookie and nonce
@@ -299,15 +322,12 @@ impl ConfiguredOidc {
 
         // Try to parse and decrypt the cookie and handle the result
         match Session::decode_and_decrypt(cookie, self.cipher.to_owned(), nonce) {
-
             // If the cookie can be parsed, this means that the cookie is trusted because modifications would have
             // corrupted the encrypted state. Token validation is only performed if the configuration option is set.
             Ok(session) => {
-
                 // Only validate the token if the configuration option is set
                 match self.plugin_config.token_validation {
                     true => {
-
                         // Get authorization state from session
                         let auth_state = match session.authorization_state {
                             Some(auth_state) => auth_state,
@@ -329,25 +349,24 @@ impl ConfiguredOidc {
                             }
                         }
                     }
-                    false => {
-                        Ok(session.authorization_state.unwrap())
-                    }
+                    false => Ok(session.authorization_state.unwrap()),
                 }
             }
             // If the cookie cannot be parsed, this filter redirects the requester to the `authorization_endpoint`
             Err(err) => {
-                return Err(format!("Authorisation state couldn't be loaded from the cookie: {:?}",err));
+                return Err(format!(
+                    "Authorisation state couldn't be loaded from the cookie: {:?}",
+                    err
+                ));
             }
         }
     }
-
 
     /// Validate the token using the JWT library.
     /// This function checks for the correct issuer and audience and verifies the signature with the
     /// public keys loaded from the JWKs endpoint.
     /// * `token` - The token to be validated
     fn validate_token(&self, token: &str) -> Result<(), String> {
-
         // Define allowed issuers and audiences
         let mut allowed_issuers = HashSet::new();
         allowed_issuers.insert(self.open_id_config.issuer.to_string());
@@ -361,7 +380,6 @@ impl ConfiguredOidc {
 
         // Iterate over all public keys
         for public_key in &self.open_id_config.public_keys {
-
             // Perform the validation
             let validation_result =
                 public_key.verify_token(&token, verification_options.to_owned());
@@ -378,15 +396,13 @@ impl ConfiguredOidc {
             }
         }
         return Err("No key worked".to_string());
-
     }
 
     /// Exchange the code for a token using the token endpoint.
     /// This function is called when the user is redirected back to the callback URL.
     /// The code is extracted from the URL and exchanged for a token using the token endpoint.
     /// * `path` - The path of the request
-    fn exchange_code_for_token(&mut self, path: String) -> Result<(), String>{
-
+    fn exchange_code_for_token(&mut self, path: String) -> Result<(), String> {
         debug!("received request for OIDC callback");
 
         // Get Query String from URL
@@ -413,12 +429,13 @@ impl ConfiguredOidc {
         debug!("nonce from cookie: {}", encoded_nonce);
 
         // Get session
-        let session = match Session::decode_and_decrypt(encoded_cookie, self.cipher.clone(), encoded_nonce) {
-            Ok(session) => session,
-            Err(e) => {
-                return Err(format!("Failed to decode and decrypt cookie: {:?}", e));
-            }
-        }; // TODO: Idiomatically handle the error
+        let session =
+            match Session::decode_and_decrypt(encoded_cookie, self.cipher.clone(), encoded_nonce) {
+                Ok(session) => session,
+                Err(e) => {
+                    return Err(format!("Failed to decode and decrypt cookie: {:?}", e));
+                }
+            }; // TODO: Idiomatically handle the error
 
         // Get state and code from query
         let state = callback_params.state;
@@ -477,7 +494,10 @@ impl ConfiguredOidc {
             }
             // If the request fails, this filter logs the error and pauses the request
             Err(err) => {
-               return Err(format!("Failed to dispatch HTTP request to Token Endpoint: {:?}", err));
+                return Err(format!(
+                    "Failed to dispatch HTTP request to Token Endpoint: {:?}",
+                    err
+                ));
             }
         }
     }
@@ -531,21 +551,31 @@ impl ConfiguredOidc {
                 let encoded_cookie = self.get_session_cookie_as_string();
 
                 // Get session from cookie
-                let mut session = match Session::decode_and_decrypt(encoded_cookie, self.cipher.clone(), encoded_nonce.clone()) {
+                let mut session = match Session::decode_and_decrypt(
+                    encoded_cookie,
+                    self.cipher.clone(),
+                    encoded_nonce.clone(),
+                ) {
                     Ok(session) => session,
                     Err(e) => {
-                        return Err(format!("Failed to decode and decrypt cookie: {:?}", e.as_str()));
+                        return Err(format!(
+                            "Failed to decode and decrypt cookie: {:?}",
+                            e.as_str()
+                        ));
                     }
                 }; // TODO: Idiomatically handle the error
 
                 // Create authorization state from token response
-                let authorization_state = serde_json::from_slice::<AuthorizationState>(&body).unwrap(); // TODO: Idiomatically handle the error
+                let authorization_state =
+                    serde_json::from_slice::<AuthorizationState>(&body).unwrap(); // TODO: Idiomatically handle the error
 
                 // Add authorization state to session
                 session.authorization_state = Some(authorization_state);
 
                 // Create new session
-                let new_session = session.clone().encrypt_and_encode(self.cipher.clone(), encoded_nonce);
+                let new_session = session
+                    .clone()
+                    .encrypt_and_encode(self.cipher.clone(), encoded_nonce);
 
                 // Get original path
                 let original_path = session.original_path.clone();
@@ -555,7 +585,7 @@ impl ConfiguredOidc {
                     new_session,
                     self.plugin_config.cookie_name.as_str(),
                     self.plugin_config.cookie_duration,
-                    self.get_number_of_cookies() as u64
+                    self.get_number_of_cookies() as u64,
                 );
 
                 // Build cookie headers
@@ -566,24 +596,19 @@ impl ConfiguredOidc {
                 set_cookie_headers.push(location_header);
 
                 // Redirect back to the original URL and set the cookie.
-                self.send_http_response(
-                    307,
-                    set_cookie_headers,
-                    Some(b"Redirecting..."),
-                );
+                self.send_http_response(307, set_cookie_headers, Some(b"Redirecting..."));
                 Ok(())
-            },
-            // If no body is found, return the error
-            None => {
-                Err(format!("no body in token response with invalid status code"))
             }
+            // If no body is found, return the error
+            None => Err(format!(
+                "no body in token response with invalid status code"
+            )),
         }
     }
 
     /// Redirect to the` authorization endpoint` by sending a HTTP response with a 307 status code.
     /// The original path is encoded and stored in a cookie as well as the PKCE code verifier.
     fn redirect_to_authorization_endpoint(&self) -> Action {
-
         debug!("no cookie found or invalid, redirecting to authorization endpoint");
 
         // Original path
@@ -602,29 +627,30 @@ impl ConfiguredOidc {
         let state_string = String::from_utf8(pkce::code_verifier(128)).unwrap();
 
         // Create session struct
-        let session = cookie::Session{
+        let session = cookie::Session {
             authorization_state: None,
             original_path,
             code_verifier: pkce_verifier_string,
             state: state_string.clone(),
-        }.encrypt_and_encode(self.cipher.clone(), encoded_nonce.clone());
+        }
+        .encrypt_and_encode(self.cipher.clone(), encoded_nonce.clone());
 
         // Build cookie values
         let set_cookie_values = Session::make_cookie_values(
             session,
             self.plugin_config.cookie_name.as_str(),
             self.plugin_config.cookie_duration,
-            self.get_number_of_cookies() as u64
+            self.get_number_of_cookies() as u64,
         );
 
         // Build cookie headers
         let mut headers = Session::make_set_cookie_headers(&set_cookie_values);
 
         // Build nonce cookie value
-        let nonce_cookie_value = &format!("{}-nonce={}; Max-Age={}; HttpOnly; Secure",
-            self.plugin_config.cookie_name,
-            &encoded_nonce,
-            self.plugin_config.cookie_duration);
+        let nonce_cookie_value = &format!(
+            "{}-nonce={}; Max-Age={}; HttpOnly; Secure",
+            self.plugin_config.cookie_name, &encoded_nonce, self.plugin_config.cookie_duration
+        );
 
         // Add nonce cookie to headers
         headers.push(("Set-Cookie", nonce_cookie_value));
@@ -633,17 +659,17 @@ impl ConfiguredOidc {
         let url = Url::parse_with_params(
             self.open_id_config.auth_endpoint.as_str(),
             &[
-                    ("response_type", "code"),
-                    ("code_challenge", &pkce_challenge),
-                    ("code_challenge_method", "S256"),
-                    ("state", &state_string),
-                    ("client_id", &self.plugin_config.client_id),
-                    ("redirect_uri",&self.plugin_config.redirect_uri.as_str()),
-                    ("scope", &self.plugin_config.scope),
-                    ("claims", &self.plugin_config.claims),
-                ],
-            )
-            .unwrap();
+                ("response_type", "code"),
+                ("code_challenge", &pkce_challenge),
+                ("code_challenge_method", "S256"),
+                ("state", &state_string),
+                ("client_id", &self.plugin_config.client_id),
+                ("redirect_uri", &self.plugin_config.redirect_uri.as_str()),
+                ("scope", &self.plugin_config.scope),
+                ("claims", &self.plugin_config.claims),
+            ],
+        )
+        .unwrap();
 
         // Add location header
         headers.push(("Location", url.as_str()));
@@ -654,25 +680,24 @@ impl ConfiguredOidc {
             // Redirect to `authorization endpoint` along with the cookie
             headers,
             Some(b"Redirecting..."),
-            );
-            return Action::Pause;
+        );
+        return Action::Pause;
     }
 
     /// Helper function to get the session cookie as a string by getting the cookie from the request
     /// headers and concatenating all cookie parts.
     pub fn get_session_cookie_as_string(&self) -> String {
-
         // Find all cookies that have the cookie_name, split them by ; and remove the name from the cookie
         // as well as the leading =. Then join the cookie values together again.
         let cookie = self.get_http_request_header("cookie").unwrap_or_default();
 
         // Split cookie by ; and filter for the cookie name.
-        let cookie = cookie.split(";")
+        let cookie = cookie
+            .split(";")
             .filter(|x| x.contains(self.plugin_config.cookie_name.as_str()))
             .filter(|x| !x.contains(format!("{}-nonce", self.plugin_config.cookie_name).as_str()))
             // Then split by = and get the second element.
-            .map(|x| x.split("=")
-            .collect::<Vec<&str>>()[1])
+            .map(|x| x.split("=").collect::<Vec<&str>>()[1])
             .collect::<Vec<&str>>()
             // Join the cookie values together again.
             .join("");

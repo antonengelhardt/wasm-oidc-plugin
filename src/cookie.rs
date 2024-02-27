@@ -45,14 +45,14 @@ pub struct Session {
 }
 
 impl<'a> Session {
-
     /// Create a new session, encrypt it and encode it by using the given cipher and nonce
     /// * `cipher` - Cipher used to encrypt the cookie
     /// * `encoded_nonce` - Nonce used to encrypt the cookie
     pub fn encrypt_and_encode(self, mut cipher: Aes256Gcm, encoded_nonce: String) -> String {
-
         // Decode nonce using base64
-        let decoded_nonce = base64engine.decode(encoded_nonce.as_bytes()).expect("nonce didn't match the expected format");
+        let decoded_nonce = base64engine
+            .decode(encoded_nonce.as_bytes())
+            .expect("nonce didn't match the expected format");
 
         // Build nonce from decoded nonce
         let nonce = Nonce::from_slice(&decoded_nonce.as_slice());
@@ -72,8 +72,12 @@ impl<'a> Session {
     /// * `cookie_name` - Name of the cookie
     /// * `cookie_duration` - Duration of the cookie in seconds
     /// * `number_current_cookies` - Number of cookies that are currently set (important because otherwise decryption will fail if older and expired cookies are still present)
-    pub fn make_cookie_values(encoded_cookie: String, cookie_name: &str, cookie_duration: u64, number_current_cookies: u64) -> Vec<String> {
-
+    pub fn make_cookie_values(
+        encoded_cookie: String,
+        cookie_name: &str,
+        cookie_duration: u64,
+        number_current_cookies: u64,
+    ) -> Vec<String> {
         // Split every 4000 bytes
         let cookie_parts = encoded_cookie
             .as_bytes()
@@ -87,8 +91,7 @@ impl<'a> Session {
         for (i, cookie_part) in cookie_parts.enumerate() {
             let cookie_value = String::from(format!(
                 "{}-{}={}; Path=/; HttpOnly; Secure; Max-Age={:?}",
-                cookie_name, i, cookie_part,
-                cookie_duration
+                cookie_name, i, cookie_part, cookie_duration
             ));
             cookie_values.push(cookie_value);
         }
@@ -96,7 +99,10 @@ impl<'a> Session {
         // Overwrite the old cookies because decryption will fail if older and expired cookies are
         // still present.
         for i in cookie_values.len()..number_current_cookies as usize {
-            cookie_values.push(format!("{}-{}=; Path=/; HttpOnly; Secure; Max-Age=0", cookie_name, i));
+            cookie_values.push(format!(
+                "{}-{}=; Path=/; HttpOnly; Secure; Max-Age=0",
+                cookie_name, i
+            ));
         }
 
         return cookie_values;
@@ -105,7 +111,6 @@ impl<'a> Session {
     /// Make the Set-Cookie headers from the cookie values
     /// * `cookie_values` - Cookie values to be set in the Set-Cookie headers
     pub fn make_set_cookie_headers(cookie_values: &'a Vec<String>) -> Vec<(&'static str, &'a str)> {
-
         // Build the cookie headers
         let set_cookie_headers: Vec<(&str, &str)> = cookie_values
             .iter()
@@ -120,8 +125,11 @@ impl<'a> Session {
     /// * `encoded_cookie` - Encoded cookie to be decoded and parsed into a struct
     /// * `cipher` - Cipher used to decrypt the cookie
     /// * `encoded_nonce` - Nonce used to decrypt the cookie
-    pub fn decode_and_decrypt(encoded_cookie: String, mut cipher: Aes256Gcm, encoded_nonce: String) -> Result<Session, String> {
-
+    pub fn decode_and_decrypt(
+        encoded_cookie: String,
+        mut cipher: Aes256Gcm,
+        encoded_nonce: String,
+    ) -> Result<Session, String> {
         // Decode nonce using base64
         // TODO: Idiomatically handle the error
         let decoded_nonce = match base64engine.decode(encoded_nonce.as_bytes()) {
@@ -147,13 +155,10 @@ impl<'a> Session {
         // Decrypt cookie
         // TODO: Idiomatically handle the error
         match cipher.decrypt(nonce, decoded_cookie.as_slice()) {
-
             // If decryption was successful, continue
             Ok(decrypted_cookie) => {
-
                 // Parse cookie into a struct
                 match serde_json::from_slice::<Session>(&decrypted_cookie) {
-
                     // If deserialization was successful, return the session
                     Ok(session) => {
                         debug!("authorization state: {:?}", session);
