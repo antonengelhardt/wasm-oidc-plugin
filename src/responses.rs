@@ -2,13 +2,20 @@
 use serde::Deserialize;
 
 // log
-use log::{info, debug};
+use log::{debug, info};
 
 // base64
-use {base64::engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, base64::Engine as _};
+use {
+    base64::engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, base64::Engine as _,
+};
 
 // jwt_simple
-use jwt_simple::{self, prelude::{RSAPublicKeyLike, VerificationOptions, JWTClaims}, Error, claims::NoCustomClaims};
+use jwt_simple::{
+    self,
+    claims::NoCustomClaims,
+    prelude::{JWTClaims, RSAPublicKeyLike, VerificationOptions},
+    Error,
+};
 
 /// [OpenID Connect Discovery Response](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig)
 #[derive(Deserialize, Debug)]
@@ -60,10 +67,12 @@ pub enum SigningKey {
 
 /// A public key that can be used for the validation of the ID Token
 impl SigningKey {
-
     /// Function that calls the `verify_token` function of the `jwt_simple` crate for each key type
-    pub fn verify_token(&self, token: &str, options: VerificationOptions) -> Result<JWTClaims<NoCustomClaims>, Error> {
-
+    pub fn verify_token(
+        &self,
+        token: &str,
+        options: VerificationOptions,
+    ) -> Result<JWTClaims<NoCustomClaims>, Error> {
         match self {
             // RSA Key of 256 bits
             SigningKey::RS256PublicKey(key) => key.verify_token(token, Some(options)),
@@ -75,13 +84,11 @@ impl SigningKey {
 /// Implementation of the `From` trait for the `SigningKey` enum to convert the `JsonWebKey` into
 /// the `SigningKey` enum
 impl From<JsonWebKey> for SigningKey {
-
     /// Function that converts the `JsonWebKey` into the `SigningKey` enum
     fn from(key: JsonWebKey) -> Self {
         match key {
             // RSA Key of 256 bits
             JsonWebKey::RS256 { kty, n, e, .. } => {
-
                 // Check if the key is of type RSA
                 if kty != "RSA" {
                     debug!("key is not of type RSA although alg is RS256");
@@ -95,9 +102,9 @@ impl From<JsonWebKey> for SigningKey {
 
                 return SigningKey::RS256PublicKey(
                     jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
-                .unwrap());
-            },
-            // Add more key types here
+                        .unwrap(),
+                );
+            } // Add more key types here
         }
     }
 }

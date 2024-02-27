@@ -14,7 +14,6 @@ use crate::responses::SigningKey;
 /// OpenID Connect Flow.
 #[derive(Clone, Debug)]
 pub struct OpenIdConfig {
-
     // Everything relevant for the Code Flow
     /// The URL of the authorization endpoint
     pub auth_endpoint: Url,
@@ -34,7 +33,6 @@ pub struct OpenIdConfig {
 /// `envoy.yaml`
 #[derive(Clone, Debug, Deserialize)]
 pub struct PluginConfiguration {
-
     /// Config endpoint for the plugin.
     pub config_endpoint: String,
     /// Reload interval in hours
