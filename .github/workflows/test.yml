@@ -24,5 +24,6 @@ jobs:
       - name: Run tests
         run: |
           rustc --version && cargo --version
-          cargo clippy
+          cargo clippy --release --all-targets --target=wasm32-wasi
+          cargo fmt -- --check
           cargo test --workspace --verbose
