@@ -21,9 +21,17 @@ jobs:
       - name: Cargo Deny
         uses: EmbarkStudios/cargo-deny-action@v1
 
-      - name: Run tests
-        run: |
-          rustc --version && cargo --version
-          cargo clippy --release --all-targets --target=wasm32-wasi
-          cargo fmt -- --check
-          cargo test --workspace --verbose
+      - name: Rust version
+        run: rustc --version && cargo --version
+
+      - name: Clippy
+        run: cargo clippy --release --all-targets --target=wasm32-wasi
+
+      - name: Fmt
+        run: cargo fmt -- --check
+
+      - name: Test
+        run: cargo test --workspace --verbose
+
+      - name: Build
+        run: cargo build --release --target wasm32-wasi
