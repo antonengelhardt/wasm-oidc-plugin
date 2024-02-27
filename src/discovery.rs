@@ -6,6 +6,9 @@ use proxy_wasm::types::*;
 // log
 use log::{debug, info, warn};
 
+// regex
+use regex::Regex;
+
 // arc
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -230,7 +233,7 @@ impl RootContext for OidcDiscovery {
                 plugin_config,
             } => {
 
-                // Tick every 250ms to not overload the openid configuration endpoint.
+                // Tick every 300ms to not overload the openid configuration endpoint.
                 self.set_tick_period(Duration::from_millis(300));
 
                 // Make call to openid configuration endpoint
@@ -338,13 +341,16 @@ impl Context for OidcDiscovery {
                     return;
                 }
 
-                debug!("received config response");
+                debug!("received openid config response");
 
                 // Parse the response body as json.
                 let body = match self.get_http_call_response_body(0, _body_size) {
-                    Some(body) => body,
+                    Some(body) => {
+                        debug!("openid config response body: {:?}", body);
+                        body
+                    }
                     None => {
-                        warn!("no body in response");
+                        warn!("no body in openid config response");
                         return;
                     }
                 };
@@ -352,7 +358,7 @@ impl Context for OidcDiscovery {
                 // Parse body
                 match serde_json::from_slice::<OidcDiscoveryResponse>(&body) {
                     Ok(open_id_response) => {
-                        debug!("parsed config response: {:?}", open_id_response);
+                        debug!("parsed openid config response: {:?}", open_id_response);
 
                         // Set the state to loading jwks.
                         OidcRootState::LoadingJwks {
@@ -495,13 +501,9 @@ impl OidcDiscovery {
             return Err("`cookie_name` is too long, max 32".to_string());
         }
 
+        let cookies_name_regex = Regex::new(r"[\w\d-]+").unwrap();
         if plugin_config.cookie_name.len() == 0
-            || plugin_config.cookie_name.contains(";")
-            || plugin_config.cookie_name.contains(",")
-            || plugin_config.cookie_name.contains(" ")
-            || plugin_config.cookie_name.contains("=")
-            || plugin_config.cookie_name.contains(":")
-            || plugin_config.cookie_name.contains("/") {
+            || !cookies_name_regex.is_match(&plugin_config.cookie_name) {
             return Err("`cookie_name` is empty or not valid meaning that it contains invalid characters like ;, =, :, /, space".to_string());
         }
 
