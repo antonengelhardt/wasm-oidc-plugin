@@ -370,9 +370,11 @@ impl ConfiguredOidc {
         allowed_audiences.insert(self.plugin_config.audience.to_string());
 
         // Define verification options
-        let mut verification_options = VerificationOptions::default();
-        verification_options.allowed_audiences = Some(allowed_audiences);
-        verification_options.allowed_issuers = Some(allowed_issuers);
+        let verification_options = VerificationOptions {
+            allowed_issuers: Some(allowed_issuers),
+            allowed_audiences: Some(allowed_audiences),
+            ..Default::default()
+        };
 
         // Iterate over all public keys
         for public_key in &self.open_id_config.public_keys {

@@ -75,6 +75,7 @@ pub struct OidcDiscovery {
 /// - LoadingJwks: The jwks configuration is being loaded
 /// - Ready: The plugin is ready
 /// Each state has a different set of fields which are needed for that specific state.
+#[allow(clippy::large_enum_variant)]
 pub enum OidcRootState {
     /// State when the plugin needs to load the plugin configuration
     Uninitialized,

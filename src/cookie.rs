@@ -43,7 +43,7 @@ pub struct Session {
     pub state: String,
 }
 
-impl<'a> Session {
+impl Session {
     /// Create a new session, encrypt it and encode it by using the given cipher and nonce
     /// * `cipher` - Cipher used to encrypt the cookie
     /// * `encoded_nonce` - Nonce used to encrypt the cookie
@@ -109,7 +109,7 @@ impl<'a> Session {
 
     /// Make the Set-Cookie headers from the cookie values
     /// * `cookie_values` - Cookie values to be set in the Set-Cookie headers
-    pub fn make_set_cookie_headers(cookie_values: &'a Vec<String>) -> Vec<(&'static str, &'a str)> {
+    pub fn make_set_cookie_headers(cookie_values: &[String]) -> Vec<(&'static str, &str)> {
         // Build the cookie headers
         let set_cookie_headers: Vec<(&str, &str)> = cookie_values
             .iter()
