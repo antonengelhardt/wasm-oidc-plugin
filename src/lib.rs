@@ -566,8 +566,7 @@ impl ConfiguredOidc {
                 session.authorization_state = Some(authorization_state);
 
                 // Create new session
-                let new_session = session
-                    .encrypt_and_encode(self.cipher.clone(), encoded_nonce);
+                let new_session = session.encrypt_and_encode(self.cipher.clone(), encoded_nonce);
 
                 // Get original path
                 let original_path = session.original_path.clone();
