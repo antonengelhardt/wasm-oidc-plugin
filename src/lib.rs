@@ -567,7 +567,6 @@ impl ConfiguredOidc {
 
                 // Create new session
                 let new_session = session
-                    .clone()
                     .encrypt_and_encode(self.cipher.clone(), encoded_nonce);
 
                 // Get original path

@@ -47,7 +47,7 @@ impl Session {
     /// Create a new session, encrypt it and encode it by using the given cipher and nonce
     /// * `cipher` - Cipher used to encrypt the cookie
     /// * `encoded_nonce` - Nonce used to encrypt the cookie
-    pub fn encrypt_and_encode(self, mut cipher: Aes256Gcm, encoded_nonce: String) -> String {
+    pub fn encrypt_and_encode(&self, mut cipher: Aes256Gcm, encoded_nonce: String) -> String {
         // Decode nonce using base64
         let decoded_nonce = base64engine
             .decode(encoded_nonce.as_bytes())
