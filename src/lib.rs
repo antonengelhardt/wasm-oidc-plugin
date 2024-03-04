@@ -248,7 +248,7 @@ impl Context for ConfiguredOidc {
     }
 }
 
-/// Helper functions for the OIDCFlow struct.
+/// Helper functions for the ConfiguredOidc struct.
 impl ConfiguredOidc {
     /// Get the cookie of the HTTP request by name
     /// The cookie is searched in the request headers. If the cookie is found, the value is returned.
