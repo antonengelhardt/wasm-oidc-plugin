@@ -1,0 +1,110 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wasm-oidc-plugin-config
+  labels:
+    app: wasm-oidc-plugin
+  namespace: wasm-oidc-plugin
+data:
+  envoy.yaml: |
+    static_resources:
+      listeners:
+        address:
+          socket_address:
+            address: 0.0.0.0
+            port_value: 10000
+        filter_chains:
+          - filters:
+              - name: envoy.filters.network.http_connection_manager
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                  stat_prefix: ingress_http
+                  codec_type: AUTO
+                  route_config:
+                    name: local_route
+                    virtual_hosts:
+                      - name: local_service
+                        domains:
+                          - "*"
+                        routes:
+                          - match:
+                              prefix: "/"
+                            route:
+                              cluster: httpbin
+
+                  http_filters:
+                    - name: envoy.filters.http.wasm
+                      typed_config:
+                        "@type": type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+                        config:
+                          name: "wasm-oidc-plugin"
+                          configuration:
+                            "@type": "type.googleapis.com/google.protobuf.StringValue"
+                            value: |
+                              config_endpoint: "https://demo-wasm-oidc-plugin.eu.auth0.com/.well-known/openid-configuration"
+                              reload_interval_in_h: 1 # in hours
+
+                              exclude_hosts: [] # or ["httpbin.org"]
+                              exclude_paths: [] # or ["/favicon.ico"]
+                              exclude_urls: [] # or ["http://localhost:10000/#/HTTP_Methods/get_get"]
+
+                              access_token_header_name: # or "Authorization"
+                              access_token_header_prefix: "Bearer "
+                              id_token_header_name: # or "X-Id-Token"
+                              id_token_header_prefix: "Bearer "
+
+                              cookie_name: "oidcSession"
+                              cookie_duration: 8640000 # in seconds
+                              token_validation: true # or false
+                              aes_key: "redacted"
+
+                              authority: "demo-wasm-oidc-plugin.eu.auth0.com"
+                              redirect_uri: "https://demo.wasm-oidc-plugin.ae02.de/oidc/callback"
+                              client_id: qxgINfU3gutYjea8hEmpra5JG5jyqeAY
+                              scope: "openid profile email"
+                              claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+
+                              client_secret: "redacted"
+                              audience: qxgINfU3gutYjea8hEmpra5JG5jyqeAY
+
+                          vm_config:
+                            runtime: "envoy.wasm.runtime.v8"
+                            code:
+                              local:
+                                filename: "/etc/envoy/proxy-wasm-plugins/wasm_oidc_plugin.wasm"
+                    - name: envoy.filters.http.router
+                      typed_config:
+                        "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+      clusters:
+      - name: httpbin
+        connect_timeout: 5s
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: httpbin
+          endpoints:
+            - lb_endpoints:
+                - endpoint:
+                    address:
+                      socket_address:
+                        address: httpbin.org
+                        port_value: 80
+                    hostname: "httpbin.org"
+      - name: oidc
+        connect_timeout: 5s
+        type: LOGICAL_DNS
+        dns_lookup_family: V4_ONLY
+        load_assignment:
+          cluster_name: oidc
+          endpoints:
+            - lb_endpoints:
+                - endpoint:
+                    address:
+                      socket_address:
+                        address: demo-wasm-oidc-plugin.eu.auth0.com
+                        port_value: 443
+        transport_socket:
+          name: envoy.transport_sockets.tls
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+            sni: "demo-wasm-oidc-plugin.eu.auth0.com"

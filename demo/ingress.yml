@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: wasm-oidc-plugin-ingress
+  namespace: wasm-oidc-plugin
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: demo.wasm-oidc-plugin.ae02.de
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: wasm-oidc-plugin-service
+                port:
+                  number: 443
+  tls:
+    - hosts:
+        - demo.wasm-oidc-plugin.ae02.de
+      secretName: wasm-oidc-plugin-tls
