@@ -7,6 +7,7 @@ on:
 
 jobs:
   build:
+    name: Build and upload artifacts
     runs-on: ubuntu-latest
     container:
       image: antonengelhardt/rust-docker-tools
@@ -25,8 +26,8 @@ jobs:
           path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
 
   docker-image:
+    name: Build and push Docker image
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -50,6 +51,7 @@ jobs:
           tags: antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }}
 
   ghcr-image:
+    name: Build and push GHCR image
     runs-on: ubuntu-latest
     permissions:
       contents: read
