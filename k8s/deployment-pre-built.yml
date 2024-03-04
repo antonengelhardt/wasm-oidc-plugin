@@ -33,7 +33,7 @@ spec:
 
           resources:
             requests:
-              cpu: 50Mi
+              cpu: 50m
               memory: 80Mi
             limits:
               cpu: 300m
@@ -43,6 +43,20 @@ spec:
             - name: envoy-config
               mountPath: /etc/envoy/envoy.yaml
               subPath: envoy.yaml
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 10000
+            initialDelaySeconds: 15
+            periodSeconds: 5
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 10000
+            initialDelaySeconds: 15
+            periodSeconds: 5
 
           ports:
             - containerPort: 10000
