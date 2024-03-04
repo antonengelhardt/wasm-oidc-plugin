@@ -5,6 +5,7 @@ on:
 
 jobs:
   test:
+    name: Test
     runs-on: ubuntu-latest
     container:
       image: antonengelhardt/rust-docker-tools
