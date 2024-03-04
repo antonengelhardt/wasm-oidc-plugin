@@ -134,8 +134,7 @@ impl Session {
         let decoded_nonce = match base64engine.decode(encoded_nonce.as_bytes()) {
             Ok(nonce) => nonce,
             Err(e) => {
-                warn!("the nonce didn't match the expected format: {}", e);
-                return Err(e.to_string());
+                return Err(format!("the nonce didn't match the expected format: {}", e.to_string()));
             }
         };
 

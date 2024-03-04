@@ -312,7 +312,13 @@ impl ConfiguredOidc {
         debug!("cookie found, checking validity");
 
         // Get cookie and nonce
-        let cookie = self.get_session_cookie_as_string();
+        let cookie = match self.get_session_cookie_as_string() {
+            Some(cookie) => cookie,
+            None => {
+                return Err("No values in cookie found".to_string());
+            }
+        }; // TODO: Idiomatically handle the error
+
         let nonce = match self.get_nonce() {
             Some(nonce) => nonce,
             None => {
@@ -352,7 +358,7 @@ impl ConfiguredOidc {
             }
             // If the cookie cannot be parsed, this filter redirects the requester to the `authorization_endpoint`
             Err(err) => Err(format!(
-                "Authorisation state couldn't be loaded from the cookie: {:?}",
+                "authorisation state couldn't be loaded from the cookie: {:?}",
                 err
             )),
         }
@@ -414,7 +420,12 @@ impl ConfiguredOidc {
         };
 
         // Get cookie
-        let encoded_cookie = self.get_session_cookie_as_string();
+        let encoded_cookie = match self.get_session_cookie_as_string() {
+            Some(cookie) => cookie,
+            None => {
+                return Err("No values in cookie found".to_string());
+            }
+        }; // TODO: Idiomatically handle the error
 
         // Get nonce from cookie
         let encoded_nonce = match self.get_nonce() {
@@ -541,7 +552,12 @@ impl ConfiguredOidc {
                 let encoded_nonce = self.get_nonce().unwrap_or_default();
 
                 // Get cookie
-                let encoded_cookie = self.get_session_cookie_as_string();
+                let encoded_cookie = match self.get_session_cookie_as_string() {
+                    Some(cookie) => cookie,
+                    None => {
+                        return Err("No values in cookie found".to_string());
+                    }
+                }; // TODO: Idiomatically handle the error
 
                 // Get session from cookie
                 let mut session = match Session::decode_and_decrypt(
@@ -675,23 +691,32 @@ impl ConfiguredOidc {
 
     /// Helper function to get the session cookie as a string by getting the cookie from the request
     /// headers and concatenating all cookie parts.
-    pub fn get_session_cookie_as_string(&self) -> String {
+    pub fn get_session_cookie_as_string(&self) -> Option<String> {
         // Find all cookies that have the cookie_name, split them by ; and remove the name from the cookie
         // as well as the leading =. Then join the cookie values together again.
         let cookie = self.get_http_request_header("cookie").unwrap_or_default();
 
         // Split cookie by ; and filter for the cookie name.
-        let cookie = cookie
+        let cookies = cookie
             .split(';')
             .filter(|x| x.contains(self.plugin_config.cookie_name.as_str()))
-            .filter(|x| !x.contains(format!("{}-nonce", self.plugin_config.cookie_name).as_str()))
-            // Then split by = and get the second element.
+            .filter(|x| !x.contains(format!("{}-nonce", self.plugin_config.cookie_name).as_str()));
+
+        // Check if cookies have values
+        for cookie in cookies.clone() {
+            if cookie.split('=').collect::<Vec<&str>>().len() < 2 {
+                return None;
+            }
+        }
+
+        // Then split all cookies by = and get the second element before joining all values together.
+        let values = cookies
             .map(|x| x.split('=').collect::<Vec<&str>>()[1])
             .collect::<Vec<&str>>()
             // Join the cookie values together again.
             .join("");
 
-        cookie
+        Some(values)
     }
 
     // Get the encoded nonce from the cookie
