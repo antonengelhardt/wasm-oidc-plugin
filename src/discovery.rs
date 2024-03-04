@@ -333,7 +333,8 @@ impl Context for OidcDiscovery {
                 let body = match self.get_http_call_response_body(0, _body_size) {
                     Some(body) => body,
                     None => {
-                        warn!("no body in response");
+                        warn!("no body found in config response, maybe you forgot to add upstream to envoy.yaml?");
+                        // Stay in the same state.
                         return;
                     }
                 };
