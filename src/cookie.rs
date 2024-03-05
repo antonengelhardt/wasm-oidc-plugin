@@ -148,8 +148,7 @@ impl Session {
         let decoded_cookie = match base64engine.decode(encoded_cookie.as_bytes()) {
             Ok(cookie) => cookie,
             Err(e) => {
-                warn!("the cookie didn't match the expected format: {}", e);
-                return Err(e.to_string());
+                return Err(format!("decoding the cookie failed: {}", e.to_string()));
             }
         }; // TODO: Idiomatically handle the error
 
@@ -166,17 +165,14 @@ impl Session {
                         Ok(session)
                     }
                     // If the cookie cannot be parsed into a struct, return an error
-                    Err(e) => {
-                        warn!("the cookie didn't match the expected format: {}", e);
-                        Err(e.to_string())
-                    }
+                    Err(e) => Err(format!(
+                        "the cookie didn't match the expected format: {}",
+                        e.to_string()
+                    )),
                 }
             }
             // If decryption failed, return an error
-            Err(e) => {
-                warn!("decryption failed: {}", e.to_string());
-                Err(e.to_string())
-            }
+            Err(e) => Err(format!("decryption failed: {}", e.to_string())),
         }
     }
 }
