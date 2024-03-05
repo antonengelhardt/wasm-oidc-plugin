@@ -37,6 +37,7 @@ pub struct PluginConfiguration {
     pub config_endpoint: String,
     /// Reload interval in hours
     pub reload_interval_in_h: u64,
+
     /// Exclude hosts. Example: localhost:10000
     #[serde(with = "serde_regex")]
     pub exclude_hosts: Vec<Regex>,
@@ -48,17 +49,17 @@ pub struct PluginConfiguration {
     pub exclude_urls: Vec<Regex>,
 
     // Header forwarding settings
-    /// The header name that will be used for the access token
+    /// The header name that will be used for the access token.
     /// If the header name is empty, the access token will not be forwarded
     pub access_token_header_name: Option<String>,
-    /// Prefix for the access token header
+    /// Prefix for the access token header.
     /// If the prefix is empty, the access token will be forwarded without a prefix
     pub access_token_header_prefix: Option<String>,
 
-    /// The header name that will be used for the id token
+    /// The header name that will be used for the id token.
     /// If the header name is empty, the id token will not be forwarded
     pub id_token_header_name: Option<String>,
-    /// Prefix for the id token header
+    /// Prefix for the id token header.
     /// If the prefix is empty, the id token will be forwarded without a prefix
     pub id_token_header_prefix: Option<String>,
 
