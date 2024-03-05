@@ -4,6 +4,10 @@
 
 A plugin for the [Envoy-Proxy](https://www.envoyproxy.io/) written in [Rust](https://www.rust-lang.org). It is a HTTP Filter, that implements the OIDC Authorization Code Flow. Requests sent to the filter are checked for the presence of a valid session cookie. If the cookie is not present, the user is redirected to the `authorization_endpoint` to authenticate. After successful authentication, the user is redirected back to the original request with a code in the URL query. The plugin then exchanges the code for a token using the `token_endpoint` and stores the token in the session. If the cookie is present, the plugin validates the token and passes the request to the backend, if the token is valid (optional).
 
+## Demo
+
+Go to [demo-page](https://demo.wasm-oidc-plugin.ae02.de) to see the plugin in action. [Auth0](https://auth0.com) is used as the OIDC provider. Simply create an account or login with Google. The plugin has been configured to show [httpbin.org](https://httpbin.org) as the upstream. Then open the developer tools and check the cookies or use the [httpbin cookie inspector](https://demo.wasm-oidc-plugin.ae02.de/#/Cookies/get_cookies). You will see a cookie called `oidcSession-0`. This is the session, that holds the authorization state. If you delete the cookie and refresh the page, you will be redirected to the `authorization_endpoint` to authenticate again.
+
 ## Why this repo?
 
 This repo is the result of a bachelor thesis in Information Systems. It is inspired by two other projects: [oidc-filter](https://github.com/dgn/oidc-filter) & [wasm-oauth-filter](https://github.com/sonhal/wasm-oauth-filter). This project has several advantages and improvements:
