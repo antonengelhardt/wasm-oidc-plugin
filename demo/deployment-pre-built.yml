@@ -1,5 +1,3 @@
-# Alternative 2: Use pre-built [Docker-Image](https://hub.docker.com/r/antonengelhardt/wasm-oidc-plugin) from Docker Hub
-
 apiVersion: apps/v1
 kind: Deployment
 
