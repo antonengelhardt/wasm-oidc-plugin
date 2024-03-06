@@ -15,7 +15,7 @@ use std::time::Duration;
 use jwt_simple::prelude::*;
 
 // log
-use log::{debug,warn,info};
+use log::{debug, info, warn};
 
 // proxy-wasm
 use proxy_wasm::traits::*;
@@ -272,7 +272,9 @@ impl ConfiguredOidc {
                     let cookie_name_end = cookie_string.find('=').unwrap_or(0);
                     let cookie_name = &cookie_string[0..cookie_name_end];
                     if cookie_name.trim() == name {
-                        return Some(cookie_string[(cookie_name_end + 1)..cookie_string.len()].to_owned());
+                        return Some(
+                            cookie_string[(cookie_name_end + 1)..cookie_string.len()].to_owned(),
+                        );
                     }
                 }
             }
@@ -317,7 +319,6 @@ impl ConfiguredOidc {
     /// `validate_token` function. If the token is valid, this function returns Ok(()). If the token
     /// is invalid, this function returns Err(String) and redirects the requester to the `authorization endpoint`.
     fn validate_cookie(&self) -> Result<AuthorizationState, PluginError> {
-
         // Get cookie and nonce
         let cookie = match self.get_session_cookie_as_string() {
             Some(cookie) => cookie,
@@ -362,9 +363,9 @@ impl ConfiguredOidc {
                     }
                     false => Ok(session.authorization_state.unwrap()),
                 }
-            },
+            }
             // If the cookie cannot be parsed, this filter redirects the requester to the `authorization_endpoint`
-            Err(e) => return Err(PluginError::CookieValidationError(e.to_string()))
+            Err(e) => return Err(PluginError::CookieValidationError(e.to_string())),
         }
     }
 
@@ -372,7 +373,6 @@ impl ConfiguredOidc {
     /// This function checks for the correct issuer and audience and verifies the signature with the
     /// public keys loaded from the JWKs endpoint.
     fn validate_token(&self, token: &str) -> Result<(), PluginError> {
-
         // Define allowed issuers and audiences
         let mut allowed_issuers = HashSet::new();
         allowed_issuers.insert(self.open_id_config.issuer.to_string());
@@ -394,7 +394,7 @@ impl ConfiguredOidc {
             // Check if the token is valid, the aud and iss are correct and the signature is valid.
             match validation_result {
                 Ok(_) => return Ok(()),
-                Err(_) => continue
+                Err(_) => continue,
             }
         }
         return Err(PluginError::NoKeyError);
@@ -457,10 +457,16 @@ impl ConfiguredOidc {
         }
 
         // Encode client_id and client_secret and build the Authorization header using base64encoding
-        let auth = format!("Basic {}", base64engine.encode(format!("{}:{}",
-            &self.plugin_config.client_id,
-            &self.plugin_config.client_secret
-        ).as_bytes()));
+        let auth = format!(
+            "Basic {}",
+            base64engine.encode(
+                format!(
+                    "{}:{}",
+                    &self.plugin_config.client_id, &self.plugin_config.client_secret
+                )
+                .as_bytes()
+            )
+        );
 
         // Get code verifier from cookie
         let code_verifier = session.code_verifier;
@@ -490,21 +496,26 @@ impl ConfiguredOidc {
             ],
             Some(data.as_bytes()),
             vec![],
-            Duration::from_secs(10)) {
+            Duration::from_secs(10),
+        ) {
             // If the request is dispatched successfully, this filter pauses the request
             Ok(id) => {
                 self.token_id = Some(id);
                 Ok(())
             }
             // If the request fails, this filter logs the error and pauses the request
-            Err(_) => return Err(PluginError::DispatchError)
+            Err(_) => return Err(PluginError::DispatchError),
         }
     }
 
     /// Store the token from the token response in a cookie.
     /// Parse the token with the `AuthorizationState` struct and store it in an encoded and encrypted cookie.
     /// Then, redirect the requester to the original URL.
-    fn store_token_in_cookie(&mut self, token_id: u32, body_size: usize) -> Result<(), PluginError> {
+    fn store_token_in_cookie(
+        &mut self,
+        token_id: u32,
+        body_size: usize,
+    ) -> Result<(), PluginError> {
         // Assess token id
         if self.token_id != Some(token_id) {
             return Err(PluginError::TokenIdMismatchError);
@@ -520,11 +531,11 @@ impl ConfiguredOidc {
                     match String::from_utf8(body) {
                         Ok(decoded) => return Err(PluginError::TokenResponseFormatError(decoded)),
                         // If decoding fails, log the error
-                        Err(e) => return Err(PluginError::Utf8Error(e))
+                        Err(e) => return Err(PluginError::Utf8Error(e)),
                     }
                 }
                 // If no body is found, log the error
-                None => return Err(PluginError::NoBodyError)
+                None => return Err(PluginError::NoBodyError),
             }
         }
 
@@ -557,9 +568,7 @@ impl ConfiguredOidc {
                     encoded_nonce.clone(),
                 ) {
                     Ok(session) => session,
-                    Err(e) => {
-                        return Err(e)
-                    }
+                    Err(e) => return Err(e),
                 };
 
                 // Create authorization state from token response
@@ -595,7 +604,9 @@ impl ConfiguredOidc {
                 Ok(())
             }
             // If no body is found, return the error
-            None => Err(PluginError::CookieStoreError("No body in response".to_string()))
+            None => Err(PluginError::CookieStoreError(
+                "No body in response".to_string(),
+            )),
         }
     }
 
