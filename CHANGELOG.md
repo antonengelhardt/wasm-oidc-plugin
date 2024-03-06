@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0
+
+* State verification to prevent CSRF attacks
+* Rewrite cookie logic to get rid of `code-verifier` and `original-path` cookies
+* Config value checks
+* VSCode Settings to Format on Save
+* Add fmt and Clippy to CI
+
 ## 0.3.4
 
 * Check for three Host Headers
