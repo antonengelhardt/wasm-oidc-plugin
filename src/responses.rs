@@ -12,7 +12,7 @@ use jwt_simple::{
 };
 
 // log
-use log::{info, debug};
+use log::{debug, info};
 
 // serde
 use serde::Deserialize;
