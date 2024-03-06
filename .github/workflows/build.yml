@@ -37,7 +37,7 @@ jobs:
         run: cargo fmt -- --check
 
       - name: Test
-        run: cargo test --release --target wasm32-wasi
+        run: cargo test --workspace
 
       - name: Build
         run: cargo build --release --target wasm32-wasi
