@@ -12,7 +12,6 @@ use std::fmt::Debug;
 
 // serde
 use serde::{Deserialize, Serialize};
-use serde_json;
 
 use crate::error::PluginError;
 
@@ -144,17 +143,17 @@ impl Session {
         // Decrypt with cipher
         let decrypted_cookie = cipher
             .decrypt(nonce, decoded_cookie.as_slice())
-            .map_err(|e| PluginError::DecryptionError(e))?;
+            .map_err(PluginError::DecryptionError)?;
 
         // Parse cookie into a struct
         match serde_json::from_slice::<Session>(&decrypted_cookie) {
             // If deserialization was successful, set the cookie and resume the request
             Ok(state) => {
                 debug!("State: {:?}", state);
-                return Ok(state);
+                Ok(state)
             }
             // If the cookie cannot be parsed into a struct, return an error
-            Err(e) => return Err(PluginError::JsonError(e)),
+            Err(e) => Err(PluginError::JsonError(e)),
         }
     }
 }
