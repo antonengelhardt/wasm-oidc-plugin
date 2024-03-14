@@ -145,15 +145,11 @@ impl Session {
         let decoded_cookie = base64engine.decode(encoded_cookie.as_bytes())?;
 
         // Decrypt with cipher
-        let decrypted_cookie = cipher
-            .decrypt(nonce, decoded_cookie.as_slice())
-            .map_err(PluginError::AesError)?;
+        let decrypted_cookie = cipher.decrypt(nonce, decoded_cookie.as_slice())?;
 
-        serde_json::from_slice::<Session>(&decrypted_cookie)
-            .map(|state| {
-                debug!("State: {:?}", state);
-                state
-            })
-            .map_err(PluginError::JsonError)
+        // Parse cookie into a struct
+        let state = serde_json::from_slice::<Session>(&decrypted_cookie)?;
+        debug!("State: {:?}", state);
+        return Ok(state);
     }
 }
