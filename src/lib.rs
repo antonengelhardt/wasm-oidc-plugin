@@ -155,7 +155,7 @@ impl HttpContext for ConfiguredOidc {
 
         // exchanges the code for a token. The response is caught in on_http_call_response.
         // If the dispatch fails, a 503 is returned.
-        if path.starts_with(Url::parse(&self.plugin_config.redirect_uri).unwrap().path()) {
+        if path.starts_with(self.plugin_config.redirect_uri.path()) {
             match self.exchange_code_for_token(path) {
                 Ok(_) => {
                     return Action::Pause;
@@ -451,7 +451,7 @@ impl ConfiguredOidc {
             "oidc",
             vec![
                 (":method", "POST"),
-                (":path", &token_endpoint),
+                (":path", token_endpoint),
                 (":authority", &self.plugin_config.authority),
                 ("Authorization", &auth),
                 ("Content-Type", "application/x-www-form-urlencoded"),
@@ -616,7 +616,7 @@ impl ConfiguredOidc {
                 ("code_challenge_method", "S256"),
                 ("state", &state_string),
                 ("client_id", &self.plugin_config.client_id),
-                ("redirect_uri", &self.plugin_config.redirect_uri.as_str()),
+                ("redirect_uri", self.plugin_config.redirect_uri.as_str()),
                 ("scope", &self.plugin_config.scope),
                 ("claims", &self.plugin_config.claims),
             ],

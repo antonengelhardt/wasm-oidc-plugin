@@ -22,7 +22,7 @@ pub struct OpenIdConfig {
     /// The URL of the token endpoint
     pub token_endpoint: Url,
     /// The issuer that will be used for the token request
-    pub issuer: String,
+    pub issuer: Url,
 
     // Relevant for Validation of the ID Token
     /// The public keys that will be used for the validation of the ID Token
@@ -34,7 +34,7 @@ pub struct OpenIdConfig {
 #[derive(Clone, Debug, Deserialize)]
 pub struct PluginConfiguration {
     /// Config endpoint for the plugin.
-    pub config_endpoint: String,
+    pub config_endpoint: Url,
     /// Reload interval in hours
     pub reload_interval_in_h: u64,
 
@@ -80,7 +80,7 @@ pub struct PluginConfiguration {
     /// The authority that will be used for the dispatch calls
     pub authority: String,
     /// The redirect uri that the authorization endpoint will redirect to and provide the code
-    pub redirect_uri: String,
+    pub redirect_uri: Url,
     /// The client id
     pub client_id: String,
     /// The scope
