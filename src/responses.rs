@@ -16,18 +16,19 @@ use log::{debug, info};
 
 // serde
 use serde::Deserialize;
+use url::Url;
 
 /// [OpenID Connect Discovery Response](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig)
 #[derive(Deserialize, Debug)]
 pub struct OidcDiscoveryResponse {
     /// The issuer of the OpenID Connect Provider
-    pub issuer: String,
+    pub issuer: Url,
     /// The authorization endpoint to start the code flow
-    pub authorization_endpoint: String,
+    pub authorization_endpoint: Url,
     /// The token endpoint to exchange the code for a token
-    pub token_endpoint: String,
+    pub token_endpoint: Url,
     /// The jwks uri to load the jwks response from
-    pub jwks_uri: String,
+    pub jwks_uri: Url,
 }
 
 #[derive(Deserialize, Debug)]
