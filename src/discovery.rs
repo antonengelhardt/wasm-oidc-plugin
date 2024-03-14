@@ -325,7 +325,7 @@ impl Context for OidcDiscovery {
             // This state is not possible, but is here to make the compiler happy.
             OidcRootState::Uninitialized => {
                 warn!("plugin is not initialized");
-                OidcRootState::Uninitialized
+                return;
             }
 
             // If the plugin is in Loading `LoadingConfig` state, the response is expected to be the
@@ -370,9 +370,7 @@ impl Context for OidcDiscovery {
                     Err(e) => {
                         // Stay in the same state.
                         warn!("error parsing config response: {:?}", e);
-                        OidcRootState::LoadingConfig {
-                            plugin_config: plugin_config.clone(),
-                        }
+                        return;
                     }
                 }
             }
@@ -383,7 +381,7 @@ impl Context for OidcDiscovery {
                 auth_endpoint,
                 token_endpoint,
                 issuer,
-                jwks_uri,
+                ..
             } => {
                 // If the token id is not the same as the one from the call, return.
                 if self.token_id != Some(token_id) {
@@ -439,27 +437,15 @@ impl Context for OidcDiscovery {
                     Err(e) => {
                         warn!("error parsing jwks body: {:?}", e);
                         // Stay in the same state as the response couldn't be parsed.
-                        OidcRootState::LoadingJwks {
-                            plugin_config: plugin_config.clone(),
-                            auth_endpoint: auth_endpoint.clone(),
-                            token_endpoint: token_endpoint.clone(),
-                            issuer: issuer.clone(),
-                            jwks_uri: jwks_uri.clone(),
-                        }
+                        return;
                     }
                 }
             }
 
             // If the plugin is in `Ready` state, the response is ignored and the state is not changed.
-            OidcRootState::Ready {
-                plugin_config,
-                open_id_config,
-            } => {
+            OidcRootState::Ready { .. } => {
                 warn!("ready state is not expected here");
-                OidcRootState::Ready {
-                    plugin_config: plugin_config.clone(),
-                    open_id_config: open_id_config.clone(),
-                }
+                return;
             }
         };
 
