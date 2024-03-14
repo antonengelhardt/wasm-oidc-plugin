@@ -95,7 +95,7 @@ pub enum OidcRootState {
         /// The token endpoint to exchange the code for a token
         token_endpoint: Url,
         /// The issuer
-        issuer: String,
+        issuer: Url,
         /// The url from which the public keys can be retrieved
         jwks_uri: Url,
     },
@@ -235,7 +235,7 @@ impl RootContext for OidcDiscovery {
                     "oidc",
                     vec![
                         (":method", "GET"),
-                        (":path", &plugin_config.config_endpoint),
+                        (":path", plugin_config.config_endpoint.as_str()),
                         (":authority", plugin_config.authority.as_str()),
                     ],
                     None,
@@ -360,11 +360,10 @@ impl Context for OidcDiscovery {
                         // Set the state to loading jwks.
                         OidcRootState::LoadingJwks {
                             plugin_config: plugin_config.clone(),
-                            auth_endpoint: Url::parse(&open_id_response.authorization_endpoint)
-                                .unwrap(),
-                            token_endpoint: Url::parse(&open_id_response.token_endpoint).unwrap(),
+                            auth_endpoint: open_id_response.authorization_endpoint,
+                            token_endpoint: open_id_response.token_endpoint,
                             issuer: open_id_response.issuer,
-                            jwks_uri: Url::parse(&open_id_response.jwks_uri).unwrap(),
+                            jwks_uri: open_id_response.jwks_uri,
                         }
                     }
                     Err(e) => {
@@ -474,13 +473,6 @@ impl OidcDiscovery {
     /// * `plugin_config` - The plugin configuration to be evaluated
     /// Returns `Ok` if the configuration is valid, otherwise `Err` with a message.
     pub fn evaluate_config(plugin_config: PluginConfiguration) -> Result<(), PluginError> {
-        // Config Endpoint
-        if Url::parse(&plugin_config.config_endpoint).is_err() {
-            return Err(PluginError::ConfigError(
-                "`config_endpoint` is not a valid url".to_string(),
-            ));
-        }
-
         // Reload Interval
         if plugin_config.reload_interval_in_h == 0 {
             return Err(PluginError::ConfigError(
@@ -519,13 +511,6 @@ impl OidcDiscovery {
         // Authority
         if plugin_config.authority.is_empty() {
             return Err(PluginError::ConfigError("`authority` is empty".to_string()));
-        }
-
-        // Redirect Uri
-        if plugin_config.redirect_uri.is_empty() {
-            return Err(PluginError::ConfigError(
-                "`redirect_uri` is empty".to_string(),
-            ));
         }
 
         // Client Id
