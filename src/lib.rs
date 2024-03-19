@@ -526,7 +526,7 @@ impl ConfiguredOidc {
                 session.authorization_state = Some(authorization_state);
 
                 // Create new session
-                let new_session = session.encrypt_and_encode(self.cipher.clone(), encoded_nonce);
+                let new_session = session.encrypt_and_encode(self.cipher.clone(), encoded_nonce)?;
 
                 // Get original path
                 let original_path = session.original_path.clone();
@@ -584,7 +584,8 @@ impl ConfiguredOidc {
             code_verifier: pkce_verifier_string,
             state: state_string.clone(),
         }
-        .encrypt_and_encode(self.cipher.clone(), encoded_nonce.clone());
+        .encrypt_and_encode(self.cipher.clone(), encoded_nonce.clone())
+        .expect("session cookie could not be created");
 
         // Build cookie values
         let set_cookie_values = Session::make_cookie_values(

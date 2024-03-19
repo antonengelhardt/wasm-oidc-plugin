@@ -50,7 +50,11 @@ impl Session {
     /// Create a new session, encrypt it and encode it by using the given cipher and nonce
     /// * `cipher` - Cipher used to encrypt the cookie
     /// * `encoded_nonce` - Nonce used to encrypt the cookie
-    pub fn encrypt_and_encode(&self, mut cipher: Aes256Gcm, encoded_nonce: String) -> String {
+    pub fn encrypt_and_encode(
+        &self,
+        mut cipher: Aes256Gcm,
+        encoded_nonce: String,
+    ) -> Result<String, PluginError> {
         // Decode nonce using base64
         let decoded_nonce = base64engine
             .decode(encoded_nonce.as_bytes())
@@ -62,10 +66,10 @@ impl Session {
         // Encrypt cookie
         let encrypted_cookie = cipher
             .encrypt(nonce, serde_json::to_vec(&self).unwrap().as_slice())
-            .unwrap();
+            .map_err(PluginError::AesError)?;
 
         // Encode cookie and return
-        return base64engine.encode(encrypted_cookie.as_slice());
+        Ok(base64engine.encode(encrypted_cookie.as_slice()))
     }
 
     /// Make the cookie values from the encoded cookie by splitting it into chunks of 4000 bytes and
@@ -143,17 +147,13 @@ impl Session {
         // Decrypt with cipher
         let decrypted_cookie = cipher
             .decrypt(nonce, decoded_cookie.as_slice())
-            .map_err(PluginError::DecryptionError)?;
+            .map_err(PluginError::AesError)?;
 
-        // Parse cookie into a struct
-        match serde_json::from_slice::<Session>(&decrypted_cookie) {
-            // If deserialization was successful, set the cookie and resume the request
-            Ok(state) => {
+        serde_json::from_slice::<Session>(&decrypted_cookie)
+            .map(|state| {
                 debug!("State: {:?}", state);
-                Ok(state)
-            }
-            // If the cookie cannot be parsed into a struct, return an error
-            Err(e) => Err(PluginError::JsonError(e)),
-        }
+                state
+            })
+            .map_err(PluginError::JsonError)
     }
 }

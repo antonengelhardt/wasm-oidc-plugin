@@ -27,6 +27,7 @@ use url::Url;
 
 // crate
 use crate::config::PluginConfiguration;
+use crate::error::PluginError;
 use crate::responses::{JWKsResponse, OidcDiscoveryResponse, SigningKey};
 use crate::{ConfiguredOidc, OpenIdConfig, PauseRequests};
 
@@ -479,72 +480,86 @@ impl OidcDiscovery {
     /// Type checking is done by serde, so we only need to check the values.
     /// * `plugin_config` - The plugin configuration to be evaluated
     /// Returns `Ok` if the configuration is valid, otherwise `Err` with a message.
-    pub fn evaluate_config(plugin_config: PluginConfiguration) -> Result<(), String> {
+    pub fn evaluate_config(plugin_config: PluginConfiguration) -> Result<(), PluginError> {
         // Config Endpoint
         if Url::parse(&plugin_config.config_endpoint).is_err() {
-            return Err("`config_endpoint` is not a valid url".to_string());
+            return Err(PluginError::ConfigError(
+                "`config_endpoint` is not a valid url".to_string(),
+            ));
         }
 
         // Reload Interval
         if plugin_config.reload_interval_in_h == 0 {
-            return Err("`reload_interval` is 0".to_string());
+            return Err(PluginError::ConfigError(
+                "`reload_interval` is 0".to_string(),
+            ));
         }
 
         // Cookie Name
         if plugin_config.cookie_name.len() > 32 {
-            return Err("`cookie_name` is too long, max 32".to_string());
+            return Err(PluginError::ConfigError(
+                "`cookie_name` is too long, max 32".to_string(),
+            ));
         }
 
         let cookies_name_regex = Regex::new(r"[\w\d-]+").unwrap();
         if plugin_config.cookie_name.is_empty()
             || !cookies_name_regex.is_match(&plugin_config.cookie_name)
         {
-            return Err("`cookie_name` is empty or not valid meaning that it contains invalid characters like ;, =, :, /, space".to_string());
+            return Err(PluginError::ConfigError("`cookie_name` is empty or not valid meaning that it contains invalid characters like ;, =, :, /, space".to_string()));
         }
 
         // Cookie Duration
         if plugin_config.cookie_duration == 0 {
-            return Err("`cookie_duration` is 0".to_string());
+            return Err(PluginError::ConfigError(
+                "`cookie_duration` is 0".to_string(),
+            ));
         }
 
         // AES Key
         if plugin_config.aes_key.len() != 44 {
-            return Err("`aes_key` is not 44 characters long, but must be".to_string());
+            return Err(PluginError::ConfigError(
+                "`aes_key` is not 44 characters long, but must be".to_string(),
+            ));
         }
 
         // Authority
         if plugin_config.authority.is_empty() {
-            return Err("`authority` is empty".to_string());
+            return Err(PluginError::ConfigError("`authority` is empty".to_string()));
         }
 
         // Redirect Uri
         if plugin_config.redirect_uri.is_empty() {
-            return Err("`redirect_uri` is empty".to_string());
+            return Err(PluginError::ConfigError(
+                "`redirect_uri` is empty".to_string(),
+            ));
         }
 
         // Client Id
         if plugin_config.client_id.is_empty() {
-            return Err("`client_id` is empty".to_string());
+            return Err(PluginError::ConfigError("`client_id` is empty".to_string()));
         }
 
         // Scope
         if plugin_config.scope.is_empty() {
-            return Err("`scope` is empty".to_string());
+            return Err(PluginError::ConfigError("`scope` is empty".to_string()));
         }
 
         // Claims
         if plugin_config.claims.is_empty() {
-            return Err("`claims` is empty".to_string());
+            return Err(PluginError::ConfigError("`claims` is empty".to_string()));
         }
 
         // Client Secret
         if plugin_config.client_secret.is_empty() {
-            return Err("client_secret is empty".to_string());
+            return Err(PluginError::ConfigError(
+                "client_secret is empty".to_string(),
+            ));
         }
 
         // Audience
         if plugin_config.audience.is_empty() {
-            return Err("audience is empty".to_string());
+            return Err(PluginError::ConfigError("audience is empty".to_string()));
         }
 
         // Else return Ok
