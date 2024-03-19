@@ -4,6 +4,10 @@ use thiserror::Error;
 /// Error type for the plugin
 #[derive(Error, Debug)]
 pub enum PluginError {
+    // Configuration Errors
+    #[error("error in the configuration file: {0}")]
+    ConfigError(String),
+
     // Parsing Errors
     #[error("url is not valid: {0}")]
     UrlError(#[from] url::ParseError),
@@ -35,8 +39,8 @@ pub enum PluginError {
     NoBodyError,
 
     // Cookie errors
-    #[error("decryption failed: {0}")]
-    DecryptionError(#[from] aes_gcm::aead::Error),
+    #[error("encryption or decryption failed: {0}")]
+    AesError(#[from] aes_gcm::aead::Error),
     #[error("token could not be stored in cookie: {0}")]
     CookieStoreError(String),
     #[error("cookie is not valid: {0}")]
