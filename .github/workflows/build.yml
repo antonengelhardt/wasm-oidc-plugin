@@ -170,6 +170,7 @@ jobs:
   deploy-demo:
     name: Deploy to demo site
     needs: ghcr-image
+    environment: demo
     runs-on: ubuntu-latest
     steps:
       - uses: actions-hub/kubectl@master
