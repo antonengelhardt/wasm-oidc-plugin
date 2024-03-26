@@ -5,13 +5,16 @@ use aes_gcm::{aead::AeadMut, Aes256Gcm, Nonce};
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
 
 // log
-use log::{debug, warn};
+use log::debug;
+
+// std
+use std::fmt::Debug;
 
 // serde
 use serde::{Deserialize, Serialize};
 
-// std
-use std::fmt::Debug;
+use crate::error::PluginError;
+
 /// Struct parse the cookie from the request into a struct in order to access the fields and
 /// also to save the cookie on the client side
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -47,7 +50,11 @@ impl Session {
     /// Create a new session, encrypt it and encode it by using the given cipher and nonce
     /// * `cipher` - Cipher used to encrypt the cookie
     /// * `encoded_nonce` - Nonce used to encrypt the cookie
-    pub fn encrypt_and_encode(&self, mut cipher: Aes256Gcm, encoded_nonce: String) -> String {
+    pub fn encrypt_and_encode(
+        &self,
+        mut cipher: Aes256Gcm,
+        encoded_nonce: String,
+    ) -> Result<String, PluginError> {
         // Decode nonce using base64
         let decoded_nonce = base64engine
             .decode(encoded_nonce.as_bytes())
@@ -59,10 +66,10 @@ impl Session {
         // Encrypt cookie
         let encrypted_cookie = cipher
             .encrypt(nonce, serde_json::to_vec(&self).unwrap().as_slice())
-            .unwrap();
+            .map_err(PluginError::AesError)?;
 
         // Encode cookie and return
-        return base64engine.encode(encrypted_cookie.as_slice());
+        Ok(base64engine.encode(encrypted_cookie.as_slice()))
     }
 
     /// Make the cookie values from the encoded cookie by splitting it into chunks of 4000 bytes and
@@ -128,51 +135,21 @@ impl Session {
         encoded_cookie: String,
         mut cipher: Aes256Gcm,
         encoded_nonce: String,
-    ) -> Result<Session, String> {
+    ) -> Result<Session, PluginError> {
         // Decode nonce using base64
-        // TODO: Idiomatically handle the error
-        let decoded_nonce = match base64engine.decode(encoded_nonce.as_bytes()) {
-            Ok(nonce) => nonce,
-            Err(e) => {
-                return Err(format!(
-                    "the nonce didn't match the expected format: {}",
-                    e.to_string()
-                ));
-            }
-        };
-
-        // Build nonce from decoded nonce
-        let nonce = Nonce::from_slice(decoded_nonce.as_slice());
+        let decoded_nonce = base64engine.decode(encoded_nonce.as_bytes())?;
+        let nonce = aes_gcm::Nonce::from_slice(decoded_nonce.as_slice());
+        debug!("Nonce: {:?}", nonce);
 
         // Decode cookie using base64
-        let decoded_cookie = match base64engine.decode(encoded_cookie.as_bytes()) {
-            Ok(cookie) => cookie,
-            Err(e) => {
-                return Err(format!("decoding the cookie failed: {}", e.to_string()));
-            }
-        }; // TODO: Idiomatically handle the error
+        let decoded_cookie = base64engine.decode(encoded_cookie.as_bytes())?;
 
-        // Decrypt cookie
-        // TODO: Idiomatically handle the error
-        match cipher.decrypt(nonce, decoded_cookie.as_slice()) {
-            // If decryption was successful, continue
-            Ok(decrypted_cookie) => {
-                // Parse cookie into a struct
-                match serde_json::from_slice::<Session>(&decrypted_cookie) {
-                    // If deserialization was successful, return the session
-                    Ok(session) => {
-                        debug!("authorization state: {:?}", session);
-                        Ok(session)
-                    }
-                    // If the cookie cannot be parsed into a struct, return an error
-                    Err(e) => Err(format!(
-                        "the cookie didn't match the expected format: {}",
-                        e.to_string()
-                    )),
-                }
-            }
-            // If decryption failed, return an error
-            Err(e) => Err(format!("decryption failed: {}", e.to_string())),
-        }
+        // Decrypt with cipher
+        let decrypted_cookie = cipher.decrypt(nonce, decoded_cookie.as_slice())?;
+
+        // Parse cookie into a struct
+        let state = serde_json::from_slice::<Session>(&decrypted_cookie)?;
+        debug!("State: {:?}", state);
+        return Ok(state);
     }
 }

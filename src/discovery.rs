@@ -1,10 +1,5 @@
-// proxy-wasm
-use proxy_wasm::hostcalls;
-use proxy_wasm::traits::*;
-use proxy_wasm::types::*;
-
-// log
-use log::{debug, info, warn};
+// aes256
+use aes_gcm::{Aes256Gcm, KeyInit};
 
 // regex
 use regex::Regex;
@@ -13,20 +8,26 @@ use regex::Regex;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-// url
-use url::Url;
-
 // base64
 use base64::{engine::general_purpose::STANDARD as base64engine, Engine as _};
 
 // duration
 use std::time::Duration;
 
-// aes256
-use aes_gcm::{Aes256Gcm, KeyInit};
+// log
+use log::{debug, info, warn};
+
+// proxy-wasm
+use proxy_wasm::hostcalls;
+use proxy_wasm::traits::*;
+use proxy_wasm::types::*;
+
+// url
+use url::Url;
 
 // crate
 use crate::config::PluginConfiguration;
+use crate::error::PluginError;
 use crate::responses::{JWKsResponse, OidcDiscoveryResponse, SigningKey};
 use crate::{ConfiguredOidc, OpenIdConfig, PauseRequests};
 
@@ -94,7 +95,7 @@ pub enum OidcRootState {
         /// The token endpoint to exchange the code for a token
         token_endpoint: Url,
         /// The issuer
-        issuer: String,
+        issuer: Url,
         /// The url from which the public keys can be retrieved
         jwks_uri: Url,
     },
@@ -234,7 +235,7 @@ impl RootContext for OidcDiscovery {
                     "oidc",
                     vec![
                         (":method", "GET"),
-                        (":path", &plugin_config.config_endpoint),
+                        (":path", plugin_config.config_endpoint.as_str()),
                         (":authority", plugin_config.authority.as_str()),
                     ],
                     None,
@@ -306,6 +307,12 @@ impl RootContext for OidcDiscovery {
 /// 3. If the state is `LoadingJwks`, the jwks endpoint is expected.
 /// 4. `Ready` is not expected, as the root context doesn't dispatch any calls in that state.
 impl Context for OidcDiscovery {
+    /// Called when the response from the http call is received.
+    /// It also utilised the state enum to determine what to do with the response.
+    /// 1. If the state is `Uninitialized`, the plugin is not initialized and the response is ignored.
+    /// 2. If the state is `LoadingConfig`, the open id configuration is expected.
+    /// 3. If the state is `LoadingJwks`, the jwks endpoint is expected.
+    /// 4. `Ready` is not expected, as the root context doesn't dispatch any calls in that state.
     fn on_http_call_response(
         &mut self,
         token_id: u32,
@@ -318,7 +325,7 @@ impl Context for OidcDiscovery {
             // This state is not possible, but is here to make the compiler happy.
             OidcRootState::Uninitialized => {
                 warn!("plugin is not initialized");
-                OidcRootState::Uninitialized
+                return;
             }
 
             // If the plugin is in Loading `LoadingConfig` state, the response is expected to be the
@@ -353,19 +360,16 @@ impl Context for OidcDiscovery {
                         // Set the state to loading jwks.
                         OidcRootState::LoadingJwks {
                             plugin_config: plugin_config.clone(),
-                            auth_endpoint: Url::parse(&open_id_response.authorization_endpoint)
-                                .unwrap(),
-                            token_endpoint: Url::parse(&open_id_response.token_endpoint).unwrap(),
+                            auth_endpoint: open_id_response.authorization_endpoint,
+                            token_endpoint: open_id_response.token_endpoint,
                             issuer: open_id_response.issuer,
-                            jwks_uri: Url::parse(&open_id_response.jwks_uri).unwrap(),
+                            jwks_uri: open_id_response.jwks_uri,
                         }
                     }
                     Err(e) => {
-                        warn!("error parsing config response: {:?}", e);
                         // Stay in the same state.
-                        OidcRootState::LoadingConfig {
-                            plugin_config: plugin_config.clone(),
-                        }
+                        warn!("error parsing config response: {:?}", e);
+                        return;
                     }
                 }
             }
@@ -376,7 +380,7 @@ impl Context for OidcDiscovery {
                 auth_endpoint,
                 token_endpoint,
                 issuer,
-                jwks_uri,
+                ..
             } => {
                 // If the token id is not the same as the one from the call, return.
                 if self.token_id != Some(token_id) {
@@ -432,29 +436,18 @@ impl Context for OidcDiscovery {
                     Err(e) => {
                         warn!("error parsing jwks body: {:?}", e);
                         // Stay in the same state as the response couldn't be parsed.
-                        OidcRootState::LoadingJwks {
-                            plugin_config: plugin_config.clone(),
-                            auth_endpoint: auth_endpoint.clone(),
-                            token_endpoint: token_endpoint.clone(),
-                            issuer: issuer.clone(),
-                            jwks_uri: jwks_uri.clone(),
-                        }
+                        return;
                     }
                 }
             }
 
             // If the plugin is in `Ready` state, the response is ignored and the state is not changed.
-            OidcRootState::Ready {
-                plugin_config,
-                open_id_config,
-            } => {
+            OidcRootState::Ready { .. } => {
                 warn!("ready state is not expected here");
-                OidcRootState::Ready {
-                    plugin_config: plugin_config.clone(),
-                    open_id_config: open_id_config.clone(),
-                }
+                return;
             }
         };
+
         // If the plugin is in `Ready` state, any request that was sent during the loading phase,
         // is now resumed.
         if matches!(self.state, OidcRootState::Ready { .. }) {
@@ -463,7 +456,6 @@ impl Context for OidcDiscovery {
                 hostcalls::set_effective_context(context_id).unwrap();
                 hostcalls::resume_http_request().unwrap();
             }
-            // hostcalls::set_effective_context(1).unwrap();
         }
     }
 }
@@ -473,72 +465,72 @@ impl OidcDiscovery {
     /// Type checking is done by serde, so we only need to check the values.
     /// * `plugin_config` - The plugin configuration to be evaluated
     /// Returns `Ok` if the configuration is valid, otherwise `Err` with a message.
-    pub fn evaluate_config(plugin_config: PluginConfiguration) -> Result<(), String> {
-        // Config Endpoint
-        if Url::parse(&plugin_config.config_endpoint).is_err() {
-            return Err("`config_endpoint` is not a valid url".to_string());
-        }
-
+    pub fn evaluate_config(plugin_config: PluginConfiguration) -> Result<(), PluginError> {
         // Reload Interval
         if plugin_config.reload_interval_in_h == 0 {
-            return Err("`reload_interval` is 0".to_string());
+            return Err(PluginError::ConfigError(
+                "`reload_interval` is 0".to_string(),
+            ));
         }
 
         // Cookie Name
         if plugin_config.cookie_name.len() > 32 {
-            return Err("`cookie_name` is too long, max 32".to_string());
+            return Err(PluginError::ConfigError(
+                "`cookie_name` is too long, max 32".to_string(),
+            ));
         }
 
         let cookies_name_regex = Regex::new(r"[\w\d-]+").unwrap();
         if plugin_config.cookie_name.is_empty()
             || !cookies_name_regex.is_match(&plugin_config.cookie_name)
         {
-            return Err("`cookie_name` is empty or not valid meaning that it contains invalid characters like ;, =, :, /, space".to_string());
+            return Err(PluginError::ConfigError("`cookie_name` is empty or not valid meaning that it contains invalid characters like ;, =, :, /, space".to_string()));
         }
 
         // Cookie Duration
         if plugin_config.cookie_duration == 0 {
-            return Err("`cookie_duration` is 0".to_string());
+            return Err(PluginError::ConfigError(
+                "`cookie_duration` is 0".to_string(),
+            ));
         }
 
         // AES Key
         if plugin_config.aes_key.len() != 44 {
-            return Err("`aes_key` is not 44 characters long, but must be".to_string());
+            return Err(PluginError::ConfigError(
+                "`aes_key` is not 44 characters long, but must be".to_string(),
+            ));
         }
 
         // Authority
         if plugin_config.authority.is_empty() {
-            return Err("`authority` is empty".to_string());
-        }
-
-        // Redirect Uri
-        if plugin_config.redirect_uri.is_empty() {
-            return Err("`redirect_uri` is empty".to_string());
+            return Err(PluginError::ConfigError("`authority` is empty".to_string()));
         }
 
         // Client Id
         if plugin_config.client_id.is_empty() {
-            return Err("`client_id` is empty".to_string());
+            return Err(PluginError::ConfigError("`client_id` is empty".to_string()));
         }
 
         // Scope
         if plugin_config.scope.is_empty() {
-            return Err("`scope` is empty".to_string());
+            return Err(PluginError::ConfigError("`scope` is empty".to_string()));
         }
 
         // Claims
         if plugin_config.claims.is_empty() {
-            return Err("`claims` is empty".to_string());
+            return Err(PluginError::ConfigError("`claims` is empty".to_string()));
         }
 
         // Client Secret
         if plugin_config.client_secret.is_empty() {
-            return Err("client_secret is empty".to_string());
+            return Err(PluginError::ConfigError(
+                "client_secret is empty".to_string(),
+            ));
         }
 
         // Audience
         if plugin_config.audience.is_empty() {
-            return Err("audience is empty".to_string());
+            return Err(PluginError::ConfigError("audience is empty".to_string()));
         }
 
         // Else return Ok

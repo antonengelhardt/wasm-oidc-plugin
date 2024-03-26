@@ -39,9 +39,6 @@ jobs:
       - name: Test
         run: cargo test --workspace
 
-      - name: Build
-        run: cargo build --release --target wasm32-wasi
-
   build:
     name: Build Plugin and publish artifact
     needs: test
@@ -111,6 +108,7 @@ jobs:
   deploy-demo:
     name: Deploy to demo site
     needs: ghcr-image
+    environment: demo
     runs-on: ubuntu-latest
     steps:
       - uses: actions-hub/kubectl@master
