@@ -170,8 +170,13 @@ impl HttpContext for ConfiguredOidc {
                     warn!("token exchange failed: {}", e);
                     self.send_http_response(
                         503,
-                        vec![("Cache-Control", "no-cache")],
-                        Some(b"Token exchange failed. Please try again or delete your cookies."),
+                        vec![("Cache-Control", "no-cache"),
+                        ("Content-Type", "text/html")],
+                        Some(b"<div style=\"text-align: center; margin-top: 20%; font-family: Arial, sans-serif;\">
+                        <h1>503</h1>
+                        <h2>Token exchange failed</h2>
+                        <p>Please try again, delete your cookies or contact your system administrator.</p>
+                        </div>"),
                     );
                 }
             }
@@ -248,9 +253,13 @@ impl Context for ConfiguredOidc {
                 // Send a 503 if storing the token in the cookie failed
                 self.send_http_response(
                     503,
-                    vec![("Cache-Control", "no-cache")],
-                    Some(
-                        b"Storing token in cookie failed. Please try again or delete your cookies.",
+                    vec![("Cache-Control", "no-cache"),
+                    ("Content-Type", "text/html")],
+                    Some(b"<div style=\"text-align: center; margin-top: 20%; font-family: Arial, sans-serif;\">
+                    <h1>503</h1>
+                    <h2>Storing Token in Cookie failed</h2>
+                    <p>Please try again, delete your cookies or contact your system administrator.</p>
+                    </div>",
                     ),
                 );
             }
@@ -364,7 +373,14 @@ impl ConfiguredOidc {
     fn validate_token(&self, token: &str) -> Result<(), PluginError> {
         // Define allowed issuers and audiences
         let mut allowed_issuers = HashSet::new();
-        allowed_issuers.insert(self.open_id_config.issuer.to_string());
+        // remove last slash from issuer url
+        allowed_issuers.insert(
+            self.open_id_config
+                .issuer
+                .to_string()
+                .trim_end_matches('/')
+                .to_string(),
+        );
         let mut allowed_audiences = HashSet::new();
         allowed_audiences.insert(self.plugin_config.audience.to_string());
 
@@ -383,7 +399,10 @@ impl ConfiguredOidc {
             // Check if the token is valid, the aud and iss are correct and the signature is valid.
             match validation_result {
                 Ok(_) => return Ok(()),
-                Err(_) => continue,
+                Err(e) => {
+                    debug!("Token validation failed: {:?}", e);
+                    continue;
+                }
             }
         }
         Err(PluginError::NoKeyError)

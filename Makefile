@@ -1,4 +1,3 @@
-# Command to build new wasm file, docker-compose up and curl to test
 build:
 	cargo build --target wasm32-wasi --release
 run:
