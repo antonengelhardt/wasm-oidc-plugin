@@ -4,115 +4,167 @@ on:
   pull_request:
 
 jobs:
-    test:
-      runs-on: ubuntu-latest
-      container:
-        image: ghcr.io/antonengelhardt/rust-docker-tools
+  cargo-deny:
+    runs-on: ubuntu-latest
+    container:
+      image: antonengelhardt/rust-docker-tools
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v3
+      - name: Rust version
+        run: rustc --version && cargo --version
 
-        - name: Cache dependencies
-          uses: actions/cache@v2
-          with:
-            path: target
-            key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Cargo Deny
+        uses: EmbarkStudios/cargo-deny-action@v1
 
-        - name: Cargo Deny
-          uses: EmbarkStudios/cargo-deny-action@v1
+  clippy:
+    runs-on: ubuntu-latest
+    container:
+      image: antonengelhardt/rust-docker-tools
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-        - name: Run Rust tests
-          run: |
-            rustc --version && cargo --version
-            cargo clippy
-            cargo test --workspace --verbose
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-    build:
-      runs-on: ubuntu-latest
-      container:
-        image: ghcr.io/antonengelhardt/rust-docker-tools
-      needs: [test]
+      - name: Rust version
+        run: rustc --version && cargo --version
 
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v3
+      - name: Clippy
+        run: |
+          rustc --version && cargo --version
+          cargo clippy
 
-        - name: Cache dependencies
-          uses: actions/cache@v2
-          with:
-            path: target
-            key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+  fmt:
+    runs-on: ubuntu-latest
+    container:
+      image: antonengelhardt/rust-docker-tools
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-        - name: Build WASM OIDC Plugin
-          run: |
-            cargo build --target wasm32-wasi --release
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-        - name: Upload plugin as artifact
-          uses: actions/upload-artifact@v2
-          with:
-            name: plugin
-            path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
+      - name: Rust version
+        run: rustc --version && cargo --version
 
-    integration-tests:
-      runs-on: ubuntu-latest
-      container:
-        image: ghcr.io/ghcr.io/antonengelhardt/rust-docker-tools
-      needs: [build]
+      - name: Fmt
+        run: cargo fmt -- --check
 
-      steps:
-        - name: Checkout code
-          uses: actions/checkout@v3
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: antonengelhardt/rust-docker-tools
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-        - name: Download plugin from build job
-          uses: actions/download-artifact@v2
-          with:
-            name: plugin
-            path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-        - name: Install apks
-          run: |
-            apk update
-            apk add chromium chromium-chromedriver python3 py3-pip curl docker
+      - name: Rust version
+        run: rustc --version && cargo --version
 
-        - name: Install Python dependencies
-          run: pip install -r integration-tests/requirements.txt --break-system-packages
+      - name: Test
+        run: cargo test --workspace
 
-        - name: Create .env for Integration tests
-          run: |
-            echo "CI=true" >> integration-tests/.env
-            echo "WASM_OIDC_PLUGIN_TEST_EMAIL=${{ secrets.WASM_OIDC_PLUGIN_TEST_EMAIL }}" >> integration-tests/.env
-            echo "WASM_OIDC_PLUGIN_TEST_PASSWORD=${{ secrets.WASM_OIDC_PLUGIN_TEST_PASSWORD }}" >> integration-tests/.env
-            sed -i 's/client_secret: \"redacted\"/client_secret: \"${{ secrets.WASM_OIDC_PLUGIN_TEST_CLIENT_SECRET }}\"/g' integration-tests/envoy.yaml
-            sed -i 's/aes_key: \"redacted\"/aes_key: \"${{ secrets.WASM_OIDC_PLUGIN_TEST_AES_KEY }}\"/g' integration-tests/envoy.yaml
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/antonengelhardt/rust-docker-tools
+    needs: [test]
 
-        - name: Start Containers & Run Integration tests
-          run: |
-            cd integration-tests
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-            echo "Creating Envoy container"
-            docker container create --name envoy -p 10000:10000 docker.io/envoyproxy/envoy:v1.29-latest envoy -c /etc/envoy/envoy.yaml --concurrency 1 --component-log-level wasm:debug
+      - name: Cache dependencies
+        uses: actions/cache@v2
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-            echo "Copying files to Envoy container because Alpine doesn't like mounting files to files"
-            docker cp ../target/wasm32-wasi/release/wasm_oidc_plugin.wasm envoy:/etc/envoy/proxy-wasm-plugins
-            docker cp envoy.yaml envoy:/etc/envoy/envoy.yaml
+      - name: Build WASM OIDC Plugin
+        run: |
+          cargo build --target wasm32-wasi --release
 
-            echo "Starting Envoy container"
-            docker start envoy
+      - name: Upload plugin as artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: plugin
+          path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
 
-            sleep 5
-            docker ps
-            docker logs envoy
+  integration-tests:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/ghcr.io/antonengelhardt/rust-docker-tools
+    needs: [build]
 
-            # Get the gateway of the envoy container
-            export GATEWAY=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}' envoy)
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-            echo "Running Integration Tests"
-            export WASM_OIDC_PLUGIN_TEST_EMAIL=${{ secrets.WASM_OIDC_PLUGIN_TEST_EMAIL }}
-            export WASM_OIDC_PLUGIN_TEST_PASSWORD=${{ secrets.WASM_OIDC_PLUGIN_TEST_PASSWORD }}
-            pytest test.py
+      - name: Download plugin from build job
+        uses: actions/download-artifact@v2
+        with:
+          name: plugin
+          path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
 
-        - name: Finally show the envoy logs in case something failed
-          run: |
-            docker logs envoy
-          if: always()
+      - name: Install apks
+        run: |
+          apk update
+          apk add chromium chromium-chromedriver python3 py3-pip curl docker
+
+      - name: Install Python dependencies
+        run: pip install -r integration-tests/requirements.txt --break-system-packages
+
+      - name: Create .env for Integration tests
+        run: |
+          echo "CI=true" >> integration-tests/.env
+          echo "WASM_OIDC_PLUGIN_TEST_EMAIL=${{ secrets.WASM_OIDC_PLUGIN_TEST_EMAIL }}" >> integration-tests/.env
+          echo "WASM_OIDC_PLUGIN_TEST_PASSWORD=${{ secrets.WASM_OIDC_PLUGIN_TEST_PASSWORD }}" >> integration-tests/.env
+          sed -i 's/client_secret: \"redacted\"/client_secret: \"${{ secrets.WASM_OIDC_PLUGIN_TEST_CLIENT_SECRET }}\"/g' integration-tests/envoy.yaml
+          sed -i 's/aes_key: \"redacted\"/aes_key: \"${{ secrets.WASM_OIDC_PLUGIN_TEST_AES_KEY }}\"/g' integration-tests/envoy.yaml
+
+      - name: Start Containers & Run Integration tests
+        run: |
+          cd integration-tests
+
+          echo "Creating Envoy container"
+          docker container create --name envoy -p 10000:10000 docker.io/envoyproxy/envoy:v1.29-latest envoy -c /etc/envoy/envoy.yaml --concurrency 1 --component-log-level wasm:debug
+
+          echo "Copying files to Envoy container because Alpine doesn't like mounting files to files"
+          docker cp ../target/wasm32-wasi/release/wasm_oidc_plugin.wasm envoy:/etc/envoy/proxy-wasm-plugins
+          docker cp envoy.yaml envoy:/etc/envoy/envoy.yaml
+
+          echo "Starting Envoy container"
+          docker start envoy
+
+          sleep 5
+          docker ps
+          docker logs envoy
+
+          # Get the gateway of the envoy container
+          export GATEWAY=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}' envoy)
+
+          echo "Running Integration Tests"
+          export WASM_OIDC_PLUGIN_TEST_EMAIL=${{ secrets.WASM_OIDC_PLUGIN_TEST_EMAIL }}
+          export WASM_OIDC_PLUGIN_TEST_PASSWORD=${{ secrets.WASM_OIDC_PLUGIN_TEST_PASSWORD }}
+          pytest test.py
+
+      - name: Finally show the envoy logs in case something failed
+        run: |
+          docker logs envoy
+        if: always()
