@@ -130,7 +130,7 @@ impl RootContext for OidcDiscovery {
                 // Parse the configuration in a yaml format.
                 match serde_yaml::from_slice::<PluginConfiguration>(&config_bytes) {
                     Ok(plugin_config) => {
-                        debug!("parsed plugin configuration");
+                        debug!("parsed plugin configuration: {:?}", plugin_config);
 
                         // Create AES256 Cipher from base64 encoded key
                         let aes_key = base64engine.decode(&plugin_config.aes_key).unwrap();
