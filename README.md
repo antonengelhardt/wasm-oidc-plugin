@@ -38,7 +38,7 @@ cargo build --target wasm32-wasi --release
 **Shortcut** (make sure to have [make](https://www.gnu.org/software/make/) installed):
 
 ```sh
-make simulate
+make run
 ```
 
 ---
@@ -49,15 +49,17 @@ make simulate
 
 ```sh
 cargo build --target wasm32-wasi --release
+# or
+make build
 ```
 
-1. **Testing locally with Envoy** ([docker](https://www.docker.com/) and [docker-compose](https://docs.docker.com/compose/install/) are needed):
+2. **Testing locally with Envoy** ([docker](https://www.docker.com/) and [docker-compose](https://docs.docker.com/compose/install/) are needed):
 
 ```sh
 docker compose up
 ```
 
-1. **Requests to the locally running envoy with the plugin enabled:**
+3. **Requests to the locally running envoy with the plugin enabled:**
 
 ```sh
 curl localhost:10000
