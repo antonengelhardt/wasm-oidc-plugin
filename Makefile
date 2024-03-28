@@ -4,7 +4,7 @@ build:
 run:
 	cargo build --target wasm32-wasi --release
 	docker-compose up
-run background:
+run-background:
 	cargo build --target wasm32-wasi --release
 	docker-compose up -d
 docker-image:
