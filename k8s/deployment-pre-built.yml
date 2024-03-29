@@ -27,14 +27,17 @@ spec:
         app: example-app
 
     spec:
+      imagePullSecrets:
+        - name: ghcr #! Add this if your repo is private
+
       containers:
         - name: envoy
           image: antonengelhardt/wasm-oidc-plugin:latest
 
           resources:
             requests:
-              cpu: 50m
-              memory: 80Mi
+              cpu: 300m
+              memory: 300Mi
             limits:
               cpu: 300m
               memory: 300Mi
@@ -46,19 +49,22 @@ spec:
 
           livenessProbe:
             httpGet:
-              path: /
-              port: 10000
-            initialDelaySeconds: 15
+              path: /ready
+              port: 9901
+            initialDelaySeconds: 10
             periodSeconds: 5
 
           readinessProbe:
             httpGet:
-              path: /
-              port: 10000
-            initialDelaySeconds: 15
+              path: /ready
+              port: 9901
+            initialDelaySeconds: 10
             periodSeconds: 5
 
           ports:
+            - containerPort: 9901
+              name: admin
+              protocol: TCP
             - containerPort: 10000
               name: http
               protocol: TCP
