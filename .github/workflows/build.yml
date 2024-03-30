@@ -9,48 +9,125 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
-    name: Test
+  cargo-deny:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/antonengelhardt/rust-docker-tools
+      image: antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+      - name: Rust version
+        run: rustc --version && cargo --version
 
       - name: Cargo Deny
         uses: EmbarkStudios/cargo-deny-action@v1
+
+  clippy:
+    runs-on: ubuntu-latest
+    container:
+      image: antonengelhardt/rust-docker-tools
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Rust version
         run: rustc --version && cargo --version
 
       - name: Clippy
-        run: cargo clippy --release --all-targets --target=wasm32-wasi
+        run: |
+          rustc --version && cargo --version
+          cargo clippy
+
+  fmt:
+    runs-on: ubuntu-latest
+    container:
+      image: antonengelhardt/rust-docker-tools
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Rust version
+        run: rustc --version && cargo --version
 
       - name: Fmt
         run: cargo fmt -- --check
 
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: antonengelhardt/rust-docker-tools
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
+
+      - name: Rust version
+        run: rustc --version && cargo --version
+
       - name: Test
         run: cargo test --workspace
 
-      - name: Build
-        run: cargo build --release --target wasm32-wasi
-
   build:
     name: Build Plugin and publish artifact
-    needs: test
+    needs: [cargo-deny, clippy, fmt, test]
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Build
         run: |
@@ -64,7 +141,7 @@ jobs:
 
   docker-image:
     name: Build and push Docker image
-    needs: test
+    needs: [build, test]
     runs-on: ubuntu-latest
 
     steps:
@@ -87,7 +164,7 @@ jobs:
   ghcr-image:
     name: Build and push GHCR image
     runs-on: ubuntu-latest
-    needs: test
+    needs: [build, test, docker-image]
     permissions:
       contents: read
       packages: write

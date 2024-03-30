@@ -1,3 +1,8 @@
+admin:
+  address:
+    socket_address:
+      address: 0.0.0.0
+      port_value: 9901
 static_resources:
   listeners:
     address:
@@ -31,7 +36,7 @@ static_resources:
                       configuration:
                         "@type": "type.googleapis.com/google.protobuf.StringValue"
                         value: |
-                          config_endpoint: "https://dev-wivqmfr2j1pfl1nt.us.auth0.com/.well-known/openid-configuration"
+                          config_endpoint: "https://demo-wasm-oidc-plugin.eu.auth0.com/.well-known/openid-configuration"
                           reload_interval_in_h: 1
 
                           exclude_hosts: []
@@ -39,18 +44,19 @@ static_resources:
                           exclude_urls: ["http://localhost:10000/anything"]
 
                           cookie_name: "oidcSession"
+                          filter_plugin_cookies: false
                           cookie_duration: 86400
                           token_validation: true
                           aes_key: "redacted"
 
-                          authority: "dev-wivqmfr2j1pfl1nt.us.auth0.com"
+                          authority: "demo-wasm-oidc-plugin.eu.auth0.com"
                           redirect_uri: "http://localhost:10000/oidc/callback"
-                          client_id: "qzj3n3w1cANXRdGYqw4j4OMEUQph2SVO"
+                          client_id: "JLWnnk9amdeM8f9GseWWj20htGO1sT32"
                           scope: "openid"
                           claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
 
                           client_secret: "redacted"
-                          audience: "qzj3n3w1cANXRdGYqw4j4OMEUQph2SVO"
+                          audience: "JLWnnk9amdeM8f9GseWWj20htGO1sT32"
                       vm_config:
                         runtime: "envoy.wasm.runtime.v8"
                         code:
@@ -86,11 +92,11 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: dev-wivqmfr2j1pfl1nt.us.auth0.com
+                      address: demo-wasm-oidc-plugin.eu.auth0.com
                       port_value: 443
-                  # hostname: "dev-wivqmfr2j1pfl1nt.us.auth0.com"
+                  # hostname: "demo-wasm-oidc-plugin.eu.auth0.com"
       transport_socket:
         name: envoy.transport_sockets.tls
         typed_config:
           "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
-          sni: "dev-wivqmfr2j1pfl1nt.us.auth0.com"
+          sni: "demo-wasm-oidc-plugin.eu.auth0.com"

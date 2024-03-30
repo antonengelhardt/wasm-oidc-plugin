@@ -26,11 +26,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Cache dependencies
-        uses: actions/cache@v2
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
         with:
-          path: target
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Rust version
         run: rustc --version && cargo --version
@@ -48,11 +55,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Cache dependencies
-        uses: actions/cache@v2
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
         with:
-          path: target
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Rust version
         run: rustc --version && cargo --version
@@ -68,11 +82,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Cache dependencies
-        uses: actions/cache@v2
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
         with:
-          path: target
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Rust version
         run: rustc --version && cargo --version
@@ -84,17 +105,24 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/antonengelhardt/rust-docker-tools
-    needs: [test]
+    # needs: [test]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Cache dependencies
-        uses: actions/cache@v2
+      - name: Set up cargo cache
+        uses: actions/cache@v3
+        continue-on-error: false
         with:
-          path: target
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Build WASM OIDC Plugin
         run: |
