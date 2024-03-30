@@ -72,9 +72,16 @@ def test_success() -> None:
     set_up()
     login(driver)
     sleep(5)
+    assert driver.get_cookie("oidcSession-nonce").get("value") is not None
 
-    assert driver.current_url == "http://httpbin.org"
-    assert driver.get_cookie("oidcSession-0") is not None
+    # rewrite the url to access envoy container
+    if os.getenv("CI") == "true":
+        current_url = driver.current_url
+        code = current_url.split("?code=")[1]
+        assert code is not None
+        driver.get(BASE_URL + "/oidc/callback?code=" + code)
+    assert driver.title == "httpbin.org"
+    assert driver.get_cookie("oidcSession-0").get("value") is not None
     tear_down()
 
 def test_unsuccessful() -> None:
