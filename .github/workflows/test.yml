@@ -139,7 +139,7 @@ jobs:
     container:
       image: ghcr.io/antonengelhardt/rust-docker-tools
       ports:
-        - 10000:10000
+        - 10000
     needs: [build]
 
     steps:
