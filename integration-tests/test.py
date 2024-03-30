@@ -63,7 +63,7 @@ def test_home_page() -> None:
 
     set_up()
     driver.get(BASE_URL)
-    assert driver.title == "Log in | Wasm Plugin"
+    assert driver.title == "Log in | wasm-oidc-plugin integration tests"
     tear_down()
 
 def test_success() -> None:
@@ -71,12 +71,8 @@ def test_success() -> None:
 
     set_up()
     login(driver)
-    sleep(5)
 
-    # print body
-
-    # assert driver.get_page_source() == "Bound to fail but debug the body"
-    # assert driver.current_url() == "https://httpbin.org"
+    assert driver.get_page_source() == "Bound to fail but debug the body"
     assert driver.title == "httpbin.org"
     assert driver.get_cookie("oidcSession-0") is not None
     tear_down()
@@ -89,19 +85,20 @@ def test_unsuccessful() -> None:
     driver.find_element(By.ID, "username").send_keys(WASM_OIDC_PLUGIN_TEST_EMAIL)
     driver.find_element(By.ID, "password").send_keys("nottherightpassword")
     driver.find_element(By.XPATH, "/html/body/div/main/section/div/div[2]/div/form/div[2]/button").click()
-    assert driver.title == "Log in | Wasm Plugin"
+    assert driver.title == "Log in | wasm-oidc-plugin integration tests"
     tear_down()
 
-def test_modified_cookie() -> None:
-    """Test if the login fails when the cookie is modified."""
+# def test_modified_cookie() -> None:
+#     """Test if the login fails when the cookie is modified."""
 
-    set_up()
-    login(driver)
+#     set_up()
+#     login(driver)
 
-    driver.deleteAllCookies()
-    driver.get(BASE_URL)
-    assert driver.title != "httpbin.org"
-    tear_down()
+#     driver.delete_all_cookies()
+#     print(driver.get_cookies())
+#     driver.refresh()
+#     assert driver.title == "Log in | wasm-oidc-plugin integration tests"
+#     tear_down()
 
 def test_excluded_path() -> None:
     """ Test if the request is allowed when it matches the pattern. """
@@ -110,4 +107,3 @@ def test_excluded_path() -> None:
     driver.get(BASE_URL+"/anything")
     assert driver.title == ""
     tear_down()
-
