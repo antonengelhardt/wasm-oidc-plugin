@@ -72,7 +72,7 @@ def test_success() -> None:
     set_up()
     login(driver)
 
-    # assert driver.title == "httpbin.org"
+    assert driver.current_url == "http://httpbin.org"
     assert driver.get_cookie("oidcSession-0") is not None
     tear_down()
 
