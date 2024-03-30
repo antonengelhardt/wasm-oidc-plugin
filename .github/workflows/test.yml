@@ -137,7 +137,9 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/ghcr.io/antonengelhardt/rust-docker-tools
+      image: ghcr.io/antonengelhardt/rust-docker-tools
+      ports:
+        - 10000:10000
     needs: [build]
 
     steps:
@@ -186,9 +188,6 @@ jobs:
 
           # Get the gateway of the envoy container
           export GATEWAY=$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.Gateway}}{{end}}' envoy)
-
-          curl http://localhost:10000/ -v
-          curl http://$GATEWAY/ -v
 
           echo "Running Integration Tests"
           export WASM_OIDC_PLUGIN_TEST_EMAIL=${{ secrets.WASM_OIDC_PLUGIN_TEST_EMAIL }}
