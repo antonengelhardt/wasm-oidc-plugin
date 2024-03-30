@@ -12,7 +12,7 @@ services:
       - ../target/wasm32-wasi/release:/etc/envoy/proxy-wasm-plugins
     networks:
       - envoymesh
-    command: envoy -c /etc/envoy/envoy.yaml --concurrency 1
+    command: envoy -c /etc/envoy/envoy.yaml --concurrency 1 --component-log-level wasm:debug
 
   # If you wan to use this local image, change the option in envoy.yaml:
   # clusters.httpbin.load_assignment.endpoints[0].lb_endpoints[0].endpoint.address.socket_address.address
