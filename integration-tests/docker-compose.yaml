@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  envoy:
+    image: envoyproxy/envoy:v1.24-latest
+    hostname: envoy
+    container_name: envoy
+    ports:
+      - "10000:10000"
+    volumes:
+      - ./envoy.yaml:/etc/envoy/envoy.yaml
+      - ../target/wasm32-wasi/release:/etc/envoy/proxy-wasm-plugins
+    networks:
+      - envoymesh
+    command: envoy -c /etc/envoy/envoy.yaml --concurrency 1 --component-log-level wasm:debug
+
+  # If you wan to use this local image, change the option in envoy.yaml:
+  # clusters.httpbin.load_assignment.endpoints[0].lb_endpoints[0].endpoint.address.socket_address.address
+  #  to "httpbin"
+  httpbin:
+    image: kennethreitz/httpbin
+    platform: linux/amd64
+    hostname: httpbin
+    container_name: httpbin
+    ports:
+      - "80:80"
+    networks:
+      - envoymesh
+networks:
+  envoymesh: {}

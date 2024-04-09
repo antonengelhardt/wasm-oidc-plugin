@@ -36,32 +36,27 @@ static_resources:
                       configuration:
                         "@type": "type.googleapis.com/google.protobuf.StringValue"
                         value: |
-                          config_endpoint: "https://accounts.google.com/.well-known/openid-configuration"
-                          reload_interval_in_h: 1 # in hours
+                          config_endpoint: "https://demo-wasm-oidc-plugin.eu.auth0.com/.well-known/openid-configuration"
+                          reload_interval_in_h: 1
 
-                          exclude_hosts: [] # or ["httpbin.org"]
-                          exclude_paths: [] # or ["/favicon.ico"]
-                          exclude_urls: [] # or ["http://localhost:10000/#/HTTP_Methods/get_get"]
+                          exclude_hosts: []
+                          exclude_paths: ["/anything"]
+                          exclude_urls: ["http://localhost:10000/anything"]
 
-                          access_token_header_name: # or "Authorization"
-                          access_token_header_prefix: "Bearer "
-                          id_token_header_name: # or "X-Id-Token"
-                          id_token_header_prefix: "Bearer "
+                          cookie_name: "oidcSession"
+                          filter_plugin_cookies: false
+                          cookie_duration: 86400
+                          token_validation: true
+                          aes_key: "redacted"
 
-                          cookie_name: "oidcSession" # max. 32 characters
-                          filter_plugin_cookies: true # or false
-                          cookie_duration: 86400 # in seconds
-                          token_validation: true # or false
-                          aes_key: "i-am-a-forty-four-characters-long-string-key" # generate with `openssl rand -base64 32`
-
-                          authority: "accounts.google.com" # FQDN of the OIDC provider
-                          redirect_uri: "http://localhost:10000/oidc/callback" # redirect uri that is registered with the OIDC provider
-                          client_id: "wasm-oidc-plugin" # client id that is registered with the OIDC provider
-                          scope: "openid profile email"
+                          authority: "demo-wasm-oidc-plugin.eu.auth0.com"
+                          redirect_uri: "http://localhost:10000/oidc/callback"
+                          client_id: "JLWnnk9amdeM8f9GseWWj20htGO1sT32"
+                          scope: "openid"
                           claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
 
                           client_secret: "redacted"
-                          audience: "wasm-oidc-plugin"
+                          audience: "JLWnnk9amdeM8f9GseWWj20htGO1sT32"
                       vm_config:
                         runtime: "envoy.wasm.runtime.v8"
                         code:
@@ -82,7 +77,8 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: httpbin
+                      # Change to httpbin if using local container
+                      address: httpbin.org
                       port_value: 80
                   hostname: "httpbin.org"
     - name: oidc
@@ -96,11 +92,11 @@ static_resources:
               - endpoint:
                   address:
                     socket_address:
-                      address: accounts.google.com
+                      address: demo-wasm-oidc-plugin.eu.auth0.com
                       port_value: 443
-                  # hostname: "accounts.google.com"
+                  # hostname: "demo-wasm-oidc-plugin.eu.auth0.com"
       transport_socket:
         name: envoy.transport_sockets.tls
         typed_config:
           "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
-          sni: "accounts.google.com"
+          sni: "demo-wasm-oidc-plugin.eu.auth0.com"
