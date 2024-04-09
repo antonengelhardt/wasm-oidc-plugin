@@ -1,6 +1,13 @@
 # Changelog
 
-## 0.4.0
+## v0.4.1
+
+* Demo project: deployment files and readme
+* Bump serde_yaml from 0.9.32 to 0.9.33
+* Bump regex from 1.10.3 to 1.10.4
+* Bump serde_json from 1.0.114 to 1.0.115
+
+## v0.4.0
 
 * State verification to prevent CSRF attacks
 * Rewrite cookie logic to get rid of `code-verifier` and `original-path` cookies
@@ -8,7 +15,7 @@
 * VSCode Settings to Format on Save
 * Add fmt and Clippy to CI
 
-## 0.3.4
+## v0.3.4
 
 * Check for three Host Headers
 * Default URL Headers
