@@ -53,7 +53,7 @@ impl HttpContext for PauseRequests {
     /// configured, the request is paused and queued by the RootContext. Once the filter is
     /// configured, the request is resumed by the RootContext.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
-        warn!("filter not ready, pausing request");
+        warn!("plugin not ready, pausing request");
 
         // Get the original path from the request headers
         self.original_path = Some(
@@ -111,6 +111,12 @@ impl HttpContext for ConfiguredOidc {
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
         // Check if the host regex matches one of the exclude hosts. If so, forward the request.
         let host = self.get_host().unwrap_or_default();
+
+        // Health check
+        if self.get_http_request_header(":path").unwrap_or_default() == "/plugin-health" {
+            self.send_http_response(200, vec![], Some(b"OK"));
+            return Action::Pause;
+        }
 
         if self
             .plugin_config

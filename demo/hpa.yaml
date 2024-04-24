@@ -1,0 +1,41 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: wasm-oidc-plugin
+  namespace: wasm-oidc-plugin
+spec:
+  minReplicas: 2
+  maxReplicas: 10
+
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 10
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+    scaleUp:
+      stabilizationWindowSeconds: 10
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 10
+
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: wasm-oidc-plugin
+
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80

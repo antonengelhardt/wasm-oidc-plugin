@@ -460,8 +460,12 @@ impl Context for OidcDiscovery {
         if matches!(self.state, OidcRootState::Ready { .. }) {
             for context_id in self.waiting.lock().unwrap().drain(..) {
                 info!("resuming queued request with id {}", context_id);
-                hostcalls::set_effective_context(context_id).unwrap();
-                hostcalls::resume_http_request().unwrap();
+                hostcalls::set_effective_context(context_id).unwrap_or_else(|e| {
+                    warn!("error setting effective context, most likely the tab was closed already: {:?}", e);
+                });
+                hostcalls::resume_http_request().unwrap_or_else(|e| {
+                    warn!("error resuming http request, most likely the tab was closed already: {:?}", e);
+                });
             }
             // hostcalls::set_effective_context(1).unwrap();
         }
