@@ -464,7 +464,10 @@ impl Context for OidcDiscovery {
                     warn!("error setting effective context, most likely the tab was closed already: {:?}", e);
                 });
                 hostcalls::resume_http_request().unwrap_or_else(|e| {
-                    warn!("error resuming http request, most likely the tab was closed already: {:?}", e);
+                    warn!(
+                        "error resuming http request, most likely the tab was closed already: {:?}",
+                        e
+                    );
                 });
             }
             // hostcalls::set_effective_context(1).unwrap();
