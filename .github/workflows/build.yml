@@ -46,9 +46,7 @@ jobs:
         run: rustc --version && cargo --version
 
       - name: Clippy
-        run: |
-          rustc --version && cargo --version
-          cargo clippy --release --all-targets --target=wasm32-wasi
+        run: cargo clippy --release --all-targets --target=wasm32-wasi -- -D warnings
 
   fmt:
     runs-on: ubuntu-latest
