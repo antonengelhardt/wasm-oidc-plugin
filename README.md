@@ -1,3 +1,5 @@
+![Logo (generated with Photoshop Generative AI)](social-graphic.png)
+
 # wasm-oidc-plugin
 
 [![Build Status](https://github.com/antonengelhardt/wasm-oidc-plugin/actions/workflows/build.yml/badge.svg)](https://github.com/antonengelhardt/wasm-oidc-plugin/actions/workflows/build.yml) [![Documentation](https://img.shields.io/badge/docs-blue)](https://antonengelhardt.github.io/wasm-oidc-plugin/wasm_oidc_plugin/index.html#)
