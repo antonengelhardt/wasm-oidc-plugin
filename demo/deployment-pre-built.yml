@@ -11,7 +11,6 @@ spec:
   selector:
     matchLabels:
       app: wasm-oidc-plugin
-  replicas: 1
 
   strategy:
     rollingUpdate:
@@ -42,19 +41,21 @@ spec:
               mountPath: /etc/envoy/envoy.yaml
               subPath: envoy.yaml
 
-          livenessProbe:
+          startupProbe:
             httpGet:
-              path: /ready
-              port: 9901
+              path: /plugin-health
+              port: 10000
             initialDelaySeconds: 10
             periodSeconds: 5
+            failureThreshold: 5
 
           readinessProbe:
             httpGet:
-              path: /ready
-              port: 9901
+              path: /plugin-health
+              port: 10000
             initialDelaySeconds: 10
             periodSeconds: 5
+            failureThreshold: 5
 
           ports:
             - containerPort: 9901

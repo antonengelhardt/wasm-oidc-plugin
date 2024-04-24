@@ -5,7 +5,7 @@ use aes_gcm::{aead::AeadMut, Aes256Gcm, Nonce};
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
 
 // log
-use log::{debug, warn};
+use log::debug;
 
 // serde
 use serde::{Deserialize, Serialize};
