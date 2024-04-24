@@ -3,6 +3,7 @@ use thiserror::Error;
 
 /// Error type for the plugin
 #[derive(Error, Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum PluginError {
     // Configuration Errors
     #[error("error in the configuration file: {0}")]
