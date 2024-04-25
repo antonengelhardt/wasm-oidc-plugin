@@ -88,7 +88,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/antonengelhardt/rust-docker-tools
-    needs: [test]
+    needs: [cargo-deny, clippy, fmt, test]
 
     steps:
       - name: Checkout code
