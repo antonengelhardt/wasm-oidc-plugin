@@ -1,4 +1,4 @@
-name: Test, Build and Deploy Wasm Plugin
+name: Test and Build wasm-oidc-plugin
 
 on:
   push:
@@ -9,8 +9,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  test:
-    name: Test
+  cargo-deny:
     runs-on: ubuntu-latest
     container:
       image: antonengelhardt/rust-docker-tools
@@ -18,24 +17,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Cache dependencies
-        uses: actions/cache@v2
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Run tests
-        run: |
-          rustc --version && cargo --version
-          cargo clippy
-          cargo test --workspace --verbose
+      - name: Rust version
+        run: rustc --version && cargo --version
 
       - name: Cargo Deny
         uses: EmbarkStudios/cargo-deny-action@v1
 
-  build:
-    name: Build
-    needs: test
+  clippy:
     runs-on: ubuntu-latest
     container:
       image: antonengelhardt/rust-docker-tools
@@ -43,19 +31,156 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Build
+      - name: Set up cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Rust version
+        run: rustc --version && cargo --version
+
+      - name: Clippy
+        run: |
+          rustc --version && cargo --version
+          cargo clippy --release --all-targets --target=wasm32-wasi
+
+  fmt:
+    runs-on: ubuntu-latest
+    container:
+      image: antonengelhardt/rust-docker-tools
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Rust version
+        run: rustc --version && cargo --version
+
+      - name: Fmt
+        run: cargo fmt -- --check
+
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: antonengelhardt/rust-docker-tools
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Rust version
+        run: rustc --version && cargo --version
+
+      - name: Test
+        run: cargo test --workspace
+
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/antonengelhardt/rust-docker-tools
+    needs: [cargo-deny, clippy, fmt, test]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build WASM OIDC Plugin
         run: |
           cargo build --target wasm32-wasi --release
 
-      - name: Archive production artifacts
+      - name: Upload plugin as artifact
         uses: actions/upload-artifact@v2
         with:
-          name: name-of-your-wasm-plugin.wasm #! Rename, if necessary
-          path: target/wasm32-wasi/release/name_of_your_wasm_plugin.wasm #! Rename, if necessary
+          name: plugin
+          path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
 
-  deploy:
-    name: Deploy
-    needs: build
+  docker-image:
+    name: Build and push Docker image
+    needs: [cargo-deny, clippy, fmt, test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Push to Docker Hub
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: antonengelhardt/wasm-oidc-plugin:latest #! Rename, if necessary
+
+  ghcr-image:
+    name: Build and push GHCR image
+    runs-on: ubuntu-latest
+    needs: [cargo-deny, clippy, fmt, test]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to GHCR
+        run: |
+          docker pull ghcr.io/antonengelhardt/wasm-oidc-plugin:latest # Pull the image to cache #! Rename, if necessary
+          docker build -t ghcr.io/antonengelhardt/wasm-oidc-plugin:latest . #! Rename, if necessary
+          docker push ghcr.io/antonengelhardt/wasm-oidc-plugin:latest #! Rename, if necessary
+
+  deploy-k8s:
+    name: Deploy to Kubernetes
+    needs: [docker-image, ghcr-image]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions-hub/kubectl@master
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        with:
+          args: rollout restart deployment wasm-oidc-plugin -n wasm-oidc-plugin #! Rename, if necessary
+
+  deploy-do:
+    name: Deploy to Kubernetes (DigitalOcean)
+    needs: [docker-image, ghcr-image]
     runs-on: ubuntu-latest
     steps:
       - name: Install Doctl
