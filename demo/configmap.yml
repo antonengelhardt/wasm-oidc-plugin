@@ -88,9 +88,8 @@ data:
                 - endpoint:
                     address:
                       socket_address:
-                        address: httpbin.org
+                        address: httpbin-service.wasm-oidc-plugin.svc.cluster.local
                         port_value: 80
-                    hostname: "httpbin.org"
       - name: oidc
         connect_timeout: 5s
         type: LOGICAL_DNS

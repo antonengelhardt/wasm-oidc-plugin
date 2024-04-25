@@ -11,3 +11,17 @@ spec:
       targetPort: 10000
   selector:
     app: wasm-oidc-plugin
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: httpbin-service
+  namespace: wasm-oidc-plugin
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  selector:
+    app: httpbin

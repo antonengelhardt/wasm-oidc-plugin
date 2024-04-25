@@ -78,3 +78,33 @@ spec:
                 path: envoy.yaml
 
       restartPolicy: Always
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: httpbin
+  namespace: wasm-oidc-plugin
+
+spec:
+  selector:
+    matchLabels:
+      app: httpbin
+
+  template:
+    metadata:
+      labels:
+        app: httpbin
+
+    spec:
+      containers:
+        - name: httpbin
+          image: kennethreitz/httpbin
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "250m"
+            limits:
+              memory: "128Mi"
+              cpu: "250m"
+          ports:
+            - containerPort: 80
