@@ -114,3 +114,48 @@ jobs:
         with:
           name: plugin
           path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
+
+  docker-image:
+    needs: [cargo-deny, clippy, fmt, test]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      - name: Push to Docker Hub
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          push: true
+          tags: antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref}}
+
+  ghcr-image:
+    runs-on: ubuntu-latest
+    needs: [cargo-deny, clippy, fmt, test]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Login
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push to GHCR
+        run: |
+          docker pull ghcr.io/antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }} || true # Pull the image to cache
+          docker build -t ghcr.io/antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }} .
+          docker push ghcr.io/antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }}
