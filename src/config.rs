@@ -1,3 +1,5 @@
+use aes_gcm::Aes256Gcm;
+use sec::Secret;
 // serde
 use serde::Deserialize;
 
@@ -90,7 +92,7 @@ pub struct PluginConfiguration {
 
     // Everything relevant for the Token Exchange Flow
     /// The client secret
-    pub client_secret: String,
+    pub client_secret: Secret<String>,
     /// The audience. Sometimes its the same as the client id
     pub audience: String,
 }

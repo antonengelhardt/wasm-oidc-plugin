@@ -42,6 +42,7 @@ aes-gcm = {version = "0.10.3", features = ["std"]}
 
 # thiserror
 thiserror = "1.0.58"
+sec = { version = "1.0.0", features = ["serde", "deserialize"] }
 
 [profile.release]
 lto = true

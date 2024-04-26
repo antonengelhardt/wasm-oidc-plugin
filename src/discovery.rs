@@ -529,7 +529,7 @@ impl OidcDiscovery {
         }
 
         // Client Secret
-        if plugin_config.client_secret.is_empty() {
+        if plugin_config.client_secret.reveal().is_empty() {
             return Err(PluginError::ConfigError(
                 "client_secret is empty".to_string(),
             ));
