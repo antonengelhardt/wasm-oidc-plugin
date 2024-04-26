@@ -115,9 +115,10 @@ impl HttpContext for ConfiguredOidc {
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
         // Check if the host regex matches one of the exclude hosts. If so, forward the request.
         let host = self.get_host().unwrap_or_default();
+        let path = self.get_http_request_header(":path").unwrap_or_default();
 
         // Health check
-        if self.get_http_request_header(":path").unwrap_or_default() == "/plugin-health" {
+        if path == "/plugin-health" {
             self.send_http_response(200, vec![], Some(b"OK"));
             return Action::Pause;
         }
@@ -134,7 +135,6 @@ impl HttpContext for ConfiguredOidc {
         }
 
         // If the path is one of the exclude paths, forward the request
-        let path = self.get_http_request_header(":path").unwrap_or_default();
         if self
             .plugin_config
             .exclude_paths
@@ -419,8 +419,7 @@ impl ConfiguredOidc {
         let query = path.split('?').last().unwrap_or_default();
 
         // Get state from query
-        let callback_params = serde_urlencoded::from_str::<Callback>(query)
-            .map_err(PluginError::CodeNotFoundInCallbackError)?;
+        let callback_params = serde_urlencoded::from_str::<Callback>(query)?;
 
         // Get cookie and nonce
         let encoded_cookie = self.get_session_cookie_as_string()?;
@@ -544,8 +543,7 @@ impl ConfiguredOidc {
                 )?;
 
                 // Create authorization state from token response
-                let authorization_state = serde_json::from_slice::<AuthorizationState>(&body)
-                    .map_err(PluginError::JsonError)?;
+                let authorization_state = serde_json::from_slice::<AuthorizationState>(&body)?;
 
                 // Add authorization state to session
                 session.authorization_state = Some(authorization_state);
