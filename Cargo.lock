@@ -825,6 +825,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e86697c916019a8588c99b5fac3cead74ec0b4b819707a682fd4d23fa0ce1ba1"
 
 [[package]]
+name = "sec"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bcb15f07e997a0ee2e8919e8a1956416522eaf211b5ef6664354ccf813e3ef1a"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "sec1"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1160,6 +1169,7 @@ dependencies = [
  "pkce",
  "proxy-wasm",
  "regex",
+ "sec",
  "serde",
  "serde_json",
  "serde_regex",

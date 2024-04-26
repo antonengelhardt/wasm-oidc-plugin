@@ -448,7 +448,8 @@ impl ConfiguredOidc {
             base64engine.encode(
                 format!(
                     "{}:{}",
-                    &self.plugin_config.client_id, &self.plugin_config.client_secret
+                    &self.plugin_config.client_id,
+                    &self.plugin_config.client_secret.reveal()
                 )
                 .as_bytes()
             )
