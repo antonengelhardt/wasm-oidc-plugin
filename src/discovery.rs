@@ -1,6 +1,3 @@
-// aes256
-use aes_gcm::Aes256Gcm;
-
 // regex
 use regex::Regex;
 
@@ -46,7 +43,6 @@ proxy_wasm::main! {{
         state: OidcRootState::Uninitialized,
         waiting: Mutex::new(Vec::new()),
         token_id: None,
-        cipher: None,
     }) });
 }}
 
@@ -63,8 +59,6 @@ pub struct OidcDiscovery {
     waiting: Mutex<Vec<u32>>,
     /// token_id of the HttpCalls to verify the call is correct
     token_id: Option<u32>,
-    /// AES256 key used to encrypt the session data
-    cipher: Option<Aes256Gcm>,
 }
 
 /// The state of the root context is an enum which has the following variants:
@@ -128,7 +122,6 @@ impl RootContext for OidcDiscovery {
                 match serde_yaml::from_slice::<PluginConfiguration>(&config_bytes) {
                     Ok(plugin_config) => {
                         debug!("parsed plugin configuration: {:?}", plugin_config);
-                        self.cipher = Some(plugin_config.aes_key.reveal().clone());
 
                         // Evaluate the plugin configuration and check if the values are valid.
                         // Type checking is done by serde, so we only need to check the values.
@@ -180,7 +173,6 @@ impl RootContext for OidcDiscovery {
                     open_id_config: open_id_config.clone(),
                     plugin_config: plugin_config.clone(),
                     token_id: None,
-                    cipher: self.cipher.clone().unwrap(),
                 }))
             }
 
