@@ -64,9 +64,7 @@ impl Session {
         let nonce = Nonce::from_slice(decoded_nonce.as_slice());
 
         // Encrypt cookie
-        let encrypted_cookie = cipher
-            .encrypt(nonce, serde_json::to_vec(&self).unwrap().as_slice())
-            .map_err(PluginError::AesError)?;
+        let encrypted_cookie = cipher.encrypt(nonce, serde_json::to_vec(&self)?.as_slice())?;
 
         // Encode cookie and return
         Ok(base64engine.encode(encrypted_cookie.as_slice()))

@@ -1,5 +1,10 @@
+use core::fmt;
+use std::fmt::Debug;
+
+use aes_gcm::{Aes256Gcm, KeyInit};
+use sec::Secret;
 // serde
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 
 // serde_regex
 use regex::Regex;
@@ -74,7 +79,8 @@ pub struct PluginConfiguration {
     /// Option to skip Token Validation
     pub token_validation: bool,
     /// AES Key
-    pub aes_key: String,
+    #[serde(deserialize_with = "deserialize_aes_key")]
+    pub aes_key: Secret<Aes256Gcm>,
 
     // Everything relevant for the Code Flow
     /// The authority that will be used for the dispatch calls
@@ -90,7 +96,42 @@ pub struct PluginConfiguration {
 
     // Everything relevant for the Token Exchange Flow
     /// The client secret
-    pub client_secret: String,
+    pub client_secret: Secret<String>,
     /// The audience. Sometimes its the same as the client id
     pub audience: String,
+}
+
+/// Deserialize a base64 encoded 32 byte AES key
+fn deserialize_aes_key<'de, D>(deserializer: D) -> Result<Secret<Aes256Gcm>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    use base64::{engine::general_purpose::STANDARD as base64engine, Engine as _};
+    use serde::de::{Error, Visitor};
+
+    struct AesKeyVisitor;
+
+    impl<'de> Visitor<'de> for AesKeyVisitor {
+        type Value = Secret<Aes256Gcm>;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a base64 string encoding a 32 byte AES key")
+        }
+
+        fn visit_str<E>(self, s: &str) -> Result<Self::Value, E>
+        where
+            E: Error,
+        {
+            let aes_key = base64engine.decode(s).map_err(Error::custom)?;
+            let cipher = Aes256Gcm::new_from_slice(&aes_key).map_err(|e| {
+                Error::custom(format!("{e}, got {} bytes, expected 32", aes_key.len()))
+            })?;
+
+            Ok(Secret::new(cipher))
+        }
+    }
+
+    // using a visitor here instead of just <&str>::deserialize
+    // makes sure that any error message contains the field name
+    deserializer.deserialize_str(AesKeyVisitor)
 }

@@ -1,15 +1,9 @@
-// aes256
-use aes_gcm::{Aes256Gcm, KeyInit};
-
 // regex
 use regex::Regex;
 
 // arc
 use std::sync::Arc;
 use std::sync::Mutex;
-
-// base64
-use base64::{engine::general_purpose::STANDARD as base64engine, Engine as _};
 
 // duration
 use std::time::Duration;
@@ -49,7 +43,6 @@ proxy_wasm::main! {{
         state: OidcRootState::Uninitialized,
         waiting: Mutex::new(Vec::new()),
         token_id: None,
-        cipher: None,
     }) });
 }}
 
@@ -66,8 +59,6 @@ pub struct OidcDiscovery {
     waiting: Mutex<Vec<u32>>,
     /// token_id of the HttpCalls to verify the call is correct
     token_id: Option<u32>,
-    /// AES256 key used to encrypt the session data
-    cipher: Option<Aes256Gcm>,
 }
 
 /// The state of the root context is an enum which has the following variants:
@@ -132,11 +123,6 @@ impl RootContext for OidcDiscovery {
                     Ok(plugin_config) => {
                         debug!("parsed plugin configuration: {:?}", plugin_config);
 
-                        // Create AES256 Cipher from base64 encoded key
-                        let aes_key = base64engine.decode(&plugin_config.aes_key).unwrap();
-                        let cipher = Aes256Gcm::new_from_slice(&aes_key).unwrap();
-                        self.cipher = Some(cipher);
-
                         // Evaluate the plugin configuration and check if the values are valid.
                         // Type checking is done by serde, so we only need to check the values.
                         match OidcDiscovery::evaluate_config(plugin_config.clone()) {
@@ -187,7 +173,6 @@ impl RootContext for OidcDiscovery {
                     open_id_config: open_id_config.clone(),
                     plugin_config: plugin_config.clone(),
                     token_id: None,
-                    cipher: self.cipher.clone().unwrap(),
                 }))
             }
 
@@ -501,13 +486,6 @@ impl OidcDiscovery {
             ));
         }
 
-        // AES Key
-        if plugin_config.aes_key.len() != 44 {
-            return Err(PluginError::ConfigError(
-                "`aes_key` is not 44 characters long, but must be".to_string(),
-            ));
-        }
-
         // Authority
         if plugin_config.authority.is_empty() {
             return Err(PluginError::ConfigError("`authority` is empty".to_string()));
@@ -529,7 +507,7 @@ impl OidcDiscovery {
         }
 
         // Client Secret
-        if plugin_config.client_secret.is_empty() {
+        if plugin_config.client_secret.reveal().is_empty() {
             return Err(PluginError::ConfigError(
                 "client_secret is empty".to_string(),
             ));

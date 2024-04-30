@@ -19,7 +19,7 @@ proxy-wasm = "0.2.1"
 
 # json, yaml, url parsing
 url = { version = "2.5.0", features = ["serde"] }
-serde = { version = "1.0.198", features = ["derive"] }
+serde = { version = "1.0.199", features = ["derive"] }
 serde_yaml = "0.9.33"
 serde_json = "1.0.116"
 serde_urlencoded = "0.7.1"
@@ -42,6 +42,7 @@ aes-gcm = {version = "0.10.3", features = ["std"]}
 
 # thiserror
 thiserror = "1.0.58"
+sec = { version = "1.0.0", features = ["serde", "deserialize"] }
 
 [profile.release]
 lto = true

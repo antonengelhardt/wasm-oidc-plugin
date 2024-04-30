@@ -101,8 +101,6 @@ struct ConfiguredOidc {
     pub plugin_config: Arc<PluginConfiguration>,
     /// Token id of the current request
     pub token_id: Option<u32>,
-    /// AES256 Cipher
-    pub cipher: Aes256Gcm,
 }
 
 /// The context is used to process incoming HTTP requests when the filter is configured.
@@ -115,9 +113,10 @@ impl HttpContext for ConfiguredOidc {
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
         // Check if the host regex matches one of the exclude hosts. If so, forward the request.
         let host = self.get_host().unwrap_or_default();
+        let path = self.get_http_request_header(":path").unwrap_or_default();
 
         // Health check
-        if self.get_http_request_header(":path").unwrap_or_default() == "/plugin-health" {
+        if path == "/plugin-health" {
             self.send_http_response(200, vec![], Some(b"OK"));
             return Action::Pause;
         }
@@ -134,7 +133,6 @@ impl HttpContext for ConfiguredOidc {
         }
 
         // If the path is one of the exclude paths, forward the request
-        let path = self.get_http_request_header(":path").unwrap_or_default();
         if self
             .plugin_config
             .exclude_paths
@@ -333,7 +331,11 @@ impl ConfiguredOidc {
         let nonce = self.get_nonce()?;
 
         // Try to parse and decrypt the cookie and handle the result
-        match Session::decode_and_decrypt(cookie, self.cipher.to_owned(), nonce) {
+        match Session::decode_and_decrypt(
+            cookie,
+            self.plugin_config.aes_key.reveal().clone(),
+            nonce,
+        ) {
             // If the cookie can be parsed, this means that the cookie is trusted because modifications would have
             // corrupted the encrypted state. Token validation is only performed if the configuration option is set.
             Ok(session) => {
@@ -419,8 +421,7 @@ impl ConfiguredOidc {
         let query = path.split('?').last().unwrap_or_default();
 
         // Get state from query
-        let callback_params = serde_urlencoded::from_str::<Callback>(query)
-            .map_err(PluginError::CodeNotFoundInCallbackError)?;
+        let callback_params = serde_urlencoded::from_str::<Callback>(query)?;
 
         // Get cookie and nonce
         let encoded_cookie = self.get_session_cookie_as_string()?;
@@ -428,8 +429,11 @@ impl ConfiguredOidc {
         debug!("nonce from cookie: {}", encoded_nonce);
 
         // Get session
-        let session =
-            Session::decode_and_decrypt(encoded_cookie, self.cipher.clone(), encoded_nonce)?;
+        let session = Session::decode_and_decrypt(
+            encoded_cookie,
+            self.plugin_config.aes_key.reveal().clone(),
+            encoded_nonce,
+        )?;
 
         // Get state and code from query
         let state = callback_params.state;
@@ -449,7 +453,8 @@ impl ConfiguredOidc {
             base64engine.encode(
                 format!(
                     "{}:{}",
-                    &self.plugin_config.client_id, &self.plugin_config.client_secret
+                    &self.plugin_config.client_id,
+                    &self.plugin_config.client_secret.reveal()
                 )
                 .as_bytes()
             )
@@ -539,19 +544,21 @@ impl ConfiguredOidc {
                 // Get session from cookie
                 let mut session = Session::decode_and_decrypt(
                     encoded_cookie,
-                    self.cipher.clone(),
+                    self.plugin_config.aes_key.reveal().clone(),
                     encoded_nonce.clone(),
                 )?;
 
                 // Create authorization state from token response
-                let authorization_state = serde_json::from_slice::<AuthorizationState>(&body)
-                    .map_err(PluginError::JsonError)?;
+                let authorization_state = serde_json::from_slice::<AuthorizationState>(&body)?;
 
                 // Add authorization state to session
                 session.authorization_state = Some(authorization_state);
 
                 // Create new session
-                let new_session = session.encrypt_and_encode(self.cipher.clone(), encoded_nonce)?;
+                let new_session = session.encrypt_and_encode(
+                    self.plugin_config.aes_key.reveal().clone(),
+                    encoded_nonce,
+                )?;
 
                 // Get original path
                 let original_path = session.original_path.clone();
@@ -609,7 +616,10 @@ impl ConfiguredOidc {
             code_verifier: pkce_verifier_string,
             state: state_string.clone(),
         }
-        .encrypt_and_encode(self.cipher.clone(), encoded_nonce.clone())
+        .encrypt_and_encode(
+            self.plugin_config.aes_key.reveal().clone(),
+            encoded_nonce.clone(),
+        )
         .expect("session cookie could not be created");
 
         // Build cookie values
