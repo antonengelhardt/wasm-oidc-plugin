@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.4.3
+
+* Prevent AES nonce reuse
+* Idiomatic error handling
+* k8s: httpbin pod as demo project target
+
+## v0.4.2
+
+* Bump serde from 1.0.197 to 1.0.198
+* Bump serde_json from 1.0.115 to 1.0.116
+* ci: separate jobs and caching
+* Healthchecks for Kubernetes
+
 ## v0.4.1
 
 * Demo project: deployment files and readme
