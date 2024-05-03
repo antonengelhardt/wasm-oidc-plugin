@@ -1,5 +1,8 @@
 // aes_gcm
-use aes_gcm::{aead::AeadMut, Aes256Gcm, Nonce};
+use aes_gcm::{
+    aead::{AeadMut, OsRng},
+    AeadCore, Aes256Gcm,
+};
 
 // base64
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
@@ -47,37 +50,40 @@ pub struct Session {
 }
 
 impl Session {
-    /// Create a new session, encrypt it and encode it by using the given cipher and nonce
+    /// Create a new session, encrypt it and encode it by using the given cipher
     /// * `cipher` - Cipher used to encrypt the cookie
-    /// * `encoded_nonce` - Nonce used to encrypt the cookie
+    ///
+    /// Returns:
+    /// * the base64 encoded encrypted session data
+    /// * the base64 encoded nonce needed to decrypt it
     pub fn encrypt_and_encode(
         &self,
         mut cipher: Aes256Gcm,
-        encoded_nonce: String,
-    ) -> Result<String, PluginError> {
-        // Decode nonce using base64
-        let decoded_nonce = base64engine
-            .decode(encoded_nonce.as_bytes())
-            .expect("nonce didn't match the expected format");
+    ) -> Result<(String, String), PluginError> {
+        // Generate nonce and encode it
+        // We generate the nonce here to make sure we never encrypt with the same nonce twice
+        let nonce = Aes256Gcm::generate_nonce(OsRng);
+        let encoded_nonce = base64engine.encode(nonce.as_slice());
 
-        // Build nonce from decoded nonce
-        let nonce = Nonce::from_slice(decoded_nonce.as_slice());
+        // Encrypt and encode cookie
+        let encrypted_cookie = cipher.encrypt(&nonce, serde_json::to_vec(&self)?.as_slice())?;
+        let encoded_cookie = base64engine.encode(encrypted_cookie.as_slice());
 
-        // Encrypt cookie
-        let encrypted_cookie = cipher.encrypt(nonce, serde_json::to_vec(&self)?.as_slice())?;
+        debug!("Encrypted with nonce: {}", &encoded_nonce);
 
-        // Encode cookie and return
-        Ok(base64engine.encode(encrypted_cookie.as_slice()))
+        Ok((encoded_cookie, encoded_nonce))
     }
 
     /// Make the cookie values from the encoded cookie by splitting it into chunks of 4000 bytes and
     /// then building the values to be set in the Set-Cookie headers
     /// * `encoded_cookie` - Encoded cookie to be split into chunks of 4000 bytes
+    /// * `encoded_nonce` - Base64 encoded nonce needed to decrypt the cookie
     /// * `cookie_name` - Name of the cookie
     /// * `cookie_duration` - Duration of the cookie in seconds
     /// * `number_current_cookies` - Number of cookies that are currently set (important because otherwise decryption will fail if older and expired cookies are still present)
     pub fn make_cookie_values(
-        encoded_cookie: String,
+        encoded_cookie: &str,
+        encoded_nonce: &str,
         cookie_name: &str,
         cookie_duration: u64,
         number_current_cookies: u64,
@@ -94,11 +100,18 @@ impl Session {
         // Build the cookie values
         for (i, cookie_part) in cookie_parts.enumerate() {
             let cookie_value = format!(
-                "{}-{}={}; Path=/; HttpOnly; Secure; Max-Age={:?}",
+                "{}-{}={}; Path=/; HttpOnly; Secure; Max-Age={}",
                 cookie_name, i, cookie_part, cookie_duration
             );
             cookie_values.push(cookie_value);
         }
+
+        // Build nonce cookie value
+        let nonce_cookie_value = format!(
+            "{}-nonce={}; Path=/; HttpOnly; Secure; Max-Age={}; ",
+            cookie_name, &encoded_nonce, cookie_duration
+        );
+        cookie_values.push(nonce_cookie_value);
 
         // Overwrite the old cookies because decryption will fail if older and expired cookies are
         // still present.
@@ -135,9 +148,9 @@ impl Session {
         encoded_nonce: String,
     ) -> Result<Session, PluginError> {
         // Decode nonce using base64
+        debug!("Decrypting with nonce: {}", encoded_nonce);
         let decoded_nonce = base64engine.decode(encoded_nonce.as_bytes())?;
         let nonce = aes_gcm::Nonce::from_slice(decoded_nonce.as_slice());
-        debug!("Nonce: {:?}", nonce);
 
         // Decode cookie using base64
         let decoded_cookie = base64engine.decode(encoded_cookie.as_bytes())?;

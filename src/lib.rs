@@ -1,6 +1,3 @@
-// aes-256
-use aes_gcm::{aead::OsRng, AeadCore, Aes256Gcm};
-
 // arc
 use std::sync::Arc;
 use std::vec;
@@ -426,7 +423,6 @@ impl ConfiguredOidc {
         // Get cookie and nonce
         let encoded_cookie = self.get_session_cookie_as_string()?;
         let encoded_nonce = self.get_nonce()?;
-        debug!("nonce from cookie: {}", encoded_nonce);
 
         // Get session
         let session = Session::decode_and_decrypt(
@@ -545,7 +541,7 @@ impl ConfiguredOidc {
                 let mut session = Session::decode_and_decrypt(
                     encoded_cookie,
                     self.plugin_config.aes_key.reveal().clone(),
-                    encoded_nonce.clone(),
+                    encoded_nonce,
                 )?;
 
                 // Create authorization state from token response
@@ -555,17 +551,16 @@ impl ConfiguredOidc {
                 session.authorization_state = Some(authorization_state);
 
                 // Create new session
-                let new_session = session.encrypt_and_encode(
-                    self.plugin_config.aes_key.reveal().clone(),
-                    encoded_nonce,
-                )?;
+                let (new_session, new_nonce) =
+                    session.encrypt_and_encode(self.plugin_config.aes_key.reveal().clone())?;
 
                 // Get original path
                 let original_path = session.original_path.clone();
 
                 // Build cookie values
                 let set_cookie_values = Session::make_cookie_values(
-                    new_session,
+                    &new_session,
+                    &new_nonce,
                     self.plugin_config.cookie_name.as_str(),
                     self.plugin_config.cookie_duration,
                     self.get_number_of_cookies() as u64,
@@ -597,10 +592,6 @@ impl ConfiguredOidc {
         // Original path
         let original_path = self.get_http_request_header(":path").unwrap_or_default();
 
-        // Generate nonce and encode it
-        let nonce = Aes256Gcm::generate_nonce(OsRng);
-        let encoded_nonce = base64engine.encode(nonce.as_slice());
-
         // Generate PKCE code verifier and challenge
         let pkce_verifier = pkce::code_verifier(128);
         let pkce_verifier_string = String::from_utf8(pkce_verifier.clone()).unwrap();
@@ -610,21 +601,19 @@ impl ConfiguredOidc {
         let state_string = String::from_utf8(pkce::code_verifier(128)).unwrap();
 
         // Create session struct
-        let session = cookie::Session {
+        let (session, nonce) = cookie::Session {
             authorization_state: None,
             original_path,
             code_verifier: pkce_verifier_string,
             state: state_string.clone(),
         }
-        .encrypt_and_encode(
-            self.plugin_config.aes_key.reveal().clone(),
-            encoded_nonce.clone(),
-        )
+        .encrypt_and_encode(self.plugin_config.aes_key.reveal().clone())
         .expect("session cookie could not be created");
 
         // Build cookie values
         let set_cookie_values = Session::make_cookie_values(
-            session,
+            &session,
+            &nonce,
             self.plugin_config.cookie_name.as_str(),
             self.plugin_config.cookie_duration,
             self.get_number_of_cookies() as u64,
@@ -632,15 +621,6 @@ impl ConfiguredOidc {
 
         // Build cookie headers
         let mut headers = Session::make_set_cookie_headers(&set_cookie_values);
-
-        // Build nonce cookie value
-        let nonce_cookie_value = &format!(
-            "{}-nonce={}; Max-Age={}; HttpOnly; Secure",
-            self.plugin_config.cookie_name, &encoded_nonce, self.plugin_config.cookie_duration
-        );
-
-        // Add nonce cookie to headers
-        headers.push(("Set-Cookie", nonce_cookie_value));
 
         // Build URL
         let url = Url::parse_with_params(
