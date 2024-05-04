@@ -358,7 +358,13 @@ impl ConfiguredOidc {
                             Err(e) => Err(PluginError::TokenValidationError(e.into())),
                         }
                     }
-                    false => Ok(session.authorization_state.unwrap()),
+                    false => match session.authorization_state {
+                        Some(auth_state) => Ok(auth_state),
+                        // If no authorization state is found, return an error
+                        None => Err(PluginError::CookieValidationError(
+                            "No authorization state found".to_string(),
+                        )),
+                    },
                 }
             }
             // If the cookie cannot be parsed, this filter redirects the requester to the `authorization_endpoint`
