@@ -86,7 +86,7 @@ pub enum OidcRootState {
         /// The token endpoint to exchange the code for a token
         token_endpoint: Url,
         /// The issuer
-        issuer: Url,
+        issuer: String,
         /// The url from which the public keys can be retrieved
         jwks_uri: Url,
     },
@@ -409,7 +409,7 @@ impl Context for OidcDiscovery {
                             open_id_config: Arc::new(OpenIdConfig {
                                 auth_endpoint: auth_endpoint.clone(),
                                 token_endpoint: token_endpoint.clone(),
-                                issuer: issuer.clone(),
+                                issuer: issuer.to_string(),
                                 public_keys: keys,
                             }),
                             plugin_config: plugin_config.clone(),
