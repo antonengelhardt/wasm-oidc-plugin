@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.4.4
+
+* Bug: If auth state is missing in the session and token validation is off, use match to safely unwrap
+
 ## v0.4.3
 
 * Prevent AES nonce reuse
