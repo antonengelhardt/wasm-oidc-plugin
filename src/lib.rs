@@ -379,13 +379,7 @@ impl ConfiguredOidc {
         // Define allowed issuers and audiences
         let mut allowed_issuers = HashSet::new();
         // remove last slash from issuer url
-        allowed_issuers.insert(
-            self.open_id_config
-                .issuer
-                .to_string()
-                .trim_end_matches('/')
-                .to_string(),
-        );
+        allowed_issuers.insert(self.open_id_config.issuer.to_string());
         let mut allowed_audiences = HashSet::new();
         allowed_audiences.insert(self.plugin_config.audience.to_string());
 

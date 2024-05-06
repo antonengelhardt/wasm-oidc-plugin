@@ -27,7 +27,7 @@ pub struct OpenIdConfig {
     /// The URL of the token endpoint
     pub token_endpoint: Url,
     /// The issuer that will be used for the token request
-    pub issuer: Url,
+    pub issuer: String,
 
     // Relevant for Validation of the ID Token
     /// The public keys that will be used for the validation of the ID Token

@@ -22,7 +22,7 @@ use url::Url;
 #[derive(Deserialize, Debug)]
 pub struct OidcDiscoveryResponse {
     /// The issuer of the OpenID Connect Provider
-    pub issuer: Url,
+    pub issuer: String,
     /// The authorization endpoint to start the code flow
     pub authorization_endpoint: Url,
     /// The token endpoint to exchange the code for a token
