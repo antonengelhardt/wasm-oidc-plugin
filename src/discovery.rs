@@ -409,7 +409,7 @@ impl Context for OidcDiscovery {
                             open_id_config: Arc::new(OpenIdConfig {
                                 auth_endpoint: auth_endpoint.clone(),
                                 token_endpoint: token_endpoint.clone(),
-                                issuer: issuer.to_string(),
+                                issuer: issuer.clone(),
                                 public_keys: keys,
                             }),
                             plugin_config: plugin_config.clone(),
