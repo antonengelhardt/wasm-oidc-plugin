@@ -221,9 +221,12 @@ impl HttpContext for ConfiguredOidc {
                 // Allow request to pass
                 return Action::Continue;
             }
-            Err(e) => {
-                warn!("cookie validation failed: {}", e);
-            }
+            Err(e) => match e {
+                // disable logging for these errors
+                PluginError::SessionCookieNotFoundError => {}
+                PluginError::NonceCookieNotFoundError => {}
+                _ => warn!("cookie validation failed: {}", e),
+            },
         }
 
         // Redirect to `authorization_endpoint` if no cookie is found or previous cases have returned an error.
