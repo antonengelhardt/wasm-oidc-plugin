@@ -537,8 +537,6 @@ impl ConfiguredOidc {
         // the body, so we can assume that the response is valid.
         match self.get_http_call_response_body(0, body_size) {
             Some(body) => {
-                debug!("token response: {:?}", body);
-
                 // Get nonce and cookie
                 let encoded_nonce = self.get_nonce()?;
                 let encoded_cookie = self.get_session_cookie_as_string()?;
