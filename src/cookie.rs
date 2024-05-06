@@ -69,7 +69,7 @@ impl Session {
         let encrypted_cookie = cipher.encrypt(&nonce, serde_json::to_vec(&self)?.as_slice())?;
         let encoded_cookie = base64engine.encode(encrypted_cookie.as_slice());
 
-        debug!("Encrypted with nonce: {}", &encoded_nonce);
+        debug!("encrypted with nonce: {}", &encoded_nonce);
 
         Ok((encoded_cookie, encoded_nonce))
     }
@@ -148,7 +148,7 @@ impl Session {
         encoded_nonce: String,
     ) -> Result<Session, PluginError> {
         // Decode nonce using base64
-        debug!("Decrypting with nonce: {}", encoded_nonce);
+        debug!("decrypting with nonce: {}", encoded_nonce);
         let decoded_nonce = base64engine.decode(encoded_nonce.as_bytes())?;
         let nonce = aes_gcm::Nonce::from_slice(decoded_nonce.as_slice());
 
