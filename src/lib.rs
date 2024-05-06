@@ -124,7 +124,7 @@ impl HttpContext for ConfiguredOidc {
             .iter()
             .any(|x| x.is_match(&host))
         {
-            debug!("Host {} is excluded. Forwarding request.", host);
+            debug!("host {} is excluded, forwarding request.", host);
             self.filter_proxy_cookies();
             return Action::Continue;
         }
@@ -136,7 +136,7 @@ impl HttpContext for ConfiguredOidc {
             .iter()
             .any(|x| x.is_match(&path))
         {
-            debug!("Path {} is excluded. Forwarding request.", path);
+            debug!("path {} is excluded, forwarding request.", path);
             self.filter_proxy_cookies();
             return Action::Continue;
         }
@@ -149,7 +149,7 @@ impl HttpContext for ConfiguredOidc {
             .iter()
             .any(|x| x.is_match(url.as_str()))
         {
-            debug!("Url {} is excluded. Forwarding request.", url.as_str());
+            debug!("url {} is excluded, forwarding request.", url.as_str());
             self.filter_proxy_cookies();
             return Action::Continue;
         }
@@ -402,7 +402,7 @@ impl ConfiguredOidc {
             match validation_result {
                 Ok(_) => return Ok(()),
                 Err(e) => {
-                    debug!("Token validation failed: {:?}", e);
+                    debug!("token validation failed: {:?}", e);
                     continue;
                 }
             }
@@ -435,9 +435,9 @@ impl ConfiguredOidc {
         )?;
 
         // Get state and code from query
-        let state = callback_params.state;
         let code = callback_params.code;
         debug!("authorization code: {}", code);
+        let state = callback_params.state;
         debug!("client state: {}", state);
         debug!("cookie state: {}", session.state);
 
@@ -535,8 +535,8 @@ impl ConfiguredOidc {
         match self.get_http_call_response_body(0, body_size) {
             Some(body) => {
                 // Get nonce and cookie
-                let encoded_nonce = self.get_nonce()?;
                 let encoded_cookie = self.get_session_cookie_as_string()?;
+                let encoded_nonce = self.get_nonce()?;
 
                 // Get session from cookie
                 let mut session = Session::decode_and_decrypt(
