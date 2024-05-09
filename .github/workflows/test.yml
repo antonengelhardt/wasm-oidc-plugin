@@ -105,7 +105,7 @@ jobs:
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Build WASM OIDC Plugin
+      - name: Build wasm-oidc-plugin
         run: |
           cargo build --target wasm32-wasi --release
 
