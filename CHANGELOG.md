@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.6
+
+* Bump serde from 1.0.200 to 1.0.201
+* Bump serde_json from 1.0.116 to 1.0.117
+* Bump thiserror from 1.0.59 to 1.0.60
+
 ## v0.4.5
 
 * Bug: parse `issuer` as `String` and not as `Url` as it caused issuer mismatches during token validation
