@@ -4,12 +4,33 @@
 # https://docs.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
 
 version: 2
+
 updates:
-  - package-ecosystem: "cargo" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # This checks for minor and major version updates every week
+  - package-ecosystem: "cargo"
+    directory: "/"
     labels:
       - "dependencies"
     schedule:
       interval: "weekly"
-    reviewers: 
+    reviewers:
       - "antonengelhardt"
+    ignore:
+      - update-types:
+        - "version-update:semver-patch"
+
+  # Patches are grouped together into one PR every month
+  - package-ecosystem: "cargo"
+    directory: "/"
+    labels:
+      - "dependencies"
+    schedule:
+      interval: "monthly"
+    reviewers:
+      - "antonengelhardt"
+
+    # Group all patches into one PR
+    groups:
+      patches:
+        update-types:
+          - "patch"
