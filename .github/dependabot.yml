@@ -16,21 +16,22 @@ updates:
     reviewers:
       - "antonengelhardt"
     ignore:
-      - update-types:
-        - "version-update:semver-patch"
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-patch"
 
   # Patches are grouped together into one PR every month
-  - package-ecosystem: "cargo"
-    directory: "/"
-    labels:
-      - "dependencies"
-    schedule:
-      interval: "monthly"
-    reviewers:
-      - "antonengelhardt"
+  # - package-ecosystem: "cargo"
+  #   directory: "/"
+  #   labels:
+  #     - "dependencies"
+  #   schedule:
+  #     interval: "monthly"
+  #   reviewers:
+  #     - "antonengelhardt"
 
-    # Group all patches into one PR
-    groups:
-      patches:
-        update-types:
-          - "patch"
+  #   # Group all patches into one PR
+  #   groups:
+  #     patches:
+  #       update-types:
+  #         - "patch"
