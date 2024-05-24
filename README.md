@@ -147,6 +147,10 @@ Then, one of the following cases is handled:
 
 ## Tools
 
+### Git Cliff
+
+[Git-Cliff](https://github.com/orhun/git-cliff) automates the generation of changelogs, when following [conventional commit messages](https://www.conventionalcommits.org/en/v1.0.0/)
+
 ### Gitleaks
 
 We are using [Gitleaks](https://github.com/gitleaks/gitleaks) to protect from unwanted secret leaking and prevent security incidents by detecting passwords, secrets, API keys, tokens and more in git repos.
