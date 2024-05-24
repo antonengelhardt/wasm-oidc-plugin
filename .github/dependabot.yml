@@ -15,6 +15,9 @@ updates:
       interval: "weekly"
     reviewers:
       - "antonengelhardt"
+    commit-message:
+      prefix: "chore(deps): update"
+      include: "scope"  
     ignore:
       - dependency-name: "*"
         update-types:
