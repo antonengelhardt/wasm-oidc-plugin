@@ -176,3 +176,88 @@ jobs:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         with:
           args: rollout restart deployment wasm-oidc-plugin -n wasm-oidc-plugin
+
+  trigger-release:
+    needs: [docker-image, ghcr-image]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get most recent merged PR and calculate the next tag
+        id: get_pr
+        run: |
+          MOST_RECENTLY_MERGED_PR=$(curl -s -H 'Accept: application/vnd.github.v3+json' "https://api.github.com/repos/antonengelhardt/wasm-oidc-plugin/pulls?state=closed" | \
+          jq '[.[] | select(.merged_at != null)] | max_by(.merged_at)')
+          PR_NUMBER=$(echo $MOST_RECENTLY_MERGED_PR | jq -r '.number')
+
+          LABELS=$(curl -s -H 'Accept: application/vnd.github.v3+json' "https://api.github.com/repos/antonengelhardt/wasm-oidc-plugin/issues/$PR_NUMBER" | jq -r '.labels[].name')
+
+          # Set SEMVER_BUMP based on the presence of labels
+          if [[ $LABELS == *"major"* ]]; then
+            SEMVER_BUMP="major"
+          elif [[ $LABELS == *"minor"* ]]; then
+            SEMVER_BUMP="minor"
+          elif [[ $LABELS == *"bug"* ]]; then
+            SEMVER_BUMP="patch"
+          elif [[ $LABELS == *"patch"* ]]; then
+            SEMVER_BUMP="patch"
+          else
+            SEMVER_BUMP="none"
+          fi
+
+          # Output the SEMVER_BUMP value
+          echo "SEMVER_BUMP is set to: $SEMVER_BUMP"
+
+          LATEST_TAG=$(git describe --tags --abbrev=0)
+          # alt: LATEST_TAG=$(curl "https://api.github.com/repos/antonengelhardt/wasm-oidc-plugin/tags" | jq -r '.[0].name')
+
+          SEMVER_BUMP="major" # Set to "major", "minor", "patch" or "none"
+
+          # Function to bump version numbers
+          bump_version() {
+              local IFS=.
+              local -a parts=($1)
+
+              case "$2" in
+                  major)
+                      ((parts[0]++))
+                      parts[1]=0
+                      parts[2]=0
+                      ;;
+                  minor)
+                      ((parts[1]++))
+                      parts[2]=0
+                      ;;
+                  patch)
+                      ((parts[2]++))
+                      ;;
+                  *)
+                      echo "Error: Unknown version bump type '$2'"
+                      exit 1
+                      ;;
+              esac
+
+              echo "${parts[0]}.${parts[1]}.${parts[2]}"
+          }
+
+          current_version=${LATEST_TAG:1}
+
+          # Bump the version based on the SEMVER_BUMP
+          new_version=$(bump_version "$current_version" "$SEMVER_BUMP")
+
+          # Append 'v' prefix if required to maintain the same version format
+          NEW_TAG="v$new_version"
+
+          echo "New tag after bump is: $NEW_TAG"
+
+          echo $NEW_TAG >> $GITHUB_ENV
+
+      - name: Create a tag on main
+        run: |
+
+          git checkout origin/main
+
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+          git tag $NEW_TAG
+
+          git push origin $NEW_TAG
