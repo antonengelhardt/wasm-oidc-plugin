@@ -1,7 +1,7 @@
 [package]
 publish = false
 name = "wasm-oidc-plugin"
-version = "0.4.5"
+version = "0.4.6"
 authors = ["WWU Cloud Developer <cloud@uni-muenster.de>, Anton Engelhardt <antoncengelhardt@icloud.com>"]
 description = "A plugin for the Envoy-Proxy written in Rust. It is a HTTP Filter, that implements the OIDC Authorization Code Flow. Requests sent to the filter are checked for the presence of a valid session cookie. If the cookie is not present, the user is redirected to the authorization_endpoint to authenticate. After successful authentication, the user is redirected back to the original request with a code in the URL query. The plugin then exchanges the code for a token using the token_endpoint and stores the token in the session. If the cookie is present, the plugin validates the token and passes the request to the backend, if the token is valid (optional)."
 license = "Apache-2.0"
@@ -19,9 +19,9 @@ proxy-wasm = "0.2.1"
 
 # json, yaml, url parsing
 url = { version = "2.5.0", features = ["serde"] }
-serde = { version = "1.0.200", features = ["derive"] }
+serde = { version = "1.0.202", features = ["derive"] }
 serde_yaml = "0.9.33"
-serde_json = "1.0.116"
+serde_json = "1.0.117"
 serde_urlencoded = "0.7.1"
 
 # base64
@@ -41,7 +41,7 @@ pkce = "0.2.0"
 aes-gcm = {version = "0.10.3", features = ["std"]}
 
 # thiserror
-thiserror = "1.0.58"
+thiserror = "1.0.61"
 sec = { version = "1.0.0", features = ["serde", "deserialize"] }
 
 [profile.release]
