@@ -33,7 +33,7 @@ jobs:
         uses: orhun/git-cliff-action@v3
         with:
           config: cliff.toml
-          args: -l --prepend CHANGELOG.md
+          args: -l --prepend CHANGELOG.md --strip header
         env:
           GITHUB_REPO: ${{ github.repository }}
 
@@ -47,7 +47,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           set +e
           git add Cargo.toml CHANGELOG.md
-          git commit -m "chore(relase): prepare for ${{ env.VERSION }}"
+          git commit -m "chore(release): prepare for ${{ env.VERSION }}"
           git push origin HEAD:main
 
       - name: Create Release
