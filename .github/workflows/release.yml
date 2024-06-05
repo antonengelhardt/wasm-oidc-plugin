@@ -16,6 +16,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
       - name: Extract version from Github Ref
         id: extract_version
@@ -39,11 +40,6 @@ jobs:
       - name: Print Changelog
         run: cat ${{ steps.generate_changelog.outputs.changelog }} && echo "##" && cat CHANGELOG.md
 
-      - name: Delete previous tag
-        run: |
-          git tag -d ${{ env.VERSION }}
-          git push --delete origin ${{ env.VERSION }}
-
       - name: Commit Version and CHANGELOG.md
         run: |
           git checkout origin/main
@@ -53,11 +49,6 @@ jobs:
           git add Cargo.toml CHANGELOG.md
           git commit -m "chore(relase): prepare for ${{ env.VERSION }}"
           git push origin HEAD:main
-
-      - name: New Tag
-        run: |
-          git tag ${{ env.VERSION }}
-          git push origin ${{ env.VERSION }}
 
       - name: Create Release
         uses: actions/create-release@v1
