@@ -188,6 +188,13 @@ jobs:
         with:
           ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
+      - name: Exit if latest commit is release commit
+        run: |
+          if git log -1 --pretty=%B | grep -q "chore(release): prepare release for"; then
+            echo "Latest commit is a release commit, exiting..."
+            exit 0
+          fi
+
       - name: Get most recent merged PR and calculate the next tag
         id: get_pr
         run: |
