@@ -192,10 +192,12 @@ jobs:
         run: |
           if git log -1 --pretty=%B | grep -q "chore(release): prepare for"; then
             echo "Latest commit is a release commit, exiting..."
+            echo "EXIT=1" >> $GITHUB_ENV
             exit 0
           fi
 
       - name: Get most recent merged PR and calculate the next tag
+        if: env.EXIT != '1'
         id: get_pr
         run: |
           MOST_RECENTLY_MERGED_PR=$(curl -s -H 'Accept: application/vnd.github.v3+json' "https://api.github.com/repos/antonengelhardt/wasm-oidc-plugin/pulls?state=closed" | \
@@ -264,6 +266,7 @@ jobs:
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
       - name: Create a tag on main
+        if: env.EXIT != '1'
         run: |
           git checkout origin/main
 
