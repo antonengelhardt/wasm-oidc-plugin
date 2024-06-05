@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.4.8
+
+### 🐛 Bug Fixes
+
+- *(ci)* Use deploy key because one action cant trigger the next :(
+
 ## v0.4.6
 
 * Bump serde from 1.0.200 to 1.0.201
