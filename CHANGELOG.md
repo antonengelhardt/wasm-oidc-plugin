@@ -1,3 +1,16 @@
+## v0.4.9
+
+### 🐛 Bug Fixes
+
+- *(ci)* Commit message fixed and header stripped from changelog
+- *(ci)* Only trigger release if commit is not release commit
+- *(ci)* Cant type, changelog cleaned
+
+### ⚙️ Miscellaneous Tasks
+
+- *(relase)* Prepare for v0.4.8
+- *(relase)* Prepare for v0.4.9
+
 ## v0.4.8
 
 ### 🐛 Bug Fixes
