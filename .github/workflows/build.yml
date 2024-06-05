@@ -207,8 +207,8 @@ jobs:
           # Output the SEMVER_BUMP value
           echo "SEMVER_BUMP is set to: $SEMVER_BUMP"
 
-          LATEST_TAG=$(git describe --tags --abbrev=0)
-          # alt: LATEST_TAG=$(curl "https://api.github.com/repos/antonengelhardt/wasm-oidc-plugin/tags" | jq -r '.[0].name')
+          # LATEST_TAG=$(git describe --tags --abbrev=0)
+          LATEST_TAG=$(curl "https://api.github.com/repos/antonengelhardt/wasm-oidc-plugin/tags" | jq -r '.[0].name')
 
           # Function to bump version numbers
           bump_version() {
