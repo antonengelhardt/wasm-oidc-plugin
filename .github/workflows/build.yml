@@ -201,6 +201,7 @@ jobs:
             SEMVER_BUMP="patch"
           else
             SEMVER_BUMP="none"
+            exit 0 # exit if no labels are found, which means no version bump is required
           fi
 
           # Output the SEMVER_BUMP value
@@ -208,8 +209,6 @@ jobs:
 
           LATEST_TAG=$(git describe --tags --abbrev=0)
           # alt: LATEST_TAG=$(curl "https://api.github.com/repos/antonengelhardt/wasm-oidc-plugin/tags" | jq -r '.[0].name')
-
-          SEMVER_BUMP="major" # Set to "major", "minor", "patch" or "none"
 
           # Function to bump version numbers
           bump_version() {
