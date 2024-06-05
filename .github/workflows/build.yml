@@ -180,6 +180,8 @@ jobs:
   trigger-release:
     needs: [docker-image, ghcr-image]
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -254,7 +256,6 @@ jobs:
 
       - name: Create a tag on main
         run: |
-
           git checkout origin/main
 
           git config user.email "github-actions[bot]@users.noreply.github.com"
