@@ -247,7 +247,7 @@ jobs:
 
           echo "New tag after bump is: $NEW_TAG"
 
-          echo $NEW_TAG >> $GITHUB_ENV
+          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_ENV
 
       - name: Create a tag on main
         run: |
@@ -257,6 +257,6 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git config user.name "github-actions[bot]"
 
-          git tag $NEW_TAG
+          git tag ${{ env.NEW_TAG }}
 
-          git push origin $NEW_TAG
+          git push origin ${{ env.NEW_TAG }}
