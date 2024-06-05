@@ -16,7 +16,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
 
       - name: Extract version from Github Ref
         id: extract_version
