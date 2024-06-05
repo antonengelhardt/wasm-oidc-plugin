@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.4.9
+
+### ⚙️ Miscellaneous Tasks
+
+- *(relase)* Prepare for v0.4.8
+
 ## v0.4.8
 
 ### 🐛 Bug Fixes
