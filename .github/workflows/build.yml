@@ -181,6 +181,9 @@ jobs:
     needs: [docker-image, ghcr-image]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Get most recent merged PR and calculate the next tag
         id: get_pr
         run: |
