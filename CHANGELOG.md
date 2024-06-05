@@ -7,6 +7,18 @@ All notable changes to this project will be documented in this file.
 ### 🐛 Bug Fixes
 
 - *(ci)* Use deploy key because one action cant trigger the next :(
+- *(ci)* Release workflow uses normal bot user to not cause a loop
+- *(ci)* Release workflow should not remove old and add new tag
+
+### ⚙️ Miscellaneous Tasks
+
+- *(relase)* Prepare for v0.4.8
+
+## v0.4.8
+
+### 🐛 Bug Fixes
+
+- *(ci)* Use deploy key because one action cant trigger the next :(
 
 ## v0.4.6
 
