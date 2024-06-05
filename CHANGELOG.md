@@ -1,3 +1,9 @@
+## v0.4.11
+
+### 🐛 Bug Fixes
+
+- *(ci)* Use gh env to skip steps
+
 ## v0.4.9
 
 ### 🐛 Bug Fixes
