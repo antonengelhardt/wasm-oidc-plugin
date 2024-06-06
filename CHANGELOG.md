@@ -1,3 +1,9 @@
+## [v0.4.13]
+
+### 🐛 Bug Fixes
+
+- **(ci)** Sed [v0.4.13] in Changelog
+
 ## v0.4.12
 
 ### 🐛 Bug Fixes
