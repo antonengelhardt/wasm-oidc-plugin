@@ -1,8 +1,14 @@
+## v0.5.0
+
+### 🐛 Bug Fixes
+
+- **(ci)** Brackets missed, changelog fixed
+
 ## v0.4.13
 
 ### 🐛 Bug Fixes
 
-- **(ci)** Sed [unreleased] in Changelog
+- **(ci)** Sed v0.5.0 in Changelog
 
 ## v0.4.12
 
