@@ -216,6 +216,7 @@ jobs:
             SEMVER_BUMP="patch"
           else
             SEMVER_BUMP="none"
+            echo "EXIT=1" >> $GITHUB_ENV
             exit 0 # exit if no labels are found, which means no version bump is required
           fi
 
@@ -277,6 +278,16 @@ jobs:
         env:
           GITHUB_REPO: ${{ github.repository }}
 
+      - name: sed [unreleased] with new version in CHANGELOG.md
+        if: env.EXIT != '1'
+        run: sed -i "s/\[unreleased\]/[${{ env.NEW_TAG }}]/" CHANGELOG.md
+
+      - name: sed [unreleased] with new version in RELEASE_NOTES.md
+        if: env.EXIT != '1'
+        run: |
+          cat ${{ steps.generate_changelog.outputs.changelog }} > RELEASE_NOTES.md
+          sed -i "s/\[unreleased\]/[${{ env.NEW_TAG }}]/" RELEASE_NOTES.md
+
       - name: Print Changelog
         if: env.EXIT != '1'
         run: cat ${{ steps.generate_changelog.outputs.changelog }} && echo "##" && cat CHANGELOG.md
@@ -314,6 +325,6 @@ jobs:
         with:
           tag_name: ${{ env.NEW_TAG }}
           release_name: ${{ env.NEW_TAG }}
-          body_path: ${{ steps.generate_changelog.outputs.changelog }}
+          body_path: RELEASE_NOTES.md
           draft: false
           prerelease: false
