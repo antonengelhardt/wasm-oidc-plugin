@@ -6,67 +6,9 @@ on:
       - v*
 
 jobs:
-  change-log-and-release:
-    name: Prepare release & generate changelog
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
-
-      - name: Extract version from Github Ref
-        id: extract_version
-        run: |
-          echo VERSION=$(echo ${{ github.ref }} | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+") >> $GITHUB_ENV
-
-      - name: Bump Version on Cargo.toml
-        run: |
-          VERSION=$(echo ${{ env.VERSION }} | grep -o "[0-9]\+\.[0-9]\+\.[0-9]\+")
-          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
-
-      - name: Git Cliff
-        id: generate_changelog
-        uses: orhun/git-cliff-action@v3
-        with:
-          config: cliff.toml
-          args: -l --prepend CHANGELOG.md --strip header
-        env:
-          GITHUB_REPO: ${{ github.repository }}
-
-      - name: Print Changelog
-        run: cat ${{ steps.generate_changelog.outputs.changelog }} && echo "##" && cat CHANGELOG.md
-
-      - name: Commit Version and CHANGELOG.md
-        run: |
-          git checkout origin/main
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          set +e
-          git add Cargo.toml CHANGELOG.md
-          cargo check
-          git add Cargo.lock
-          git commit -m "chore(release): prepare for ${{ env.VERSION }}"
-          git push origin HEAD:main
-
-      - name: Create Release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ env.VERSION }}
-          release_name: ${{ env.VERSION }}
-          body_path: ${{ steps.generate_changelog.outputs.changelog }}
-          draft: false
-          prerelease: false
-
   build:
     name: Build and upload artifacts
     runs-on: ubuntu-latest
-    needs: change-log-and-release
     container:
       image: antonengelhardt/rust-docker-tools
     steps:
@@ -97,7 +39,6 @@ jobs:
   docker-image:
     name: Build and push Docker image
     runs-on: ubuntu-latest
-    needs: change-log-and-release
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -123,7 +64,6 @@ jobs:
   ghcr-image:
     name: Build and push GHCR image
     runs-on: ubuntu-latest
-    needs: change-log-and-release
     permissions:
       contents: read
       packages: write
