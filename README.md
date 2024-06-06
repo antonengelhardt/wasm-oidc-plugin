@@ -170,6 +170,8 @@ If you want to install a pre-commit hook - you should - install [pre-commit](htt
 pre-commit install
 ```
 
+The pre-commit hook will also check for a clean code style, formatting best practices and enforce clippy lints.
+
 ### Cargo-Deny
 
 Cargo-deny checks all dependencies for security vulnerabilities and license issues.

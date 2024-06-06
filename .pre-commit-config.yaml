@@ -1,5 +1,26 @@
 repos:
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.16.1
+    rev: v8.18.2
     hooks:
       - id: gitleaks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-byte-order-marker
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+  - repo: https://github.com/pre-commit/pre-commit
+    rev: v3.7.1
+    hooks:
+      - id: validate_manifest
+  - repo: https://github.com/antonengelhardt/wasm-oidc-plugin
+    rev: v0.4.6
+    hooks:
+      - id: fmt
+      - id: clippy
+      - id: cargo-check
