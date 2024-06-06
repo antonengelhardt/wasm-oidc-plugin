@@ -1,4 +1,4 @@
-## [unreleased]
+## v0.4.12
 
 ### 🐛 Bug Fixes
 
@@ -8,32 +8,32 @@
 
 ### 🐛 Bug Fixes
 
-- *(ci)* Use gh env to skip steps
+- **(ci)** Use gh env to skip steps
 
 ## v0.4.9
 
 ### 🐛 Bug Fixes
 
-- *(ci)* Commit message fixed and header stripped from changelog
-- *(ci)* Only trigger release if commit is not release commit
-- *(ci)* Cant type, changelog cleaned
+- **(ci)** Commit message fixed and header stripped from changelog
+- **(ci)** Only trigger release if commit is not release commit
+- **(ci)** Cant type, changelog cleaned
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(relase)* Prepare for v0.4.8
-- *(relase)* Prepare for v0.4.9
+- **(release)** Prepare for v0.4.8
+- **(release)** Prepare for v0.4.9
 
 ## v0.4.8
 
 ### 🐛 Bug Fixes
 
-- *(ci)* Use deploy key because one action cant trigger the next :(
-- *(ci)* Release workflow uses normal bot user to not cause a loop
-- *(ci)* Release workflow should not remove old and add new tag
+- **(ci)** Use deploy key because one action cant trigger the next :(
+- **(ci)** Release workflow uses normal bot user to not cause a loop
+- **(ci)** Release workflow should not remove old and add new tag
 
 ### ⚙️ Miscellaneous Tasks
 
-- *(relase)* Prepare for v0.4.8
+- **(release)** Prepare for v0.4.8
 
 ## v0.4.6
 
