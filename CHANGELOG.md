@@ -1,8 +1,8 @@
-## [v0.4.13]
+## v0.4.13
 
 ### 🐛 Bug Fixes
 
-- **(ci)** Sed [v0.4.13] in Changelog
+- **(ci)** Sed [unreleased] in Changelog
 
 ## v0.4.12
 

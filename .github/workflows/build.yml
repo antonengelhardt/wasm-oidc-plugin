@@ -280,13 +280,13 @@ jobs:
 
       - name: sed [unreleased] with new version in CHANGELOG.md
         if: env.EXIT != '1'
-        run: sed -i "s/\[unreleased\]/[${{ env.NEW_TAG }}]/" CHANGELOG.md
+        run: sed -i "s/\[unreleased\]/${{ env.NEW_TAG }}/" CHANGELOG.md
 
       - name: sed [unreleased] with new version in RELEASE_NOTES.md
         if: env.EXIT != '1'
         run: |
           cat ${{ steps.generate_changelog.outputs.changelog }} > RELEASE_NOTES.md
-          sed -i "s/\[unreleased\]/[${{ env.NEW_TAG }}]/" RELEASE_NOTES.md
+          sed -i "s/\[unreleased\]/${{ env.NEW_TAG }}/" RELEASE_NOTES.md
 
       - name: Print Changelog
         if: env.EXIT != '1'
