@@ -1,3 +1,9 @@
+## [unreleased]
+
+### 🐛 Bug Fixes
+
+- *(ci)* Move release and changelog to on push workflow and skip if commit is release commit
+
 ## v0.4.11
 
 ### 🐛 Bug Fixes
