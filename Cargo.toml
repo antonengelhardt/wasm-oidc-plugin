@@ -12,23 +12,23 @@ crate-type = ["cdylib"]
 
 [dependencies]
 # logging
-log = "0.4.21"
+log = "0.4.22"
 
 # proxy-wasm
-proxy-wasm = "0.2.1"
+proxy-wasm = "0.2.2"
 
 # json, yaml, url parsing
-url = { version = "2.5.0", features = ["serde"] }
-serde = { version = "1.0.202", features = ["derive"] }
+url = { version = "2.5.2", features = ["serde"] }
+serde = { version = "1.0.204", features = ["derive"] }
 serde_yaml = "0.9.33"
-serde_json = "1.0.117"
+serde_json = "1.0.120"
 serde_urlencoded = "0.7.1"
 
 # base64
 base64 = "0.22.1"
 
 # regex
-regex = "1.10.4"
+regex = "1.10.5"
 serde_regex = "1.1.0"
 
 # jsonwebtoken (forked version to support RSA keys longer than 4096 bits)
@@ -41,7 +41,7 @@ pkce = "0.2.0"
 aes-gcm = {version = "0.10.3", features = ["std"]}
 
 # thiserror
-thiserror = "1.0.61"
+thiserror = "1.0.63"
 sec = { version = "1.0.0", features = ["serde", "deserialize"] }
 
 [profile.release]
