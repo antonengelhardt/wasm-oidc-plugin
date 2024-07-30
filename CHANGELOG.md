@@ -1,3 +1,13 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+## v0.5.1
+
+### ⚙️ Miscellaneous Tasks
+
+- **(deps)**: update proxy-wasm to v0.2.2 (from v0.2.1)
+
 ## v0.5.0
 
 ### 🐛 Bug Fixes
