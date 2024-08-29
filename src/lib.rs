@@ -118,6 +118,27 @@ impl HttpContext for ConfiguredOidc {
             return Action::Pause;
         }
 
+        // If Path is login route, clear cookies and redirect to base path
+        if path == self.plugin_config.logout_path {
+            debug!("logout path hit, clearing cookies");
+
+            let cookies_values = Session::make_cookie_values(
+                "",
+                "",
+                &self.plugin_config.cookie_name,
+                0,
+                self.get_number_of_cookies() as u64,
+            );
+
+            let mut response_headers = Session::make_set_cookie_headers(&cookies_values);
+
+            response_headers.push(("Location", "/"));
+            response_headers.push(("Cache-Control", "no-cache"));
+
+            self.send_http_response(307, response_headers, Some(b"Logging out..."));
+            return Action::Pause;
+        }
+
         if self
             .plugin_config
             .exclude_hosts
