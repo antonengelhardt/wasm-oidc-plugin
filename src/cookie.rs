@@ -160,7 +160,7 @@ impl Session {
 
         // Parse cookie into a struct
         let state = serde_json::from_slice::<Session>(&decrypted_cookie)?;
-        debug!("state: {:?}", state);
+        debug!("auth_state: {:?}", state);
         Ok(state)
     }
 }
