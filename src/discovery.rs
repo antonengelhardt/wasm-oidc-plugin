@@ -85,6 +85,8 @@ pub enum OidcRootState {
         auth_endpoint: Url,
         /// The token endpoint to exchange the code for a token
         token_endpoint: Url,
+        /// The URL to logout the user
+        end_session_endpoint: Option<Url>,
         /// The issuer
         issuer: String,
         /// The url from which the public keys can be retrieved
@@ -344,6 +346,7 @@ impl Context for OidcDiscovery {
                             plugin_config: plugin_config.clone(),
                             auth_endpoint: open_id_response.authorization_endpoint,
                             token_endpoint: open_id_response.token_endpoint,
+                            end_session_endpoint: open_id_response.end_session_endpoint,
                             issuer: open_id_response.issuer,
                             jwks_uri: open_id_response.jwks_uri,
                         }
@@ -361,6 +364,7 @@ impl Context for OidcDiscovery {
                 plugin_config,
                 auth_endpoint,
                 token_endpoint,
+                end_session_endpoint,
                 issuer,
                 ..
             } => {
@@ -409,6 +413,7 @@ impl Context for OidcDiscovery {
                             open_id_config: Arc::new(OpenIdConfig {
                                 auth_endpoint: auth_endpoint.clone(),
                                 token_endpoint: token_endpoint.clone(),
+                                end_session_endpoint: end_session_endpoint.clone(),
                                 issuer: issuer.clone(),
                                 public_keys: keys,
                             }),
@@ -474,6 +479,19 @@ impl OidcDiscovery {
             || !cookies_name_regex.is_match(&plugin_config.cookie_name)
         {
             return Err(PluginError::ConfigError("`cookie_name` is empty or not valid meaning that it contains invalid characters like ;, =, :, /, space".to_string()));
+        }
+
+        // Logout Path
+        if plugin_config.logout_path.is_empty() {
+            return Err(PluginError::ConfigError(
+                "`logout_path` is empty".to_string(),
+            ));
+        }
+
+        if !plugin_config.logout_path.starts_with('/') {
+            return Err(PluginError::ConfigError(
+                "`logout_path` does not start with a `/`".to_string(),
+            ));
         }
 
         // Cookie Duration

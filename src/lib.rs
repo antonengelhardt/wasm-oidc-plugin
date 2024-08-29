@@ -118,7 +118,7 @@ impl HttpContext for ConfiguredOidc {
             return Action::Pause;
         }
 
-        // If Path is login route, clear cookies and redirect to base path
+        // If Path is logout route, clear cookies and redirect to base path
         if path == self.plugin_config.logout_path {
             debug!("logout path hit, clearing cookies");
 
@@ -132,7 +132,14 @@ impl HttpContext for ConfiguredOidc {
 
             let mut response_headers = Session::make_set_cookie_headers(&cookies_values);
 
-            response_headers.push(("Location", "/"));
+            // Redirect to end session endpoint, if available (not all OIDC providers support this)
+            let location = match &self.open_id_config.end_session_endpoint {
+                // if the end session endpoint is available, redirect to it
+                Some(url) => url.as_str(),
+                // else, redirect to the base path
+                None => "/",
+            };
+            response_headers.push(("Location", location));
             response_headers.push(("Cache-Control", "no-cache"));
 
             self.send_http_response(307, response_headers, Some(b"Logging out..."));

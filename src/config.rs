@@ -26,6 +26,8 @@ pub struct OpenIdConfig {
     // Everything relevant for the Token Exchange Flow
     /// The URL of the token endpoint
     pub token_endpoint: Url,
+    /// The URL to logout the user
+    pub end_session_endpoint: Option<Url>,
     /// The issuer that will be used for the token request
     pub issuer: String,
 
@@ -71,7 +73,7 @@ pub struct PluginConfiguration {
     // Cookie settings
     /// The cookie name that will be used for the session cookie
     pub cookie_name: String,
-    /// Logout path to clear all cookies
+    /// The URL to logout the user
     pub logout_path: String,
     /// Filter out the cookies created and controlled by the plugin
     /// If the value is true, the cookies will be filtered out

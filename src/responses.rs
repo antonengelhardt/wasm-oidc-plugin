@@ -27,6 +27,8 @@ pub struct OidcDiscoveryResponse {
     pub authorization_endpoint: Url,
     /// The token endpoint to exchange the code for a token
     pub token_endpoint: Url,
+    /// The URL to logout the user
+    pub end_session_endpoint: Option<Url>,
     /// The jwks uri to load the jwks response from
     pub jwks_uri: Url,
 }

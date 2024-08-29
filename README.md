@@ -105,7 +105,7 @@ The plugin is configured via the `envoy.yaml`-file. The following configuration 
 | `id_token_header_name` | `string` | If set, this name will be used to forward the id token to the backend. | `X-Id-Token` | ❌ |
 | `id_token_header_prefix` | `string` | The prefix of the header, that is used to forward the id token, if empty "" is used. | `Bearer ` | ❌ |
 | `cookie_name` | `string` | The name of the cookie, that is used to store the session. | `oidcSession` | ✅ |
-| `logout_path` | `string` | The path, that is used to logout the user. | `/logout` | ✅ |
+| `logout_path` | `string` | The path, that is used to logout the user. The user will be redirected to `end_session_endpoint` of the OIDC provider, if the server supports this; alternatively the user is sent to "/" | `/logout` | ✅ |
 | `filter_plugin_cookies | `bool` | Whether to filter the cookies that are managed and controlled by the plugin (namely cookie_name and `nonce`). | `true` | ✅ |
 | `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` | ✅ |
 | `token_validation` | bool | Whether to validate the token or not. | `true` | ✅ |
