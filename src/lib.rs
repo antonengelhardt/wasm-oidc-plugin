@@ -108,9 +108,16 @@ struct ConfiguredOidc {
 impl HttpContext for ConfiguredOidc {
     /// This function is called when the request headers are received.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
-        // Check if the host regex matches one of the exclude hosts. If so, forward the request.
+
+        // Get the host, path and scheme from the request headers
         let host = self.get_host().unwrap_or_default();
+        debug!("host: {}", host);
         let path = self.get_http_request_header(":path").unwrap_or_default();
+        debug!("path: {}", path);
+        let scheme = self
+            .get_http_request_header(":scheme")
+            .unwrap_or("http".to_string());
+        debug!("scheme: {}", scheme);
 
         // Health check
         if path == "/plugin-health" {
@@ -118,6 +125,7 @@ impl HttpContext for ConfiguredOidc {
             return Action::Pause;
         }
 
+        // If the host is one of the exclude hosts, forward the request
         if self
             .plugin_config
             .exclude_hosts
@@ -141,8 +149,11 @@ impl HttpContext for ConfiguredOidc {
             return Action::Continue;
         }
 
-        let url = Url::parse(&format!("{}{}", host, path))
+        // Parse the URL and check if it is excluded
+        let url = Url::parse(&format!("{}://{}{}", scheme, host, path))
             .unwrap_or(Url::parse("http://example.com").unwrap());
+        debug!("url: {}", url);
+
         if self
             .plugin_config
             .exclude_urls
@@ -154,6 +165,7 @@ impl HttpContext for ConfiguredOidc {
             return Action::Continue;
         }
 
+        // If the request is for the OIDC callback, e.g the code is returned, this filter
         // exchanges the code for a token. The response is caught in on_http_call_response.
         // If the dispatch fails, a 503 is returned.
         if path.starts_with(self.plugin_config.redirect_uri.path()) {
