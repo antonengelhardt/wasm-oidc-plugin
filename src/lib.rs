@@ -108,7 +108,6 @@ struct ConfiguredOidc {
 impl HttpContext for ConfiguredOidc {
     /// This function is called when the request headers are received.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
-
         // Get the host, path and scheme from the request headers
         let host = self.get_host().unwrap_or_default();
         debug!("host: {}", host);
