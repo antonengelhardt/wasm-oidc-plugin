@@ -20,7 +20,7 @@ use url::Url;
 
 /// [OpenID Connect Discovery Response](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig)
 #[derive(Deserialize, Debug)]
-pub struct OidcDiscoveryResponse {
+pub struct OpenIdDiscoveryResponse {
     /// The issuer of the OpenID Connect Provider
     pub issuer: String,
     /// The authorization endpoint to start the code flow
@@ -112,9 +112,18 @@ impl From<JsonWebKey> for SigningKey {
 
 /// Struct that defines how the callback looks like to serialize it better with serde
 #[derive(Deserialize, Debug)]
-pub struct Callback {
+pub struct CodeCallback {
     /// The code that is returned from the authorization endpoint
     pub code: String,
     /// The state that is returned from the authorization endpoint
     pub state: String,
+}
+
+/// Struct that defines how the callback looks like to serialize it better with serde
+#[derive(Deserialize, Debug)]
+pub struct ProviderSelectionCallback {
+    /// The name of the provider that the user selected
+    pub authorize_with_provider: String,
+    /// The return_to path that the user should be redirected to after the provider selection
+    pub return_to: String,
 }

@@ -31,9 +31,6 @@ static_resources:
                       configuration:
                         "@type": "type.googleapis.com/google.protobuf.StringValue"
                         value: |
-                          config_endpoint: "https://accounts.google.com/.well-known/openid-configuration"
-                          reload_interval_in_h: 1 # in hours
-
                           exclude_hosts: [] # or ["httpbin.org"]
                           exclude_paths: [] # or ["/favicon.ico"]
                           exclude_urls: [] # or ["http://localhost:10000/#/HTTP_Methods/get_get"]
@@ -49,14 +46,24 @@ static_resources:
                           token_validation: true # or false
                           aes_key: "i-am-a-forty-four-characters-long-string-key" # generate with `openssl rand -base64 32`
 
-                          authority: "accounts.google.com" # FQDN of the OIDC provider
-                          redirect_uri: "http://localhost:10000/oidc/callback" # redirect uri that is registered with the OIDC provider
-                          client_id: "wasm-oidc-plugin" # client id that is registered with the OIDC provider
-                          scope: "openid profile email"
-                          claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+                          reload_interval_in_h: 1 # in hours
+                          open_id_configs:
 
                           client_secret: "redacted"
                           audience: "wasm-oidc-plugin"
+                          reload_interval_in_h: 1 # in hours
+                          open_id_configs:
+                            - name: google
+                              image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/2560px-Google_2015_logo.svg.png"
+                              config_endpoint: "https://accounts.google.com/.well-known/openid-configuration"
+                              upstream_cluster: "google"
+                              authority: "accounts.google.com"
+                              redirect_uri: "http://localhost:10000/oidc/callback"
+                              client_id: "google-client-id"
+                              scope: "openid profile email"
+                              claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+                              client_secret: "google-client-secret"
+                              audience: "google-client-id"
                       vm_config:
                         runtime: "envoy.wasm.runtime.v8"
                         code:
@@ -80,12 +87,12 @@ static_resources:
                       address: httpbin
                       port_value: 80
                   hostname: "httpbin.org"
-    - name: oidc
+    - name: google
       connect_timeout: 5s
       type: LOGICAL_DNS
       dns_lookup_family: V4_ONLY
       load_assignment:
-        cluster_name: oidc
+        cluster_name: google
         endpoints:
           - lb_endpoints:
               - endpoint:
@@ -93,7 +100,6 @@ static_resources:
                     socket_address:
                       address: accounts.google.com
                       port_value: 443
-                  # hostname: "accounts.google.com"
       transport_socket:
         name: envoy.transport_sockets.tls
         typed_config:
