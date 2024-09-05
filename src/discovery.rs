@@ -17,29 +17,11 @@ use regex::Regex;
 use url::Url;
 
 // crate
+use crate::auth::ConfiguredOidc;
 use crate::config::{OpenIdConfig, PluginConfiguration};
 use crate::error::PluginError;
+use crate::pause::PauseRequests;
 use crate::responses::{JWKsResponse, OpenIdDiscoveryResponse, SigningKey};
-use crate::{ConfiguredOidc,PauseRequests};
-
-// This is the initial entry point of the plugin.
-proxy_wasm::main! {{
-
-    proxy_wasm::set_log_level(LogLevel::Debug);
-
-    info!("Starting plugin");
-
-    // This sets the root context, which is the first context that is called on startup.
-    // The root context is used to initialize the plugin and load the configuration from the
-    // plugin config and the discovery endpoints.
-    proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(Root {
-        plugin_config: None,
-        open_id_providers: Mutex::new(vec![]),
-        open_id_resolvers: Mutex::new(vec![]),
-        waiting: Mutex::new(Vec::new()),
-        discovery_active: false,
-    }) });
-}}
 
 /// This is the main context which loads and parses the plugin configuration, handles the discovery of all
 /// Open ID Providers and creates the HTTP Contexts.
@@ -51,7 +33,7 @@ pub struct Root {
     /// A set of Open ID Providers which are used to store the configuration from the discovery endpoint
     pub open_id_providers: Mutex<Vec<OpenIdProvider>>,
     /// Queue of waiting requests which are waiting for the configuration to be loaded
-    waiting: Mutex<Vec<u32>>,
+    pub waiting: Mutex<Vec<u32>>,
     /// Flag to determine if the discovery is active
     pub discovery_active: bool,
 }
