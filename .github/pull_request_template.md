@@ -6,8 +6,10 @@
 
 <!-- 🚀 This PR does **not** introduce a breaking change -->
 
-<!-- ⚠️ This PR introduces a breaking change:
-- ...
+<!--
+> [!WARNING]
+> This PR introduces a breaking change:
+> - ...
 -->
 
 ## Other information and Screenshots (if appropriate)
