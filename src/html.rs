@@ -8,15 +8,15 @@
 pub fn provider_card(url: &str, name: &str, logo: &str) -> String {
     format!(
         r#"
-            <div class="provider-card">
                 <a href="{}" class="provider-link">
-                    <div class="logo-container">
-                        <img src="{}" alt="{}" class="provider-logo">
+                    <div class="provider-card">
+                        <div class="logo-container">
+                            <img src="{}" alt="{}" class="provider-logo">
+                        </div>
+                        <h2 class="provider-name">{}</h2>
                     </div>
-                    <h2 class="provider-name">{}</h2>
                 </a>
-            </div>
-        "#,
+            "#,
         url, logo, name, name
     )
 }
@@ -27,6 +27,7 @@ pub fn provider_card(url: &str, name: &str, logo: &str) -> String {
 ///
 /// * `provider_cards` - HTML of the provider cards
 pub fn auth_page_html(provider_cards: String) -> String {
+    let version = env!("CARGO_PKG_VERSION");
     format!(
         r#"
             <!DOCTYPE html>
@@ -46,6 +47,7 @@ pub fn auth_page_html(provider_cards: String) -> String {
                         --toggle-bg: #e2e8f0;
                         --toggle-border: #cbd5e1;
                         --hover-border: #3498db;
+                        --footer-text: #888;
                     }}
                     .dark-mode {{
                         --bg-color: #1a1a1a;
@@ -57,10 +59,12 @@ pub fn auth_page_html(provider_cards: String) -> String {
                         --toggle-bg: #4a5568;
                         --toggle-border: #2d3748;
                         --hover-border: #3498db;
+                        --footer-text: #888;
                     }}
                     body {{
                         font-family: Arial, sans-serif;
                         display: flex;
+                        flex-direction: column;
                         justify-content: center;
                         align-items: center;
                         min-height: 100vh;
@@ -83,6 +87,7 @@ pub fn auth_page_html(provider_cards: String) -> String {
                         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
                         gap: 20px;
                         justify-content: center;
+                        padding: 20px;
                     }}
                     .provider-card {{
                         background-color: var(--card-bg);
@@ -103,17 +108,15 @@ pub fn auth_page_html(provider_cards: String) -> String {
                         border: 2px solid transparent;
                         transition: border-color 0.3s ease;
                     }}
-                    .provider-card:hover {{
+                    .provider-link:hover .provider-card {{
                         transform: translateY(-5px);
                         box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
                     }}
-                    .provider-card:hover::before {{
+                    .provider-link:hover .provider-card::before {{
                         border-color: var(--hover-border);
                     }}
                     .provider-link {{
-                        display: flex;
-                        flex-direction: column;
-                        height: 100%;
+                        display: block;
                         text-decoration: none;
                         color: var(--card-text);
                     }}
@@ -191,6 +194,20 @@ pub fn auth_page_html(provider_cards: String) -> String {
                         content: "🌙";
                         background-color: #2c3e50;
                     }}
+                    .footer {{
+                        position: fixed;
+                        bottom: 20px;
+                        margin-top: 20px;
+                        color: var(--footer-text);
+                        font-size: 14px;
+                    }}
+                    .footer a {{
+                        color: var(--footer-text);
+                        text-decoration: none;
+                    }}
+                    .footer a:hover {{
+                        text-decoration: underline;
+                    }}
                 </style>
             </head>
             <body>
@@ -205,6 +222,9 @@ pub fn auth_page_html(provider_cards: String) -> String {
                     <div class="provider-grid">
                         {}
                     </div>
+                </div>
+                <div class="footer">
+                    <a href="https://github.com/antonengelhardt/wasm-oidc-plugin" target="_blank" rel="noopener noreferrer">wasm-oidc-plugin</a> v{}
                 </div>
                 <script>
                     const darkModeToggle = document.getElementById('darkModeToggle');
@@ -246,6 +266,6 @@ pub fn auth_page_html(provider_cards: String) -> String {
             </body>
             </html>
             "#,
-        provider_cards
+        provider_cards, version
     )
 }
