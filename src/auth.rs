@@ -138,16 +138,7 @@ impl HttpContext for ConfiguredOidc {
                 Ok(_) => return Action::Pause,
                 Err(e) => {
                     warn!("token exchange failed: {}", e);
-                    self.send_http_response(
-                        503,
-                        vec![("Cache-Control", "no-cache"),
-                        ("Content-Type", "text/html")],
-                        Some(b"<div style=\"text-align: center; margin-top: 20%; font-family: Arial, sans-serif;\">
-                        <h1>503</h1>
-                            <h2>Token exchange failed</h2>
-                            <p>Please try again, delete your cookies or contact your system administrator.</p>
-                        </div>"),
-                    );
+                    self.show_error_page(503, "Token exchange failed", "Please try again, delete your cookies or contact your system administrator.");
                 }
             }
             return Action::Pause;
@@ -226,16 +217,10 @@ impl Context for ConfiguredOidc {
             Err(e) => {
                 warn!("storing token in cookie failed: {}", e);
                 // Send a 503 if storing the token in the cookie failed
-                self.send_http_response(
+                self.show_error_page(
                     503,
-                    vec![("Cache-Control", "no-cache"),
-                    ("Content-Type", "text/html")],
-                    Some(b"<div style=\"text-align: center; margin-top: 20%; font-family: Arial, sans-serif;\">
-                    <h1>503</h1>
-                        <h2>Storing Token in Cookie failed</h2>
-                        <p>Please try again, delete your cookies or contact your system administrator.</p>
-                    </div>",
-                    ),
+                    "Storing Token in Cookie failed",
+                    "Please try again, delete your cookies or contact your system administrator.",
                 );
             }
         }
