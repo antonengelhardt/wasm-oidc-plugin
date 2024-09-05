@@ -6,7 +6,7 @@
 /// * `name` - Name of the provider
 /// * `logo` - URL to the logo of the provider
 pub fn provider_card(url: &str, name: &str, logo: &str) -> String {
-    return format!(
+    format!(
         r#"
             <div class="provider-card">
                 <a href="{}" class="provider-link">
@@ -18,7 +18,7 @@ pub fn provider_card(url: &str, name: &str, logo: &str) -> String {
             </div>
         "#,
         url, logo, name, name
-    );
+    )
 }
 
 /// Generate the HTML for the authentication page
@@ -27,7 +27,7 @@ pub fn provider_card(url: &str, name: &str, logo: &str) -> String {
 ///
 /// * `provider_cards` - HTML of the provider cards
 pub fn auth_page_html(provider_cards: String) -> String {
-    return format!(
+    format!(
         r#"
             <!DOCTYPE html>
             <html lang="en">
@@ -247,5 +247,5 @@ pub fn auth_page_html(provider_cards: String) -> String {
             </html>
             "#,
         provider_cards
-    );
+    )
 }
