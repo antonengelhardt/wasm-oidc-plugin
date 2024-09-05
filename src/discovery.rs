@@ -201,7 +201,7 @@ impl RootContext for Root {
     fn on_tick(&mut self) {
         debug!("tick");
         // Discovery is not active, start discovery
-        if self.discovery_active == false {
+        if !self.discovery_active {
             info!("discovery is not active, starting discovery");
 
             // Set discovery to active and set the state of all resolvers to `LoadingConfig`.
@@ -366,7 +366,6 @@ impl Context for Root {
                             String::from_utf8(body),
                             e,
                         );
-                        return;
                     }
                     Ok(open_id_response) => {
                         debug!("parsed openid config response: {:?}", open_id_response);
@@ -397,8 +396,6 @@ impl Context for Root {
                 match serde_json::from_slice::<JWKsResponse>(&body) {
                     Err(e) => {
                         warn!("error parsing jwks body: {:?}", e);
-                        // Stay in the same state as the response couldn't be parsed.
-                        return;
                     }
                     Ok(jwks_response) => {
                         debug!("parsed jwks body: {:?}", jwks_response);
@@ -448,17 +445,23 @@ impl Context for Root {
             // If the plugin is in `Ready` state, the response is ignored and the state is not changed.
             OpenIdResolverState::Ready { .. } => {
                 warn!("ready state is not expected here");
-                return;
             }
-        };
+        }
     }
 }
 
 impl Root {
     /// Evaluate the plugin configuration and check if the values are valid.
     /// Type checking is done by serde, so we only need to check the values.
+    ///
+    /// ## Arguments
+    ///
     /// * `plugin_config` - The plugin configuration to be evaluated
-    /// Returns `Ok` if the configuration is valid, otherwise `Err` with a message.
+    ///
+    /// ## Returns
+    ///
+    /// * `Ok(())` if the configuration is valid
+    /// * `Err(PluginError)` if the configuration is invalid
     pub fn evaluate_config(plugin_config: PluginConfiguration) -> Result<(), PluginError> {
         // Reload Interval
         if plugin_config.reload_interval_in_h == 0 {
