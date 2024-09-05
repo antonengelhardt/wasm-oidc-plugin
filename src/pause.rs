@@ -2,7 +2,10 @@
 use log::{info, warn};
 
 // proxy-wasm
-use proxy_wasm::{traits::{Context, HttpContext}, types::Action};
+use proxy_wasm::{
+    traits::{Context, HttpContext},
+    types::Action,
+};
 
 /// The PauseRequests Context is the filter struct which is used when the filter is not configured.
 /// All requests are paused and queued by the RootContext. Once the filter is configured, the
