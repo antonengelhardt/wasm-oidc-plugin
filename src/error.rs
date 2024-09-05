@@ -24,10 +24,14 @@ pub enum PluginError {
     // Token validation errors
     #[error("error while getting code from callback: {0}")]
     CodeNotFoundInCallbackError(#[from] serde_urlencoded::de::Error),
+    #[error("the code is coming from an unknown provider: {0}")]
+    ProviderNotFoundError(String),
     #[error("token response is not in the required format: {0}")]
     TokenResponseFormatError(String),
     #[error("token validation failed: {0}")]
     TokenValidationError(#[from] jwt_simple::Error),
+    #[error("issuer not found in session cookie")]
+    IssuerNotFound,
     #[error("no key worked for validation")]
     NoKeyError,
 
