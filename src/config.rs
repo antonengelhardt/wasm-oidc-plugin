@@ -7,14 +7,14 @@ use core::fmt;
 // sec
 use sec::Secret;
 
+// std
+use std::fmt::Debug;
+
 // serde
 use serde::{Deserialize, Deserializer};
 
 // serde_regex
 use regex::Regex;
-
-// std
-use std::fmt::Debug;
 
 // url
 use url::Url;
