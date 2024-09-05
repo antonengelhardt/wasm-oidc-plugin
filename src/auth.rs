@@ -429,7 +429,7 @@ impl ConfiguredOidc {
             .append_pair("code", &code)
             .append_pair(
                 "redirect_uri",
-                &provider_to_use.open_id_config.redirect_uri.as_str(),
+                provider_to_use.open_id_config.redirect_uri.as_str(),
             )
             .append_pair("state", &state)
             .finish();
@@ -584,9 +584,7 @@ impl ConfiguredOidc {
                 provider_cards.push_str(&provider_card);
             }
 
-            let mut headers = vec![];
-            headers.push(("Cache-Control", "no-cache"));
-            headers.push(("Content-Type", "text/html"));
+            let headers = vec![("cache-control", "no-cache"), ("content-type", "text/html")];
 
             // Show the auth page
             self.send_http_response(
@@ -672,7 +670,7 @@ impl ConfiguredOidc {
                 ("client_id", &open_id_provider.open_id_config.client_id),
                 (
                     "redirect_uri",
-                    &open_id_provider.open_id_config.redirect_uri.as_str(),
+                    open_id_provider.open_id_config.redirect_uri.as_str(),
                 ),
                 ("scope", &open_id_provider.open_id_config.scope),
                 ("claims", &open_id_provider.open_id_config.claims),
@@ -680,7 +678,7 @@ impl ConfiguredOidc {
         )
         .unwrap();
 
-        headers.push(("Location", &location.as_str()));
+        headers.push(("Location", location.as_str()));
 
         self.send_http_response(307, headers, Some(b"Redirecting..."));
 
