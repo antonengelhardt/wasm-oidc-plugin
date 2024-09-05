@@ -1,5 +1,11 @@
+// proxy-wasm
+use proxy_wasm::traits::HttpContext;
+
 // thiserror
 use thiserror::Error;
+
+// crate
+use crate::auth::ConfiguredOidc;
 
 /// Error type for the plugin
 #[derive(Error, Debug)]
@@ -58,4 +64,28 @@ pub enum PluginError {
     AuthorizationStateNotFoundError,
     #[error("state does not match")]
     StateMismatchError,
+}
+
+impl ConfiguredOidc {
+    pub fn show_error_page(&self, status_code: u32, title: &str, message: &str) {
+        let mut headers = vec![];
+        headers.push(("cache-control", "no-cache"));
+        headers.push(("content-type", "text/html"));
+
+        self.send_http_response(
+            status_code,
+            headers,
+            Some(
+                format!(
+                    "<div style=\"text-align: center; margin-top: 20%; font-family: Arial, sans-serif;\">
+                        <h1>{}</h1>
+                        <h2>{}</h2>
+                        <p>{}</p>
+                    </div>",
+                    status_code, title, message
+                )
+                .as_bytes(),
+            ),
+        );
+    }
 }
