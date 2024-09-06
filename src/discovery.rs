@@ -90,6 +90,8 @@ pub struct OpenIdProvider {
     pub auth_endpoint: Url,
     /// The URL of the token endpoint
     pub token_endpoint: Url,
+    /// The URL of the end session endpoint
+    pub end_session_endpoint: Option<Url>,
     /// The issuer that will be used for the token request
     pub issuer: String,
     /// The public keys that will be used for the validation of the ID Token
@@ -460,6 +462,7 @@ impl Context for Root {
                                 open_id_config: resolver_to_update.open_id_config.clone(),
                                 auth_endpoint: open_id_response.authorization_endpoint.clone(),
                                 token_endpoint: open_id_response.token_endpoint.clone(),
+                                end_session_endpoint: open_id_response.end_session_endpoint.clone(),
                                 issuer: open_id_response.issuer.clone(),
                                 public_keys: keys,
                             });
@@ -511,6 +514,19 @@ impl Root {
             || !cookies_name_regex.is_match(&plugin_config.cookie_name)
         {
             return Err(PluginError::ConfigError("`cookie_name` is empty or not valid meaning that it contains invalid characters like ;, =, :, /, space".to_string()));
+        }
+
+        // Logout Path
+        if plugin_config.logout_path.is_empty() {
+            return Err(PluginError::ConfigError(
+                "`logout_path` is empty".to_string(),
+            ));
+        }
+
+        if !plugin_config.logout_path.starts_with('/') {
+            return Err(PluginError::ConfigError(
+                "`logout_path` does not start with a `/`".to_string(),
+            ));
         }
 
         // Cookie Duration

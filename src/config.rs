@@ -19,8 +19,7 @@ use regex::Regex;
 // url
 use url::Url;
 
-/// Struct that holds the configuration for the plugin. It is loaded from the config file
-/// `envoy.yaml`
+/// Struct that holds the configuration for the plugin. It is loaded from the config file `envoy.yaml`
 #[derive(Clone, Debug, Deserialize)]
 pub struct PluginConfiguration {
     // OpenID Connect Configuration
@@ -59,6 +58,8 @@ pub struct PluginConfiguration {
     // Cookie settings
     /// The cookie name that will be used for the session cookie
     pub cookie_name: String,
+    /// The URL to logout the user
+    pub logout_path: String,
     /// Filter out the cookies created and controlled by the plugin
     /// If the value is true, the cookies will be filtered out
     pub filter_plugin_cookies: bool,
