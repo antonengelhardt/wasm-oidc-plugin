@@ -112,6 +112,17 @@ impl HttpContext for ConfiguredOidc {
             return Action::Continue;
         }
 
+        // If Path is logout route, clear cookies and redirect to base path
+        if path == self.plugin_config.logout_path {
+            match self.logout() {
+                Ok(action) => return action,
+                Err(e) => {
+                    warn!("logout failed: {}", e);
+                    self.show_error_page(503, "Logout failed", "Please try again, delete your cookies or contact your system administrator.");
+                }
+            }
+        }
+
         // If the path matches the provider selection endpoint, redirect to the authorization endpoint
         // with the selected provider.
         if path.contains("/_wasm-oidc-plugin/provider-selection") {
@@ -571,6 +582,50 @@ impl ConfiguredOidc {
                 Ok(())
             }
         }
+    }
+
+    /// Clear the cookies and redirect to the base path or `end_session_endpoint`.
+    fn logout(&self) -> Result<Action, PluginError> {
+        let cookie_values = Session::make_cookie_values(
+            "",
+            "",
+            &self.plugin_config.cookie_name,
+            0,
+            self.get_number_of_cookies() as u64,
+        );
+
+        let mut headers = Session::make_set_cookie_headers(&cookie_values);
+
+        // Get session from cookie
+        let cookie = self.get_session_cookie_as_string()?;
+        let nonce = self.get_nonce()?;
+        let session = Session::decode_and_decrypt(
+            cookie,
+            self.plugin_config.aes_key.reveal().clone(),
+            nonce,
+        )?;
+
+        // Get provider to use based on issuer because the end session endpoint is provider-specific
+        let provider = self
+            .open_id_providers
+            .iter()
+            .find(|provider| provider.issuer == session.issuer.clone().unwrap())
+            .unwrap();
+        // TODO: Error handling
+
+        // Redirect to end session endpoint, if available (not all OIDC providers support this)
+        let location = match &provider.end_session_endpoint {
+            // if the end session endpoint is available, redirect to it
+            Some(url) => url.as_str(),
+            // else, redirect to the base path
+            None => "/",
+        };
+        headers.push(("Location", location));
+        headers.push(("Cache-Control", "no-cache"));
+
+        self.send_http_response(307, headers, Some(b"Logging out..."));
+
+        Ok(Action::Pause)
     }
 
     /// Show the auth page or redirect to the authorization endpoint.

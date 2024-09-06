@@ -54,6 +54,7 @@ data:
                               id_token_header_prefix: "Bearer "
 
                               cookie_name: "oidcSession"
+                              logout_path: "/logout"
                               filter_plugin_cookies: true # or false
                               cookie_duration: 8640000 # in seconds
                               token_validation: true # or false
