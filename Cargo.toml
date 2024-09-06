@@ -2,7 +2,9 @@
 publish = false
 name = "wasm-oidc-plugin"
 version = "0.5.1"
-authors = ["WWU Cloud Developer <cloud@uni-muenster.de>, Anton Engelhardt <antoncengelhardt@icloud.com>"]
+authors = [
+    "WWU Cloud Developer <cloud@uni-muenster.de>, Anton Engelhardt <antoncengelhardt@icloud.com>",
+]
 description = "A plugin for the Envoy-Proxy written in Rust. It is a HTTP Filter, that implements the OIDC Authorization Code Flow. Requests sent to the filter are checked for the presence of a valid session cookie. If the cookie is not present, the user is redirected to the authorization_endpoint to authenticate. After successful authentication, the user is redirected back to the original request with a code in the URL query. The plugin then exchanges the code for a token using the token_endpoint and stores the token in the session. If the cookie is present, the plugin validates the token and passes the request to the backend, if the token is valid (optional)."
 license = "Apache-2.0"
 edition = "2018"
@@ -11,38 +13,38 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
-# logging
-log = "0.4.22"
-
-# proxy-wasm
-proxy-wasm = "0.2.2"
-
-# parsing
-url = { version = "2.5.2", features = ["serde"] }
-serde = { version = "1.0.204", features = ["derive"] }
-serde_yaml = "0.9.33"
-serde_json = "1.0.120"
-serde_urlencoded = "0.7.1"
+# aes256
+aes-gcm = { version = "0.10.3", features = ["std"] }
 
 # base64
 base64 = "0.22.1"
 
-# regex
-regex = "1.10.5"
-serde_regex = "1.1.0"
-
 # jsonwebtoken (forked version to support RSA keys longer than 4096 bits)
-jwt-simple = {git = "https://github.com/antonengelhardt/rust-jwt-simple", rev = "b92ac707dab1f65fae00569a468793d5eb6dab22"}
+jwt-simple = { git = "https://github.com/antonengelhardt/rust-jwt-simple", rev = "b92ac707dab1f65fae00569a468793d5eb6dab22" }
+
+# logging
+log = "0.4.22"
 
 # pkce
 pkce = "0.2.0"
 
-# aes256
-aes-gcm = {version = "0.10.3", features = ["std"]}
+# proxy-wasm
+proxy-wasm = "0.2.2"
+
+# serde
+url = { version = "2.5.2", features = ["serde"] }
+serde = { version = "1.0.209", features = ["derive"] }
+serde_yaml = "0.9.33"
+serde_json = "1.0.128"
+serde_urlencoded = "0.7.1"
+regex = "1.10.6"
+serde_regex = "1.1.0"
+
+# secret
+sec = { version = "1.0.0", features = ["serde", "deserialize"] }
 
 # thiserror
 thiserror = "1.0.63"
-sec = { version = "1.0.0", features = ["serde", "deserialize"] }
 
 [profile.release]
 lto = true
