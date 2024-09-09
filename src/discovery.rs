@@ -311,7 +311,7 @@ impl RootContext for Root {
                         vec![
                             (":method", "GET"),
                             (":path", open_id_response.jwks_uri.path()),
-                            (":authority", resolver.open_id_config.authority.as_str()),
+                            (":authority", open_id_response.jwks_uri.host_str().unwrap()),
                         ],
                         None,
                         vec![],

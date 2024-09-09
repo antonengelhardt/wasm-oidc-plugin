@@ -70,6 +70,17 @@ data:
                                   claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
                                   client_secret: "redacted"
                                   audience: qxgINfU3gutYjea8hEmpra5JG5jyqeAY
+                                - name: "google (unusable, will not work)"
+                                  image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/2560px-Google_2015_logo.svg.png"
+                                  config_endpoint: "https://accounts.google.com/.well-known/openid-configuration"
+                                  upstream_cluster: "google"
+                                  authority: "accounts.google.com"
+                                  redirect_uri: "http://localhost:10000/oidc/callback"
+                                  client_id: "google-client-id"
+                                  scope: "openid profile email"
+                                  claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+                                  client_secret: "google-client-secret"
+                                  audience: "google-client-id"
 
                           vm_config:
                             runtime: "envoy.wasm.runtime.v8"
@@ -95,7 +106,7 @@ data:
                         port_value: 80
       - name: auth0
         connect_timeout: 5s
-        type: LOGICAL_DNS
+        type: STRICT_DNS
         dns_lookup_family: V4_ONLY
         load_assignment:
           cluster_name: auth0
@@ -111,3 +122,26 @@ data:
           typed_config:
             "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
             sni: "demo-wasm-oidc-plugin.eu.auth0.com"
+      - name: google
+        connect_timeout: 5s
+        type: STRICT_DNS
+        dns_lookup_family: V4_ONLY
+        load_assignment:
+          cluster_name: google
+          endpoints:
+            - lb_endpoints:
+                - endpoint:
+                    address:
+                      socket_address:
+                        address: accounts.google.com
+                        port_value: 443
+                - endpoint:
+                    address:
+                      socket_address:
+                        address: www.googleapis.com
+                        port_value: 443
+        transport_socket:
+          name: envoy.transport_sockets.tls
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+            sni: "accounts.google.com"

@@ -85,7 +85,7 @@ static_resources:
                   hostname: "httpbin.org"
     - name: google
       connect_timeout: 5s
-      type: LOGICAL_DNS
+      type: STRICT_DNS
       dns_lookup_family: V4_ONLY
       load_assignment:
         cluster_name: google
@@ -95,6 +95,11 @@ static_resources:
                   address:
                     socket_address:
                       address: accounts.google.com
+                      port_value: 443
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: www.googleapis.com
                       port_value: 443
       transport_socket:
         name: envoy.transport_sockets.tls

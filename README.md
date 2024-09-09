@@ -202,3 +202,40 @@ cargo-deny check advisories
 ```
 
 These commands are also run in the CI pipeline.
+
+## FAQ
+
+> My OpenID provider uses a different endpoint for the jwks_uri. How can I configure this?
+
+Google does exactly that:
+
+```json
+{
+    "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs"
+}
+```
+
+You can add the endpoint in your `envoy.yaml`-file like this:
+
+```yaml
+- name: google
+      connect_timeout: 5s
+      type: STRICT_DNS
+      dns_lookup_family: V4_ONLY
+      load_assignment:
+        cluster_name: google
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: accounts.google.com
+                      port_value: 443
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: www.googleapis.com
+                      port_value: 443
+```
+
+The rest should work fine.
