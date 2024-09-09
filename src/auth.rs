@@ -51,12 +51,15 @@ pub struct ConfiguredOidc {
 impl HttpContext for ConfiguredOidc {
     /// This function is called when the request headers are received.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
-        // Check if the host regex matches one of the exclude hosts. If so, forward the request.
+        // Get the host, path and scheme from the request headers
         let host = self.get_host().unwrap_or_default();
         let path = self.get_http_request_header(":path").unwrap_or_default();
-        let url = Url::parse(&format!("{}{}", host, path))
+        let scheme = self
+            .get_http_request_header(":scheme")
+            .unwrap_or("http".to_string());
+        let url = Url::parse(&format!("{}://{}{}", scheme, host, path))
             .unwrap_or(Url::parse("http://example.com").unwrap());
-        debug!("url: {}", url.as_str());
+        debug!("url: {}", url);
 
         // Health check
         if path == "/plugin-health" {
