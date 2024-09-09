@@ -29,7 +29,7 @@ use crate::responses::{CodeCallback, ProviderSelectionCallback};
 use crate::session;
 use crate::session::{AuthorizationState, Session};
 
-/// The `ConfiguredOidc is the main filter struct and responsible for the OIDC authentication flow.
+/// The `ConfiguredOidc is the main filter struct and responsible for the OpenID authentication flow.
 /// Requests arriving are checked for a valid cookie. If the cookie is valid, the request is
 /// forwarded. If the cookie is not valid, the user is redirected to the authorization endpoint.
 pub struct ConfiguredOidc {
@@ -352,7 +352,7 @@ impl ConfiguredOidc {
     /// * Ok(()) - If the token is exchanged successfully
     /// * Err(PluginError) - If the token exchange fails
     fn exchange_code_for_token(&mut self, path: String) -> Result<(), PluginError> {
-        debug!("received request for OIDC callback");
+        debug!("received request for OpenID callback");
 
         // Get Query String from URL
         let query = path.split('?').last().unwrap_or_default();
