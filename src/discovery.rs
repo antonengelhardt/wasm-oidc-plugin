@@ -13,6 +13,9 @@ use proxy_wasm::{hostcalls, traits::*, types::*};
 // regex
 use regex::Regex;
 
+// std
+use std::fmt;
+
 // url
 use url::Url;
 
@@ -65,6 +68,16 @@ pub enum OpenIdResolverState {
     },
     /// The root context is ready
     Ready,
+}
+
+impl fmt::Display for OpenIdResolverState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            OpenIdResolverState::LoadingConfig => write!(f, "LoadingConfig"),
+            OpenIdResolverState::LoadingJwks { .. } => write!(f, "LoadingJwks"),
+            OpenIdResolverState::Ready => write!(f, "Ready"),
+        }
+    }
 }
 
 /// The OpenIdProvider struct holds all information about the Open ID Provider that is needed for the
@@ -224,7 +237,7 @@ impl RootContext for Root {
             .all(|r| matches!(r.state, OpenIdResolverState::Ready { .. }));
 
         if self.discovery_active && all_resolvers_done {
-            info!("discovery is done, resuming waiting requests");
+            info!("discovery is done, resuming {} waiting requests", self.waiting.lock().unwrap().len());
 
             // Resume all requests that were sent during the loading phase. See `PauseRequest` for more.
             for context_id in self.waiting.lock().unwrap().drain(..) {
@@ -240,6 +253,7 @@ impl RootContext for Root {
                 });
             }
 
+            // Switch discovery to inactive and set the ticking period to the configured interval.
             self.discovery_active = false;
             self.set_tick_period(Duration::from_secs(
                 self.plugin_config.as_ref().unwrap().reload_interval_in_h * 3600,
@@ -340,7 +354,7 @@ impl Context for Root {
         };
 
         debug!(
-            "token_id {} is for resolver/provider {} in state {:?}",
+            "token_id {} is for resolver/provider {} in state {}",
             token_id, resolver_to_update.open_id_config.name, resolver_to_update.state
         );
 
