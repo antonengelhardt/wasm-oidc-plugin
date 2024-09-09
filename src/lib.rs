@@ -41,7 +41,7 @@ proxy_wasm::main! {{
 
     proxy_wasm::set_log_level(LogLevel::Debug);
 
-    info!("Starting plugin");
+    info!("starting plugin");
 
     // This sets the root context, which is the first context that is called on startup.
     // The root context is used to initialize the plugin and load the configuration from the
