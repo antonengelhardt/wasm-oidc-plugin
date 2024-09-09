@@ -126,7 +126,7 @@ impl RootContext for Root {
                 match serde_yaml::from_slice::<PluginConfiguration>(&config_bytes) {
                     Err(e) => warn!("error parsing plugin configuration: {:?}", e),
                     Ok(plugin_config) => {
-                        debug!("parsed plugin configuration: {:?}", plugin_config);
+                        debug!("parsed plugin configuration: {:#?}", plugin_config);
 
                         // Evaluate the plugin configuration and check if the values are valid.
                         // Type checking is done by serde, so we only need to check the values.
@@ -382,7 +382,7 @@ impl Context for Root {
                         );
                     }
                     Ok(open_id_response) => {
-                        debug!("parsed openid config response: {:?}", open_id_response);
+                        debug!("parsed openid config response: {:#?}", open_id_response);
 
                         // Set the state to `LoadingJwks`.
                         resolver_to_update.state = OpenIdResolverState::LoadingJwks {
@@ -412,7 +412,7 @@ impl Context for Root {
                         warn!("error parsing jwks body: {:?}", e);
                     }
                     Ok(jwks_response) => {
-                        debug!("parsed jwks body: {:?}", jwks_response);
+                        debug!("parsed jwks body: {:#?}", jwks_response);
 
                         // Check if keys are present
                         if jwks_response.keys.is_empty() {
