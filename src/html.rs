@@ -96,6 +96,9 @@ pub fn auth_page_html(provider_cards: String) -> String {
                         transition: all 0.3s ease;
                         overflow: hidden;
                         position: relative;
+                        display: flex;
+                        flex-direction: column;
+                        height: 200px;
                     }}
                     .provider-card::before {{
                         content: '';
@@ -127,10 +130,13 @@ pub fn auth_page_html(provider_cards: String) -> String {
                         justify-content: center;
                         padding: 30px;
                         background-color: var(--card-bg);
+                        height: 140px;
                     }}
                     .provider-logo {{
                         max-width: 80%;
                         max-height: 80px;
+                        width: auto;
+                        height: auto;
                         object-fit: contain;
                         mix-blend-mode: darken;
                     }}
@@ -143,6 +149,7 @@ pub fn auth_page_html(provider_cards: String) -> String {
                         padding: 15px;
                         background-color: var(--card-footer-bg);
                         border-top: 1px solid var(--card-border);
+                        flex-shrink: 0;
                     }}
                     .dark-mode-toggle {{
                         position: fixed;
