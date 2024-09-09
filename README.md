@@ -1,4 +1,4 @@
-![Logo (generated with Photoshop Generative AI)](social-graphic.png)
+![Logo (generated with Photoshop Generative AI)](.github/assets/social-graphic.png)
 
 # wasm-oidc-plugin
 
