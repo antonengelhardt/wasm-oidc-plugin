@@ -58,7 +58,7 @@ data:
                               aes_key: "i-am-a-forty-four-characters-long-string-key" # generate with `openssl rand -base64 32`
 
                               reload_interval_in_h: 1 # in hours
-                              ticking_interval_in_ms: 5000 # in milliseconds
+                              ticking_interval_in_ms: 500 # in milliseconds
                               open_id_configs:
                                 - name: google
                                   image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/2560px-Google_2015_logo.svg.png"
@@ -97,7 +97,7 @@ data:
                   hostname: "httpbin.org" #! This is the hostname of the service you want to access.
         - name: google #! must match the upstream_cluster in the plugin's configuration.
           connect_timeout: 5s
-          type: LOGICAL_DNS
+          type: STRICT_DNS
           dns_lookup_family: V4_ONLY
           load_assignment:
             cluster_name: google
@@ -106,10 +106,15 @@ data:
                   - endpoint:
                       address:
                         socket_address:
-                          address: your-domain.com #! Your Auth Server's domain name.
+                          address: accounts.google.com #! Your Auth Server's domain name.
+                          port_value: 443
+                  - endpoint:
+                      address:
+                        socket_address:
+                          address: www.googleapis.com #! Your Auth Server's domain name.
                           port_value: 443
           transport_socket:
             name: envoy.transport_sockets.tls
             typed_config:
               "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
-              sni: "your-domain.com" #! Here as well.
+              sni: "accounts.google.com" #! Your Auth Server's domain name.
