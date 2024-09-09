@@ -141,14 +141,15 @@ impl RootContext for Root {
 
                         self.plugin_config = Some(Arc::new(plugin_config.clone()));
 
+                        // Create a new resolver for each open id provider in the plugin configuration.
                         let mut resolvers = vec![];
-                        for provider in plugin_config.open_id_configs.clone() {
-                            info!("creating resolver for open id provider: {:?}", provider);
+                        for open_id_config in plugin_config.open_id_configs.clone() {
+                            info!("creating resolver for open id config: {:?}", open_id_config.name);
 
                             // Advance to the next state and store the plugin configuration.
                             let open_id_resolver = OpenIdResolver {
                                 state: OpenIdResolverState::LoadingConfig,
-                                open_id_config: provider,
+                                open_id_config,
                                 token_ids: vec![],
                             };
                             resolvers.push(open_id_resolver);
@@ -203,12 +204,16 @@ impl RootContext for Root {
     }
 
     /// The root context is ticking every 300 millis as long as the configuration is not loaded yet.
+    ///
     /// On every tick, the plugin is checking if the discovery is active. If the discovery is not active,
-    /// the plugin is starting the discovery. The discovery is started by setting the discovery active to true.
+    /// the plugin is starting the discovery (as it has been waiting for `reload_interval_in_h` * 3600).
+    /// The discovery is started by setting the discovery active to true and setting the state of all resolvers
+    /// to `LoadingConfig`. The ticking period is set to 300ms to not overload the openid configuration endpoint.
     ///
     /// If the discovery is active, the plugin is checking if all resolvers are in `Ready` state. If all resolvers
     /// are in `Ready` state, the plugin is resuming all requests that were sent during the loading phase. The
     /// discovery is switched to false and the ticking period is set to the configured interval.
+    ///
     /// If the discovery is active and not all resolvers are in `Ready` state, the plugin is making a call to the
     /// openid configuration endpoint or the jwks endpoint depending on the state of the resolver.
     fn on_tick(&mut self) {
@@ -348,7 +353,7 @@ impl Context for Root {
         {
             Some(resolver) => resolver,
             None => {
-                warn!("no resolver found for token_id: {}", token_id);
+                debug!("no resolver found for token_id: {}", token_id);
                 return;
             }
         };
