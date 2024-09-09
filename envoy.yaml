@@ -31,9 +31,12 @@ static_resources:
                       configuration:
                         "@type": "type.googleapis.com/google.protobuf.StringValue"
                         value: |
-                          exclude_hosts: [] # or ["httpbin.org"]
-                          exclude_paths: [] # or ["/favicon.ico"]
-                          exclude_urls: [] # or ["http://localhost:10000/#/HTTP_Methods/get_get"]
+                          exclude_hosts:
+                            # - "httpbin.org"
+                          exclude_paths:
+                            # - "/favicon.ico"
+                          exclude_urls:
+                            # - https://httpbin.org/favicon.ico
 
                           access_token_header_name: # or "Authorization"
                           access_token_header_prefix: "Bearer "

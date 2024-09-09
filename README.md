@@ -98,7 +98,7 @@ The plugin is configured via the `envoy.yaml`-file. The following configuration 
 | ---- | ---- | ----------- | ------- | -------- |
 | `exclude_hosts` | `Vec<Regex>` | A comma separated list Hosts (in Regex expressions), that are excluded from the filter. | `["localhost:10000"]` | ❌ |
 | `exclude_paths` | `Vec<Regex>` | A comma separated list of paths (in Regex expressions), that are excluded from the filter. | `["/health"]` | ❌ |
-| `exclude_urls` | `Vec<Regex>` | A comma separated list of URLs (in Regex expressions), that are excluded from the filter. | `["localhost:10000/health"]` | ❌ |
+| `exclude_urls` | `Vec<Regex>` | A comma separated list of URLs (in Regex expressions), that are excluded from the filter. | `["http://localhost:10000/health"]` | ❌ |
 | `access_token_header_name` | `string` | If set, this name will be used to forward the access token to the backend. | `X-Access-Token` | ❌ |
 | `access_token_header_prefix` | `string` | The prefix of the header, that is used to forward the access token, if empty "" is used. | `Bearer ` | ❌ |
 | `id_token_header_name` | `string` | If set, this name will be used to forward the id token to the backend. | `X-Id-Token` | ❌ |
