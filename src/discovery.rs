@@ -144,7 +144,10 @@ impl RootContext for Root {
                         // Create a new resolver for each open id provider in the plugin configuration.
                         let mut resolvers = vec![];
                         for open_id_config in plugin_config.open_id_configs.clone() {
-                            info!("creating resolver for open id config: {:?}", open_id_config.name);
+                            info!(
+                                "creating resolver for open id config: {:?}",
+                                open_id_config.name
+                            );
 
                             // Advance to the next state and store the plugin configuration.
                             let open_id_resolver = OpenIdResolver {
@@ -229,7 +232,9 @@ impl RootContext for Root {
                 resolver.state = OpenIdResolverState::LoadingConfig;
             }
             // Tick every x ms to not overload the openid configuration endpoint. x is the configured interval.
-            self.set_tick_period(Duration::from_millis(self.plugin_config.as_ref().unwrap().ticking_interval_in_ms));
+            self.set_tick_period(Duration::from_millis(
+                self.plugin_config.as_ref().unwrap().ticking_interval_in_ms,
+            ));
         }
 
         // If all providers are in `Ready` state, any request that was sent during the loading phase,
@@ -243,7 +248,10 @@ impl RootContext for Root {
             .all(|r| matches!(r.state, OpenIdResolverState::Ready { .. }));
 
         if self.discovery_active && all_resolvers_done {
-            info!("discovery is done, resuming {} waiting requests", self.waiting.lock().unwrap().len());
+            info!(
+                "discovery is done, resuming {} waiting requests",
+                self.waiting.lock().unwrap().len()
+            );
 
             // Resume all requests that were sent during the loading phase. See `PauseRequest` for more.
             for context_id in self.waiting.lock().unwrap().drain(..) {
