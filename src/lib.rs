@@ -1,27 +1,11 @@
-// std
-use std::sync::Mutex;
-use std::vec;
-
-// log
-use log::info;
-
-// proxy-wasm
-use proxy_wasm::traits::*;
-use proxy_wasm::types::*;
-
-// url
-
-/// This module contains logic to parse and save the current authorization state in a cookie
-mod session;
+/// This module contains all functions, calls and callbacks to execute the OpenID Authorization Code Flow
+mod auth;
 
 /// This module contains the structs of the `PluginConfiguration` and `OpenIdConfig`
 mod config;
 
-/// This module contains the OIDC discovery and JWKs loading logic
+/// This module contains the Open ID discovery and JWKs loading logic
 mod discovery;
-
-/// This module contains the responses for the OIDC discovery and jwks endpoints
-mod responses;
 
 /// This module contains the error types for the plugin
 mod error;
@@ -32,7 +16,22 @@ mod html;
 /// This module contains the pause context which is used when the filter is not configured.
 mod pause;
 
-mod auth;
+/// This module contains the responses for the OIDC discovery and jwks endpoints
+mod responses;
+
+/// This module contains logic to parse and save the current authorization state in a cookie
+mod session;
+
+// std
+use std::sync::Mutex;
+use std::vec;
+
+// log
+use log::info;
+
+// proxy-wasm
+use proxy_wasm::traits::*;
+use proxy_wasm::types::*;
 
 // crate
 use crate::discovery::Root;
