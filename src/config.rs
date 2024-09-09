@@ -28,6 +28,8 @@ pub struct PluginConfiguration {
     pub open_id_configs: Vec<OpenIdConfig>,
     /// Reload interval in hours
     pub reload_interval_in_h: u64,
+    /// The interval in milliseconds that the plugin will wait for the discovery endpoint to respond or send a new request.
+    pub ticking_interval_in_ms: u64,
 
     /// Exclude hosts. Example: localhost:10000
     #[serde(with = "serde_regex")]

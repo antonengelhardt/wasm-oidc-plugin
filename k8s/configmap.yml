@@ -58,6 +58,7 @@ data:
                               aes_key: "i-am-a-forty-four-characters-long-string-key" # generate with `openssl rand -base64 32`
 
                               reload_interval_in_h: 1 # in hours
+                              ticking_interval_in_ms: 5000 # in milliseconds
                               open_id_configs:
                                 - name: google
                                   image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/2560px-Google_2015_logo.svg.png"
