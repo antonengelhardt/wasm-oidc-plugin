@@ -16,7 +16,7 @@ mod html;
 /// This module contains the pause context which is used when the filter is not configured.
 mod pause;
 
-/// This module contains the responses for the OIDC discovery and jwks endpoints
+/// This module contains the responses for the OpenID discovery and jwks endpoints
 mod responses;
 
 /// This module contains logic to parse and save the current authorization state in a cookie

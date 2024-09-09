@@ -41,9 +41,6 @@ data:
                           configuration:
                             "@type": "type.googleapis.com/google.protobuf.StringValue"
                             value: |
-                              config_endpoint: "https://demo-wasm-oidc-plugin.eu.auth0.com/.well-known/openid-configuration"
-                              reload_interval_in_h: 1 # in hours
-
                               exclude_hosts: [] # or ["httpbin.org"]
                               exclude_paths: [] # or ["/favicon.ico"]
                               exclude_urls: [] # or ["http://localhost:10000/#/HTTP_Methods/get_get"]
@@ -59,14 +56,19 @@ data:
                               token_validation: true # or false
                               aes_key: "redacted"
 
-                              authority: "demo-wasm-oidc-plugin.eu.auth0.com"
-                              redirect_uri: "https://demo.wasm-oidc-plugin.ae02.de/oidc/callback"
-                              client_id: qxgINfU3gutYjea8hEmpra5JG5jyqeAY
-                              scope: "openid profile email"
-                              claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
-
-                              client_secret: "redacted"
-                              audience: qxgINfU3gutYjea8hEmpra5JG5jyqeAY
+                              reload_interval_in_h: 1 # in hours
+                              open_id_configs:
+                                - name: auth0
+                                  image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Logo_de_Auth0.svg/2560px-Logo_de_Auth0.svg.png"
+                                  config_endpoint: "https://demo-wasm-oidc-plugin.eu.auth0.com/.well-known/openid-configuration"
+                                  upstream_cluster: "auth0"
+                                  authority: "demo-wasm-oidc-plugin.eu.auth0.com"
+                                  redirect_uri: "https://demo.wasm-oidc-plugin.ae02.de/oidc/callback"
+                                  client_id: qxgINfU3gutYjea8hEmpra5JG5jyqeAY
+                                  scope: "openid profile email"
+                                  claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+                                  client_secret: "redacted"
+                                  audience: qxgINfU3gutYjea8hEmpra5JG5jyqeAY
 
                           vm_config:
                             runtime: "envoy.wasm.runtime.v8"
@@ -90,12 +92,12 @@ data:
                       socket_address:
                         address: httpbin-service.wasm-oidc-plugin.svc.cluster.local
                         port_value: 80
-      - name: oidc
+      - name: auth0
         connect_timeout: 5s
         type: LOGICAL_DNS
         dns_lookup_family: V4_ONLY
         load_assignment:
-          cluster_name: oidc
+          cluster_name: auth0
           endpoints:
             - lb_endpoints:
                 - endpoint:
