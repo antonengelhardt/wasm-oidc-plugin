@@ -203,12 +203,13 @@ impl RootContext for Root {
         }
     }
 
-    /// The root context is ticking every 300 millis as long as the configuration is not loaded yet.
+    /// The root context is ticking every the configured interval (x) as long as the configuration is not loaded yet.
     ///
     /// On every tick, the plugin is checking if the discovery is active. If the discovery is not active,
     /// the plugin is starting the discovery (as it has been waiting for `reload_interval_in_h` * 3600).
     /// The discovery is started by setting the discovery active to true and setting the state of all resolvers
-    /// to `LoadingConfig`. The ticking period is set to 300ms to not overload the openid configuration endpoint.
+    /// to `LoadingConfig`. The ticking period is set to x ms to not overload the openid configuration endpoint (x is
+    /// the configured interval).
     ///
     /// If the discovery is active, the plugin is checking if all resolvers are in `Ready` state. If all resolvers
     /// are in `Ready` state, the plugin is resuming all requests that were sent during the loading phase. The
@@ -227,8 +228,8 @@ impl RootContext for Root {
             for resolver in self.open_id_resolvers.lock().unwrap().iter_mut() {
                 resolver.state = OpenIdResolverState::LoadingConfig;
             }
-            // Tick every 300ms to not overload the openid configuration endpoint.
-            self.set_tick_period(Duration::from_millis(300));
+            // Tick every x ms to not overload the openid configuration endpoint. x is the configured interval.
+            self.set_tick_period(Duration::from_millis(self.plugin_config.as_ref().unwrap().ticking_interval_in_ms));
         }
 
         // If all providers are in `Ready` state, any request that was sent during the loading phase,

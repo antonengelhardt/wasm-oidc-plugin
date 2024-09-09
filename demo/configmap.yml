@@ -57,6 +57,7 @@ data:
                               aes_key: "redacted"
 
                               reload_interval_in_h: 1 # in hours
+                              ticking_interval_in_ms: 500 # in milliseconds
                               open_id_configs:
                                 - name: auth0
                                   image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Logo_de_Auth0.svg/2560px-Logo_de_Auth0.svg.png"
