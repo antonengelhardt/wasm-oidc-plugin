@@ -188,6 +188,7 @@ impl RootContext for Root {
                     open_id_providers: Arc::new(self.open_id_providers.lock().unwrap().to_vec()),
                     plugin_config: self.plugin_config.clone()?,
                     token_id: None,
+                    request_id: None,
                 }))
             }
 

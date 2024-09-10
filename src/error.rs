@@ -75,12 +75,13 @@ impl ConfiguredOidc {
             headers,
             Some(
                 format!(
-                    "<div style=\"text-align: center; margin-top: 20%; font-family: Arial, sans-serif;\">
+                    "<div style=\"text-align: center; margin-top: 20%; font-family: Helvetica, sans-serif;\">
                         <h1>{}</h1>
                         <h2>{}</h2>
                         <p>{}</p>
+                        <p>Request-ID: {}</p>
                     </div>",
-                    status_code, title, message
+                    status_code, title, message, self.request_id.clone().unwrap()
                 )
                 .as_bytes(),
             ),
