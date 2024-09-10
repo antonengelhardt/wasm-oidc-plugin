@@ -62,7 +62,7 @@ pub fn auth_page_html(provider_cards: String) -> String {
                         --footer-text: #888;
                     }}
                     body {{
-                        font-family: Arial, sans-serif;
+                        font-family: Helvetica, sans-serif;
                         display: flex;
                         flex-direction: column;
                         justify-content: center;

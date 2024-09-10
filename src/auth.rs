@@ -40,6 +40,8 @@ pub struct ConfiguredOidc {
     pub plugin_config: Arc<PluginConfiguration>,
     /// Token id of the current request
     pub token_id: Option<u32>,
+    /// ID of the current request
+    pub request_id: Option<String>,
 }
 
 /// The context is used to process incoming HTTP requests when the filter is configured.
@@ -60,6 +62,13 @@ impl HttpContext for ConfiguredOidc {
         let url = Url::parse(&format!("{}://{}{}", scheme, host, path))
             .unwrap_or(Url::parse("http://example.com").unwrap());
         debug!("url: {}", url);
+
+        // Get x-request-id
+        let x_request_id = self
+            .get_http_request_header("x-request-id")
+            .unwrap_or_default();
+        self.request_id = Some(x_request_id.clone());
+        debug!("x-request-id: {}", x_request_id);
 
         // Health check
         if path == "/plugin-health" {
@@ -140,7 +149,11 @@ impl HttpContext for ConfiguredOidc {
             match self.exchange_code_for_token(path) {
                 Ok(_) => return Action::Pause,
                 Err(e) => {
-                    warn!("token exchange failed: {}", e);
+                    warn!(
+                        "token exchange failed for request {} with error: {}",
+                        self.request_id.clone().unwrap(),
+                        e
+                    );
                     self.show_error_page(503, "Token exchange failed", "Please try again, delete your cookies or contact your system administrator.");
                 }
             }
@@ -218,7 +231,11 @@ impl Context for ConfiguredOidc {
                 debug!("token stored in cookie");
             }
             Err(e) => {
-                warn!("storing token in cookie failed: {}", e);
+                warn!(
+                    "storing token in cookie failed for request {} with error: {}",
+                    self.request_id.clone().unwrap(),
+                    e
+                );
                 // Send a 503 if storing the token in the cookie failed
                 self.show_error_page(
                     503,
@@ -596,8 +613,8 @@ impl ConfiguredOidc {
                 Some(html::auth_page_html(provider_cards).as_bytes()),
             );
         } else {
-            debug!("no cookie found or invalid, redirecting to authorization endpoint");
             // If there is only one provider, redirect the user to the authorization endpoint right away
+            debug!("no cookie found or invalid, redirecting to authorization endpoint");
             self.redirect_to_authorization_endpoint(self.open_id_providers.first().unwrap(), None);
         }
     }
