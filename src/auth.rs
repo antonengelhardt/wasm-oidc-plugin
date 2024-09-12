@@ -117,7 +117,11 @@ impl HttpContext for ConfiguredOidc {
             match self.logout() {
                 Ok(action) => return action,
                 Err(e) => {
-                    warn!("logout failed: {}", e);
+                    warn!(
+                        "logout failed for request {} with error: {}",
+                        self.request_id.clone().unwrap(),
+                        e
+                    );
                     self.show_error_page(503, "Logout failed", "Please try again, delete your cookies or contact your system administrator.");
                 }
             }
@@ -566,7 +570,7 @@ impl ConfiguredOidc {
                     &new_nonce,
                     self.plugin_config.cookie_name.as_str(),
                     self.plugin_config.cookie_duration,
-                    self.get_number_of_cookies() as u64,
+                    self.get_number_of_session_cookies() as u64,
                 );
 
                 // Build cookie headers
@@ -587,11 +591,13 @@ impl ConfiguredOidc {
     /// Clear the cookies and redirect to the base path or `end_session_endpoint`.
     fn logout(&self) -> Result<Action, PluginError> {
         let cookie_values = Session::make_cookie_values(
-            "",
+            // This is a bit hacky, but we need to write something into the cookie to clear all cookies (otherwise the
+            // `make_cookie_values` function will not overwrite all cookies, as "" is an empty chunk)
+            "clear",
             "",
             &self.plugin_config.cookie_name,
             0,
-            self.get_number_of_cookies() as u64,
+            self.get_number_of_session_cookies() as u64,
         );
 
         let mut headers = Session::make_set_cookie_headers(&cookie_values);
@@ -728,7 +734,7 @@ impl ConfiguredOidc {
             &nonce,
             self.plugin_config.cookie_name.as_str(),
             self.plugin_config.cookie_duration,
-            self.get_number_of_cookies() as u64,
+            self.get_number_of_session_cookies() as u64,
         );
 
         // Build cookie headers
@@ -864,9 +870,12 @@ impl ConfiguredOidc {
             .ok_or(PluginError::NonceCookieNotFoundError)
     }
 
-    /// Helper function to get the number of cookies from the request headers.
-    pub fn get_number_of_cookies(&self) -> usize {
+    /// Helper function to get the number of session cookies from the request headers.
+    pub fn get_number_of_session_cookies(&self) -> usize {
         let cookie = self.get_http_request_header("cookie").unwrap_or_default();
-        cookie.split(';').count()
+        return cookie
+            .split(';')
+            .filter(|x| x.contains(&self.plugin_config.cookie_name))
+            .count();
     }
 }
