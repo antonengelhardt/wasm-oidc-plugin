@@ -28,7 +28,7 @@ serde_urlencoded = "0.7.1"
 base64 = "0.22.1"
 
 # regex
-regex = "1.10.5"
+regex = "1.11.0"
 serde_regex = "1.1.0"
 
 # jsonwebtoken (forked version to support RSA keys longer than 4096 bits)
