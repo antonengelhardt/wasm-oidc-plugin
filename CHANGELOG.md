@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.2
+
+### 🐛 Bug Fixes
+
+- **(dependabot)** Remove unnecessary scope and "update" prefix
+- **(dependabot)** Extra space
+
+### ⚙️ Miscellaneous Tasks
+
+- **(git)** Add git hooks
+- Pr template
+- **(ci)** Disable automatic changelog and release
+- **(ci)** Bump upload-artifact from v2 to v4
+- **(ci)** Bump upload-artifact from v2 to v4 in build.yaml
+
 ## v0.5.1
 
 ### ⚙️ Miscellaneous Tasks
