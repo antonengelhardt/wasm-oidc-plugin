@@ -1,5 +1,11 @@
+// proxy-wasm
+use proxy_wasm::traits::HttpContext;
+
 // thiserror
 use thiserror::Error;
+
+// crate
+use crate::auth::ConfiguredOidc;
 
 /// Error type for the plugin
 #[derive(Error, Debug)]
@@ -24,10 +30,14 @@ pub enum PluginError {
     // Token validation errors
     #[error("error while getting code from callback: {0}")]
     CodeNotFoundInCallbackError(#[from] serde_urlencoded::de::Error),
+    #[error("the code is coming from an unknown provider: {0}")]
+    ProviderNotFoundError(String),
     #[error("token response is not in the required format: {0}")]
     TokenResponseFormatError(String),
     #[error("token validation failed: {0}")]
     TokenValidationError(#[from] jwt_simple::Error),
+    #[error("issuer not found in session cookie")]
+    IssuerNotFound,
     #[error("no key worked for validation")]
     NoKeyError,
 
@@ -54,4 +64,27 @@ pub enum PluginError {
     AuthorizationStateNotFoundError,
     #[error("state does not match")]
     StateMismatchError,
+}
+
+impl ConfiguredOidc {
+    pub fn show_error_page(&self, status_code: u32, title: &str, message: &str) {
+        let headers = vec![("cache-control", "no-cache"), ("content-type", "text/html")];
+
+        self.send_http_response(
+            status_code,
+            headers,
+            Some(
+                format!(
+                    "<div style=\"text-align: center; margin-top: 20%; font-family: Helvetica, sans-serif;\">
+                        <h1>{}</h1>
+                        <h2>{}</h2>
+                        <p>{}</p>
+                        <p>Request-ID: {}</p>
+                    </div>",
+                    status_code, title, message, self.request_id.clone().unwrap()
+                )
+                .as_bytes(),
+            ),
+        );
+    }
 }
