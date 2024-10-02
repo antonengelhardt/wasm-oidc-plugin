@@ -45,9 +45,12 @@ data:
                               config_endpoint: "https://accounts.google.com/.well-known/openid-configuration"
                               reload_interval_in_h: 1 # in hours
 
-                              exclude_hosts: [] # or ["httpbin.org"]
-                              exclude_paths: [] # or ["/favicon.ico"]
-                              exclude_urls: [] # or ["http://localhost:10000/#/HTTP_Methods/get_get"]
+                              exclude_hosts:
+                                # - "httpbin.org"
+                              exclude_paths:
+                                # - "/favicon.ico"
+                              exclude_urls:
+                                # - https://httpbin.org/favicon.ico
 
                               access_token_header_name: # or "Authorization"
                               access_token_header_prefix: "Bearer "
