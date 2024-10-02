@@ -16,8 +16,7 @@ updates:
     reviewers:
       - "antonengelhardt"
     commit-message:
-      prefix: "chore(deps): update"
-      include: "scope"  
+      prefix: "chore(deps):"
     ignore:
       - dependency-name: "*"
         update-types:
