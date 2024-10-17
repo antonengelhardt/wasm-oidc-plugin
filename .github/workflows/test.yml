@@ -7,7 +7,7 @@ jobs:
   cargo-deny:
     runs-on: ubuntu-latest
     container:
-      image: antonengelhardt/rust-docker-tools
+      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -21,7 +21,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     container:
-      image: antonengelhardt/rust-docker-tools
+      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -36,6 +36,8 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Rust version
         run: rustc --version && cargo --version
@@ -48,7 +50,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     container:
-      image: antonengelhardt/rust-docker-tools
+      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -59,10 +61,10 @@ jobs:
       - name: Fmt
         run: cargo fmt -- --check
 
-  test:
+  audit:
     runs-on: ubuntu-latest
     container:
-      image: antonengelhardt/rust-docker-tools
+      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -77,6 +79,77 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install cargo audit
+        run: cargo install cargo-audit
+
+      - name: Audit
+        run: cargo audit
+
+  verify-project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Rust version
+        run: rustc --version && cargo --version
+
+      - name: Verify project
+        run: cargo verify-project
+
+  outdated:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/antonengelhardt/rust-docker-tools
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install cargo-outdated
+        run: cargo install cargo-outdated
+
+      - name: Rust version
+        run: rustc --version && cargo --version
+
+      - name: Outdated
+        run: cargo outdated --root-deps-only --exit-code 1
+
+  test:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/antonengelhardt/rust-docker-tools
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up cargo cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Rust version
         run: rustc --version && cargo --version
@@ -88,7 +161,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/antonengelhardt/rust-docker-tools
-    needs: [cargo-deny, clippy, fmt, test]
+    needs: [cargo-deny, clippy, fmt, test, outdated, verify-project, audit]
 
     steps:
       - name: Checkout code
@@ -104,6 +177,8 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Build wasm-oidc-plugin
         run: |
