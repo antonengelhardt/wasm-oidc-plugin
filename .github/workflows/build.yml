@@ -12,7 +12,7 @@ jobs:
   cargo-deny:
     runs-on: ubuntu-latest
     container:
-      image: antonengelhardt/rust-docker-tools
+      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,7 +26,7 @@ jobs:
   clippy:
     runs-on: ubuntu-latest
     container:
-      image: antonengelhardt/rust-docker-tools
+      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -41,6 +41,8 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Rust version
         run: rustc --version && cargo --version
@@ -51,7 +53,7 @@ jobs:
   fmt:
     runs-on: ubuntu-latest
     container:
-      image: antonengelhardt/rust-docker-tools
+      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -65,7 +67,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     container:
-      image: antonengelhardt/rust-docker-tools
+      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -80,6 +82,8 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Rust version
         run: rustc --version && cargo --version
@@ -107,6 +111,8 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Build wasm-oidc-plugin
         run: |
