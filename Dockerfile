@@ -10,7 +10,7 @@ RUN cargo build --target=wasm32-wasi --release
 
 ##################################################
 
-FROM envoyproxy/envoy:v1.29-latest
+FROM envoyproxy/envoy:v1.31-latest
 
 COPY --from=builder /target/wasm32-wasi/release/wasm_oidc_plugin.wasm /etc/envoy/proxy-wasm-plugins/wasm_oidc_plugin.wasm
 
