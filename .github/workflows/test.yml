@@ -82,7 +82,7 @@ jobs:
         run: cargo install cargo-audit
 
       - name: Audit
-        run: cargo audit
+        run: cargo audit -f audit.toml
 
   verify-project:
     runs-on: ubuntu-latest
