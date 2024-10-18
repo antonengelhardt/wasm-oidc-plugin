@@ -227,11 +227,11 @@ pub fn auth_page_html(provider_cards: String) -> String {
                 <div class="container">
                     <h1>Select a provider to authenticate with</h1>
                     <div class="provider-grid">
-                        {}
+                        {provider_cards}
                     </div>
                 </div>
                 <div class="footer">
-                    <a href="https://github.com/antonengelhardt/wasm-oidc-plugin" target="_blank" rel="noopener noreferrer">wasm-oidc-plugin</a> v{}
+                    <a href="https://github.com/antonengelhardt/wasm-oidc-plugin" target="_blank" rel="noopener noreferrer">wasm-oidc-plugin</a> v{version}
                 </div>
                 <script>
                     const darkModeToggle = document.getElementById('darkModeToggle');
@@ -272,7 +272,6 @@ pub fn auth_page_html(provider_cards: String) -> String {
                 </script>
             </body>
             </html>
-            "#,
-        provider_cards, version
+            "#
     )
 }
