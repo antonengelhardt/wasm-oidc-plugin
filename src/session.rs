@@ -89,7 +89,6 @@ impl Session {
         encoded_nonce: &str,
         cookie_name: &str,
         cookie_duration: u64,
-        number_current_cookies: u64,
     ) -> Vec<String> {
         // Split every 4000 bytes
         let cookie_parts = encoded_cookie
@@ -109,21 +108,16 @@ impl Session {
             cookie_values.push(cookie_value);
         }
 
+        let num_parts = cookie_values.len();
+        let num_parts_cookie_value = format!("{cookie_name}-parts={num_parts}; Path=/; HttpOnly; Secure; Max-Age={cookie_duration}; ");
+        cookie_values.push(num_parts_cookie_value);
+
         // Build nonce cookie value
         let nonce_cookie_value = format!(
             "{}-nonce={}; Path=/; HttpOnly; Secure; Max-Age={}; ",
             cookie_name, &encoded_nonce, cookie_duration
         );
         cookie_values.push(nonce_cookie_value);
-
-        // Overwrite the old cookies because decryption will fail if older and expired cookies are
-        // still present.
-        for i in cookie_values.len()..number_current_cookies as usize {
-            cookie_values.push(format!(
-                "{}-{}=; Path=/; HttpOnly; Secure; Max-Age=0",
-                cookie_name, i
-            ));
-        }
 
         cookie_values
     }
