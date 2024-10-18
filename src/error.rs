@@ -75,13 +75,157 @@ impl ConfiguredOidc {
             headers,
             Some(
                 format!(
-                    "<div style=\"text-align: center; margin-top: 20%; font-family: Helvetica, sans-serif;\">
-                        <h1>{}</h1>
-                        <h2>{}</h2>
-                        <p>{}</p>
-                        <p>Request-ID: {}</p>
-                    </div>",
-                    status_code, title, message, self.request_id.clone().unwrap()
+                    r#"
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                        <title>Error - {}</title>
+                        <style>
+                            :root {{
+                                --bg-color: #f0f2f5;
+                                --text-color: #333;
+                                --card-bg: #ffffff;
+                                --card-border: #e9ecef;
+                                --toggle-bg: #e2e8f0;
+                                --toggle-border: #cbd5e1;
+                            }}
+                            .dark-mode {{
+                                --bg-color: #1a1a1a;
+                                --text-color: #ffffff;
+                                --card-bg: #2c2c2c;
+                                --card-border: #4a4a4a;
+                                --toggle-bg: #4a5568;
+                                --toggle-border: #2d3748;
+                            }}
+                            body {{
+                                font-family: Helvetica, sans-serif;
+                                display: flex;
+                                flex-direction: column;
+                                justify-content: center;
+                                align-items: center;
+                                min-height: 100vh;
+                                margin: 0;
+                                background-color: var(--bg-color);
+                                color: var(--text-color);
+                                transition: background-color 0.3s ease, color 0.3s ease;
+                            }}
+                            .error-container {{
+                                text-align: center;
+                                padding: 40px;
+                                background-color: var(--card-bg);
+                                border-radius: 12px;
+                                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+                                max-width: 600px;
+                                width: 90%;
+                            }}
+                            h1 {{
+                                margin-bottom: 10px;
+                            }}
+                            h2 {{
+                                margin-bottom: 20px;
+                                color: #e74c3c;
+                            }}
+                            p {{
+                                margin-bottom: 10px;
+                            }}
+                            .request-id {{
+                                font-size: 0.8em;
+                                color: #888;
+                            }}
+                            .dark-mode-toggle {{
+                                position: fixed;
+                                top: 20px;
+                                right: 20px;
+                            }}
+                            .toggle-switch {{
+                                position: relative;
+                                display: inline-block;
+                                width: 60px;
+                                height: 34px;
+                            }}
+                            .toggle-switch input {{
+                                opacity: 0;
+                                width: 0;
+                                height: 0;
+                            }}
+                            .toggle-slider {{
+                                position: absolute;
+                                cursor: pointer;
+                                top: 0;
+                                left: 0;
+                                right: 0;
+                                bottom: 0;
+                                background-color: var(--toggle-bg);
+                                border: 2px solid var(--toggle-border);
+                                transition: .4s;
+                                border-radius: 34px;
+                            }}
+                            .toggle-slider:before {{
+                                position: absolute;
+                                content: "☀️";
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                height: 26px;
+                                width: 26px;
+                                left: 4px;
+                                bottom: 2px;
+                                background-color: white;
+                                transition: .4s;
+                                border-radius: 50%;
+                            }}
+                            input:checked + .toggle-slider {{
+                                background-color: var(--toggle-bg);
+                            }}
+                            input:checked + .toggle-slider:before {{
+                                transform: translateX(26px);
+                                content: "🌙";
+                                background-color: #2c3e50;
+                            }}
+                        </style>
+                    </head>
+                    <body>
+                        <div class="dark-mode-toggle">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="darkModeToggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="error-container">
+                            <h1>Error {}</h1>
+                            <h2>{}</h2>
+                            <p>{}</p>
+                            <p class="request-id">Request-ID: {}</p>
+                        </div>
+                        <script>
+                            const darkModeToggle = document.getElementById('darkModeToggle');
+                            const body = document.body;
+
+                            darkModeToggle.addEventListener('change', () => {{
+                                body.classList.toggle('dark-mode');
+                            }});
+
+                            // Check for saved dark mode preference
+                            if (localStorage.getItem('darkMode') === 'enabled') {{
+                                body.classList.add('dark-mode');
+                                darkModeToggle.checked = true;
+                            }}
+
+                            // Save dark mode preference
+                            darkModeToggle.addEventListener('change', () => {{
+                                if (body.classList.contains('dark-mode')) {{
+                                    localStorage.setItem('darkMode', 'enabled');
+                                }} else {{
+                                    localStorage.setItem('darkMode', null);
+                                }}
+                            }});
+                        </script>
+                    </body>
+                    </html>
+                    "#,
+                    status_code, status_code, title, message, self.request_id.clone().unwrap()
                 )
                 .as_bytes(),
             ),
