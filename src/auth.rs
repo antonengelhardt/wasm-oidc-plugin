@@ -570,7 +570,6 @@ impl ConfiguredOidc {
                     &new_nonce,
                     self.plugin_config.cookie_name.as_str(),
                     self.plugin_config.cookie_duration,
-                    self.get_number_of_session_cookies() as u64,
                 );
 
                 // Build cookie headers
@@ -590,15 +589,7 @@ impl ConfiguredOidc {
 
     /// Clear the cookies and redirect to the base path or `end_session_endpoint`.
     fn logout(&self) -> Result<Action, PluginError> {
-        let cookie_values = Session::make_cookie_values(
-            // This is a bit hacky, but we need to write something into the cookie to clear all cookies (otherwise the
-            // `make_cookie_values` function will not overwrite all cookies, as "" is an empty chunk)
-            "clear",
-            "",
-            &self.plugin_config.cookie_name,
-            0,
-            self.get_number_of_session_cookies() as u64,
-        );
+        let cookie_values = Session::make_cookie_values("", "", &self.plugin_config.cookie_name, 0);
 
         let mut headers = Session::make_set_cookie_headers(&cookie_values);
 
@@ -734,7 +725,6 @@ impl ConfiguredOidc {
             &nonce,
             self.plugin_config.cookie_name.as_str(),
             self.plugin_config.cookie_duration,
-            self.get_number_of_session_cookies() as u64,
         );
 
         // Build cookie headers
@@ -841,24 +831,18 @@ impl ConfiguredOidc {
             .get_http_request_header("cookie")
             .ok_or(PluginError::SessionCookieNotFoundError)?;
 
-        // Split cookie by ; and filter for the cookie name.
-        let cookies = cookie
-            .split(';')
-            .filter(|x| x.contains(self.plugin_config.cookie_name.as_str()))
-            .filter(|x| !x.contains(format!("{}-nonce", self.plugin_config.cookie_name).as_str()));
+        let cookie_name = &self.plugin_config.cookie_name;
+        let num_parts: u8 = self
+            .get_cookie(&format!("{cookie_name}-parts"))
+            .unwrap_or_default()
+            .parse()
+            .map_err(|_| PluginError::SessionCookieNotFoundError)?;
 
-        // Check if cookies have values
-        for cookie in cookies.clone() {
-            if cookie.split('=').collect::<Vec<&str>>().len() < 2 {
-                return Err(PluginError::SessionCookieNotFoundError);
-            }
-        }
-
-        // Then split all cookies by = and get the second element before joining all values together.
-        let values = cookies
-            .map(|x| x.split('=').collect::<Vec<&str>>()[1])
-            .collect::<Vec<&str>>()
-            // Join the cookie values together again.
+        let values = (0..num_parts)
+            .into_iter()
+            .map(|i| self.get_cookie(&format!("{cookie_name}-{i}")))
+            .collect::<Option<Vec<String>>>()
+            .ok_or(PluginError::SessionCookieNotFoundError)?
             .join("");
 
         Ok(values)
