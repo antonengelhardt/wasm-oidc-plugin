@@ -28,7 +28,7 @@ spec:
     spec:
       initContainers:
         - name: build-plugin
-          image: antonengelhardt/rust-docker-tools:latest
+          image: ghcr.io/antonengelhardt/rust-docker-tools:latest
           command:
             - /bin/sh
             - -c
@@ -52,7 +52,7 @@ spec:
 
       containers:
         - name: envoy
-          image: envoyproxy/envoy:v1.29-latest
+          image: envoyproxy/envoy:v1.31-latest
 
           resources:
             requests:
