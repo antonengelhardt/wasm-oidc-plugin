@@ -69,6 +69,7 @@ pub enum PluginError {
 impl ConfiguredOidc {
     pub fn show_error_page(&self, status_code: u32, title: &str, message: &str) {
         let headers = vec![("cache-control", "no-cache"), ("content-type", "text/html")];
+        let request_id = self.request_id.clone().unwrap_or_default();
 
         self.send_http_response(
             status_code,
@@ -81,7 +82,7 @@ impl ConfiguredOidc {
                     <head>
                         <meta charset="UTF-8">
                         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                        <title>Error - {}</title>
+                        <title>Error - {status_code}</title>
                         <style>
                             :root {{
                                 --bg-color: #f0f2f5;
@@ -194,10 +195,10 @@ impl ConfiguredOidc {
                             </label>
                         </div>
                         <div class="error-container">
-                            <h1>Error {}</h1>
-                            <h2>{}</h2>
-                            <p>{}</p>
-                            <p class="request-id">Request-ID: {}</p>
+                            <h1>Error {status_code}</h1>
+                            <h2>{title}</h2>
+                            <p>{message}</p>
+                            <p class="request-id">Request-ID: {request_id}</p>
                         </div>
                         <script>
                             const darkModeToggle = document.getElementById('darkModeToggle');
@@ -225,7 +226,6 @@ impl ConfiguredOidc {
                     </body>
                     </html>
                     "#,
-                    status_code, status_code, title, message, self.request_id.clone().unwrap()
                 )
                 .as_bytes(),
             ),
