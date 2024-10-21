@@ -69,6 +69,7 @@ pub enum PluginError {
 impl ConfiguredOidc {
     pub fn show_error_page(&self, status_code: u32, title: &str, message: &str) {
         let headers = vec![("cache-control", "no-cache"), ("content-type", "text/html")];
+        let request_id = self.request_id.clone().unwrap_or_default();
 
         self.send_http_response(
             status_code,
@@ -76,12 +77,11 @@ impl ConfiguredOidc {
             Some(
                 format!(
                     "<div style=\"text-align: center; margin-top: 20%; font-family: Helvetica, sans-serif;\">
-                        <h1>{}</h1>
-                        <h2>{}</h2>
-                        <p>{}</p>
-                        <p>Request-ID: {}</p>
-                    </div>",
-                    status_code, title, message, self.request_id.clone().unwrap()
+                        <h1>{status_code}</h1>
+                        <h2>{title}</h2>
+                        <p>{message}</p>
+                        <p>Request-ID: {request_id}</p>
+                    </div>"
                 )
                 .as_bytes(),
             ),
