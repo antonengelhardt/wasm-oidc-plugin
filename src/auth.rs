@@ -825,21 +825,17 @@ impl ConfiguredOidc {
     ///
     /// The session cookie as a string if found, an error otherwise
     pub fn get_session_cookie_as_string(&self) -> Result<String, PluginError> {
-        // Find all cookies that have the cookie_name, split them by ; and remove the name from the cookie
-        // as well as the leading =. Then join the cookie values together again.
-        let cookie = self
-            .get_http_request_header("cookie")
-            .ok_or(PluginError::SessionCookieNotFoundError)?;
-
         let cookie_name = &self.plugin_config.cookie_name;
+
+        // Get the number of cookie parts
         let num_parts: u8 = self
             .get_cookie(&format!("{cookie_name}-parts"))
             .unwrap_or_default()
             .parse()
             .map_err(|_| PluginError::SessionCookieNotFoundError)?;
 
+        // Get the cookie parts and concatenate them into a string
         let values = (0..num_parts)
-            .into_iter()
             .map(|i| self.get_cookie(&format!("{cookie_name}-{i}")))
             .collect::<Option<Vec<String>>>()
             .ok_or(PluginError::SessionCookieNotFoundError)?
@@ -852,14 +848,5 @@ impl ConfiguredOidc {
     pub fn get_nonce(&self) -> Result<String, PluginError> {
         self.get_cookie(format!("{}-nonce", self.plugin_config.cookie_name).as_str())
             .ok_or(PluginError::NonceCookieNotFoundError)
-    }
-
-    /// Helper function to get the number of session cookies from the request headers.
-    pub fn get_number_of_session_cookies(&self) -> usize {
-        let cookie = self.get_http_request_header("cookie").unwrap_or_default();
-        return cookie
-            .split(';')
-            .filter(|x| x.contains(&self.plugin_config.cookie_name))
-            .count();
     }
 }
