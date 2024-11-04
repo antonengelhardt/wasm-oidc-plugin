@@ -112,7 +112,7 @@ jobs:
 
       - name: Build wasm-oidc-plugin
         run: |
-          cargo build --target wasm32-wasi --release
+          cargo build --target wasm32-wasip1 --release
 
       - name: Upload plugin as artifact
         uses: actions/upload-artifact@v4
