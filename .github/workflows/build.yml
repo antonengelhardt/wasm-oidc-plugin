@@ -46,7 +46,7 @@ jobs:
         run: rustc --version && cargo --version
 
       - name: Clippy
-        run: cargo clippy --release --all-targets --target=wasm32-wasi -- -D warnings
+        run: cargo clippy --release --all-targets --target=wasm32-wasip1 -- -D warnings
 
   fmt:
     runs-on: ubuntu-latest
@@ -110,7 +110,7 @@ jobs:
 
       - name: Build wasm-oidc-plugin
         run: |
-          cargo build --target wasm32-wasi --release
+          cargo build --target wasm32-wasip1 --release
 
       - name: Upload plugin as artifact
         uses: actions/upload-artifact@v4
