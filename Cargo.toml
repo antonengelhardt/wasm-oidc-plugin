@@ -44,7 +44,7 @@ serde_regex = "1.1.0"
 sec = { version = "1.0.0", features = ["serde", "deserialize"] }
 
 # thiserror
-thiserror = "1.0.67"
+thiserror = "1.0.68"
 
 [profile.release]
 lto = true
