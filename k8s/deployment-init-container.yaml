@@ -36,7 +36,7 @@ spec:
               apk add git
               git clone -b main https://${GITHUB_PAT}@github.com/your-org/your-repo.git #! Change URL and branch
               cd your-repo #! Change directory
-              cargo build --target wasm32-wasi --release
+              cargo build --target wasm32-wasip1 --release
               cp target/wasm32-wasi/release/name_of_your_wasm_plugin.wasm /plugins/name_of_your_wasm_plugin.wasm #! Rename, if necessary
 
           env:

@@ -33,7 +33,7 @@ apt install build-essential
 # Install Rustup
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 # Enable WASM compilation target
-cargo build --target wasm32-wasi --release
+cargo build --target wasm32-wasip1 --release
 ```
 
 ## Run
@@ -51,7 +51,7 @@ make run
 1. **Building the plugin:**
 
 ```sh
-cargo build --target wasm32-wasi --release
+cargo build --target wasm32-wasip1 --release
 # or
 make build
 ```
@@ -74,9 +74,10 @@ To deploy the plugin to production, the following steps are needed (either manua
 
 1. Build the plugin
 
-    1.1 with `cargo build --target wasm32-wasi --release` - this can be done in a [initContainer](./k8s/deployment.yaml) (see [k8s](./k8s) folder) and then copy the binary to the path `/etc/envoy/proxy-wasm-plugins/` in the envoy container.
+   1.1 with `cargo build --target wasm32-wasip1 --release` - this can be done in a [initContainer](./k8s/deployment.yaml) (see [k8s](./k8s) folder) and then copy the binary to the path `/etc/envoy/proxy-wasm-plugins/` in the envoy container.
 
-    1.2 by using the pre-built Docker image [antonengelhardt/wasm-oidc-plugin](https://hub.docker.com/r/antonengelhardt/wasm-oidc-plugin).
+   1.2 by using the pre-built Docker image [antonengelhardt/wasm-oidc-plugin](https://hub.docker.com/r/antonengelhardt/wasm-oidc-plugin).
+
 2. Run envoy as a container with the `envoy.yaml` file mounted through the [ConfigMap](./k8s/configmap.yml) as a volume.
 3. Set up [Service](./k8s/service.yml), [Certificate](./k8s/certificate-production.yml), [Ingress](./k8s/ingress.yml) to expose the Envoy to the internet.
 
@@ -212,7 +213,7 @@ Google does exactly that:
 
 ```json
 {
-    "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs"
+  "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs"
 }
 ```
 
