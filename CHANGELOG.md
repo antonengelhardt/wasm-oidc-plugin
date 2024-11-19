@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.3
+
+### 🚜 Refactor
+
+- `wasm32-wasi` renamed to `wasm32-wasip1` & rust to 1.78
+
 ## v0.5.2
 
 ### 🐛 Bug Fixes
