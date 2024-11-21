@@ -1,24 +1,25 @@
-![Logo (generated with Photoshop Generative AI)](social-graphic.png)
+![Logo (generated with Photoshop Generative AI)](.github/assets/social-graphic.png)
 
 # wasm-oidc-plugin
 
 [![Build Status](https://github.com/antonengelhardt/wasm-oidc-plugin/actions/workflows/build.yml/badge.svg)](https://github.com/antonengelhardt/wasm-oidc-plugin/actions/workflows/build.yml) [![Documentation](https://img.shields.io/badge/docs-blue)](https://antonengelhardt.github.io/wasm-oidc-plugin/wasm_oidc_plugin/index.html#)
 
-A plugin for the [Envoy-Proxy](https://www.envoyproxy.io/) written in [Rust](https://www.rust-lang.org). It is a HTTP Filter, that implements the OIDC Authorization Code Flow. Requests sent to the filter are checked for the presence of a valid session cookie. If the cookie is not present, the user is redirected to the `authorization_endpoint` to authenticate. After successful authentication, the user is redirected back to the original request with a code in the URL query. The plugin then exchanges the code for a token using the `token_endpoint` and stores the token in the session. If the cookie is present, the plugin validates the token and passes the request to the backend, if the token is valid (optional).
+A Wasm-plugin for the [Envoy-Proxy](https://www.envoyproxy.io/) written in [Rust](https://www.rust-lang.org) acting as an HTTP Filter, that implements the OpenID Authorization Code Flow. Requests sent to the filter are checked for the presence of a valid session cookie. If the cookie is not present, the user is redirected to the `authorization_endpoint` to authenticate. After successful authentication, the user is redirected back to the original path with the authorization code in the URL query. The plugin then exchanges the code for a token using the `token_endpoint` and stores the token in the session. If the cookie is present and decryptable, the plugin validates the token and passes the request to the backend, if the token is valid (optional).
 
 ## Demo
 
-Go to [demo-page](https://demo.wasm-oidc-plugin.ae02.de) to see the plugin in action. [Auth0](https://auth0.com) is used as the OIDC provider. Simply create an account or login with Google. The plugin has been configured to show [httpbin.org](https://httpbin.org) as the upstream. Then open the developer tools and check the cookies or use the [httpbin cookie inspector](https://demo.wasm-oidc-plugin.ae02.de/#/Cookies/get_cookies). You will see a cookie called `oidcSession-0`. This is the session, that holds the authorization state. If you delete the cookie and refresh the page, you will be redirected to the `authorization_endpoint` to authenticate again.
+Go to [demo-page](https://demo.wasm-oidc-plugin.ae02.de) to see the plugin in action. [Auth0](https://auth0.com) is used as the OpenID provider. Simply create an account or login with Google. The plugin has been configured to show [httpbin.org](https://httpbin.org) as the upstream. Then open the developer tools and check the cookies or use the [httpbin cookie inspector](https://demo.wasm-oidc-plugin.ae02.de/#/Cookies/get_cookies). You will see a cookie called `oidcSession-0`. This is the session, that holds the authorization state. If you delete the cookie and refresh the page, you will be redirected to the `authorization_endpoint` to authenticate again.
 
 ## Why this repo?
 
 This repo is the result of a bachelor thesis in Information Systems. It is inspired by two other projects: [oidc-filter](https://github.com/dgn/oidc-filter) & [wasm-oauth-filter](https://github.com/sonhal/wasm-oauth-filter). This project has several advantages and improvements:
 
 1. **Encryption**: The session in which the authorization state is stored is encrypted using AES-256, by providing a Key in the config and a session-based nonce. This prevents the session from being read by the user and potentially modified. If the user tries to modify the session, the decryption fails and the user is redirected to the `authorization_endpoint` to authenticate again.
-2. **Configuration**: Many configuration options are available to customize the plugin to your needs. More are coming ;)
-3. **Stability**: The plugin aims to be stable and ready for production. All forceful value unwraps are expected to be valid. If the value may be invalid or in the wrong format, error handling is in place.
-4. **Optional validation**: The plugin can be configured to validate the token or not. If the validation is disabled, the plugin only checks for the presence of the token and passes the request to the backend. This is because the validation is taking a considerable amount of time. This time becomes worse with the length of the signing key. Cryptographic support is not fully mature in WASM yet, but [there is hope](https://github.com/WebAssembly/wasi-crypto/blob/main/docs/HighLevelGoals.md).
-5. **Documentation and comments**: The code is documented and commented, so that it is easy to understand and extend.
+2. **Multiple OpenID Providers**: The plugin can be configured with multiple OpenID providers. This is useful if you have multiple services that are protected by different OpenID providers. The user can then choose which provider to authenticate with on some auth page.
+3. **Configuration**: Many configuration options are available to customize the plugin to your needs. More are coming ;)
+4. **Stability**: The plugin aims to be stable and ready for production. All forceful value unwraps are expected to be valid. If the value may be invalid or in the wrong format, error handling is in place.
+5. **Optional validation**: The plugin can be configured to validate the token or not. If the validation is disabled, the plugin only checks for the presence of the token and passes the request to the backend. This is because the validation is taking a considerable amount of time. This time becomes worse with the length of the signing key. Cryptographic support is not fully mature in WASM yet, but [there is hope](https://github.com/WebAssembly/wasi-crypto/blob/main/docs/HighLevelGoals.md).
+6. **Documentation and comments**: The code is documented and commented, so that it is easy to understand and extend.
 
 ## Install
 
@@ -96,20 +97,30 @@ The plugin is configured via the `envoy.yaml`-file. The following configuration 
 
 | Name | Type | Description | Example | Required |
 | ---- | ---- | ----------- | ------- | -------- |
-| `config_endpoint` | `string` | The open id configuration endpoint. | `https://accounts.google.com/.well-known/openid-configuration` | ✅ |
-| `reload_interval_in_hours` | `u64` | The interval in hours, after which the OIDC configuration is reloaded. | `24` | ✅ |
 | `exclude_hosts` | `Vec<Regex>` | A comma separated list Hosts (in Regex expressions), that are excluded from the filter. | `["localhost:10000"]` | ❌ |
 | `exclude_paths` | `Vec<Regex>` | A comma separated list of paths (in Regex expressions), that are excluded from the filter. | `["/health"]` | ❌ |
-| `exclude_urls` | `Vec<Regex>` | A comma separated list of URLs (in Regex expressions), that are excluded from the filter. | `["localhost:10000/health"]` | ❌ |
+| `exclude_urls` | `Vec<Regex>` | A comma separated list of URLs (in Regex expressions), that are excluded from the filter. | `["http://localhost:10000/health"]` | ❌ |
 | `access_token_header_name` | `string` | If set, this name will be used to forward the access token to the backend. | `X-Access-Token` | ❌ |
 | `access_token_header_prefix` | `string` | The prefix of the header, that is used to forward the access token, if empty "" is used. | `Bearer ` | ❌ |
 | `id_token_header_name` | `string` | If set, this name will be used to forward the id token to the backend. | `X-Id-Token` | ❌ |
 | `id_token_header_prefix` | `string` | The prefix of the header, that is used to forward the id token, if empty "" is used. | `Bearer ` | ❌ |
 | `cookie_name` | `string` | The name of the cookie, that is used to store the session. | `oidcSession` | ✅ |
-| `filter_plugin_cookies | `bool` | Whether to filter the cookies that are managed and controlled by the plugin (namely cookie_name and `nonce`). | `true` | ✅ |
+| `logout_path` | `string` | The path, that is used to logout the user. The user will be redirected to `end_session_endpoint` of the OIDC provider, if the server supports this; alternatively the user is sent to "/" | `/logout` | ✅ |
+| `filter_plugin_cookies` | `bool` | Whether to filter the cookies that are managed and controlled by the plugin (namely cookie_name and `nonce`). | `true` | ✅ |
 | `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` | ✅ |
 | `token_validation` | bool | Whether to validate the token or not. | `true` | ✅ |
 | `aes_key` | `string` | A base64 encoded AES-256 Key: `openssl rand -base64 32` | `SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q=` | ✅ |
+| `reload_interval_in_h` | `u64` | The interval in hours, after which the OpenID configuration is reloaded. | `24` | ✅ |
+| `open_id_configs` | `Vec<OpenIdConfig>` | A list of OpenID Configuration objects. | See below | ✅ |
+
+#### `OpenIdConfig`
+
+| Name | Type | Description | Example | Required |
+| ---- | ---- | ----------- | ------- | -------- |
+| `name` | `string` | The name of the OpenID provider (this will be shown on the Auth Page). | `Google` | ✅ |
+| `image` | `string` | The URL to the image of the OpenID provider (this will be shown on the Auth Page). | `https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/2560px-Google_2015_logo.svg.png` | ✅ |
+| `config_endpoint` | `string` | The open id configuration endpoint. | `https://accounts.google.com/.well-known/openid-configuration` | ✅ |
+| `upstream_cluster` | `string` | The name of the upstream cluster in your Envoy configuration. | `httpbin` | ✅ |
 | `authority` | `string` | The authority of the `authorization_endpoint`. | `accounts.google.com` | ✅ |
 | `redirect_uri` | `string` | The redirect URI, that the `authorization_endpoint` will redirect to. | `http://localhost:10000/oidc/callback` | ✅ |
 | `client_id` | `string` | The client ID, for getting and exchanging the code. | `wasm-oidc-plugin` | ✅ |
@@ -118,7 +129,7 @@ The plugin is configured via the `envoy.yaml`-file. The following configuration 
 | `client_secret` | `string` | The client secret, that is used to authenticate with the `authorization_endpoint`. | `secret` | ✅ |
 | `audience` | `string` | The audience, that is used to validate the token. | `wasm-oidc-plugin` | ✅ |
 
-With these configuration options, the plugin starts and loads more information itself such as the OIDC providers public keys, issuer, etc.
+With these configuration options, the plugin starts and loads more information itself such as all OpenID provider's public keys, issuer, etc.
 
 ### States
 
@@ -126,10 +137,11 @@ For that a state is used, which determines, what to load next. The following sta
 
 | State | Description |
 | ---- | ----------- |
-| `Uninitialized` | The plugin is not initialized yet. |
-| `LoadingConfig` | The plugin is loading the configuration from the `config_endpoint`. |
-| `LoadingJwks` | The plugin is loading the public keys from the `jwks_uri`. |
-| `Ready` | The plugin is ready to handle requests and will reload the configuration after the `reload_interval_in_hours` has passed. |
+| `LoadingConfig` | The plugin is loading the configuration from all `config_endpoint`s. |
+| `LoadingJwks` | The plugin is loading the public keys from all `jwks_uri`. |
+| `Ready` | The plugin is ready to handle requests and will reload the configuration after the `reload_interval_in_h` has passed. |
+
+Below is a state diagram for one single OpenID Provider
 
 ![State Diagram](./docs/sequence-discovery.png)
 
@@ -139,10 +151,11 @@ When a new request arrives, the root context creates a new http context with the
 
 Then, one of the following cases is handled:
 
-1. The filter is not configured yet and still loading the configuration. The request is paused and queued until the configuration is loaded. Then, the RootContext resumes the request and the Request is redirected in order to create a new context.
-2. The request has the code parameter in the URL query. This means that the user has been redirected back from the `authorization_endpoint` after successful authentication. The plugin exchanges the code for a token using the `token_endpoint` and stores the token in the session. Then, the user is redirected back to the original request.
-3. The request has a valid session cookie. The plugin decoded, decrypts and then validates the cookie and passes the request depending on the outcome of the validation of the token.
-4. The request has no valid session cookie. The plugin redirects the user to the `authorization_endpoint` to authenticate. Once, the user returns, the second case is handled.
+1. The plugin is not configured yet and still loading the configuration. The request is paused and queued until the configuration is loaded. Then, the RootContext resumes the request and the Request is redirected in order to create a new context.
+2. The request is excluded from the filter. The request is passed to the backend without any further checks.
+3. The request has the authorization code in the URL query. This means that the user has been redirected back from the `authorization_endpoint` after successful authentication. The plugin exchanges the code for a token using the `token_endpoint` and stores the token in the session. Then, the user is redirected back to the original request.
+4. The request has a valid session cookie. The plugin decoded, decrypts and then validates the cookie and passes the request depending on the outcome of the validation of the token.
+5. The request has no valid session cookie. The plugin redirects the user to the `authorization_endpoint` to authenticate. Once, the user returns, the second case is handled.
 
 ![Sequence Diagram](./docs/sequence-authorization-code-flow.png)
 
