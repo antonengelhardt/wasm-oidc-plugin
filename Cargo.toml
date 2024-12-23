@@ -41,7 +41,7 @@ pkce = "0.2.0"
 aes-gcm = {version = "0.10.3", features = ["std"]}
 
 # thiserror
-thiserror = "1.0.63"
+thiserror = "2.0.9"
 sec = { version = "1.0.0", features = ["serde", "deserialize"] }
 
 [profile.release]
