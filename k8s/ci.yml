@@ -118,7 +118,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: plugin
-          path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
+          path: target/wasm32-wasip1/release/wasm_oidc_plugin.wasm
 
   docker-image:
     name: Build and push Docker image
