@@ -16,7 +16,7 @@ jobs:
         run: rustc --version && cargo --version
 
       - name: Cargo Deny
-        uses: EmbarkStudios/cargo-deny-action@v1
+        uses: EmbarkStudios/cargo-deny-action@v2
 
   clippy:
     runs-on: ubuntu-latest
