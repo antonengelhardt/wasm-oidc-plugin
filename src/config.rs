@@ -1,8 +1,15 @@
+// aes_gcm
+use aes_gcm::{Aes256Gcm, KeyInit};
+
+// core
 use core::fmt;
+
+// sec
+use sec::Secret;
+
+// std
 use std::fmt::Debug;
 
-use aes_gcm::{Aes256Gcm, KeyInit};
-use sec::Secret;
 // serde
 use serde::{Deserialize, Deserializer};
 
@@ -12,36 +19,16 @@ use regex::Regex;
 // url
 use url::Url;
 
-// crate
-use crate::responses::SigningKey;
-
-/// Struct that holds the configuration for the filter and all relevant information for the
-/// OpenID Connect Flow.
-#[derive(Clone, Debug)]
-pub struct OpenIdConfig {
-    // Everything relevant for the Code Flow
-    /// The URL of the authorization endpoint
-    pub auth_endpoint: Url,
-
-    // Everything relevant for the Token Exchange Flow
-    /// The URL of the token endpoint
-    pub token_endpoint: Url,
-    /// The issuer that will be used for the token request
-    pub issuer: String,
-
-    // Relevant for Validation of the ID Token
-    /// The public keys that will be used for the validation of the ID Token
-    pub public_keys: Vec<SigningKey>,
-}
-
-/// Struct that holds the configuration for the plugin. It is loaded from the config file
-/// `envoy.yaml`
+/// Struct that holds the configuration for the plugin. It is loaded from the config file `envoy.yaml`
 #[derive(Clone, Debug, Deserialize)]
 pub struct PluginConfiguration {
-    /// Config endpoint for the plugin.
-    pub config_endpoint: Url,
+    // OpenID Connect Configuration
+    /// A list of OpenID Connect configurations that will be used for the filter
+    pub open_id_configs: Vec<OpenIdConfig>,
     /// Reload interval in hours
     pub reload_interval_in_h: u64,
+    /// The interval in milliseconds that the plugin will wait for the discovery endpoint to respond or send a new request.
+    pub ticking_interval_in_ms: u64,
 
     /// Exclude hosts. Example: localhost:10000
     #[serde(with = "serde_regex")]
@@ -71,6 +58,8 @@ pub struct PluginConfiguration {
     // Cookie settings
     /// The cookie name that will be used for the session cookie
     pub cookie_name: String,
+    /// The URL to logout the user
+    pub logout_path: String,
     /// Filter out the cookies created and controlled by the plugin
     /// If the value is true, the cookies will be filtered out
     pub filter_plugin_cookies: bool,
@@ -81,8 +70,22 @@ pub struct PluginConfiguration {
     /// AES Key
     #[serde(deserialize_with = "deserialize_aes_key")]
     pub aes_key: Secret<Aes256Gcm>,
+}
+
+/// Struct that holds the configuration for the OpenID Connect provider
+#[derive(Clone, Debug, Deserialize)]
+pub struct OpenIdConfig {
+    // Metadata
+    /// Name of the OpenID Connect Provider
+    pub name: String,
+    /// Image of the OpenID Connect Provider, will be shown in the screen where the user can select the provider
+    pub image: Url,
 
     // Everything relevant for the Code Flow
+    /// Config endpoint for the plugin.
+    pub config_endpoint: Url,
+    /// Upstream Cluster name
+    pub upstream_cluster: String,
     /// The authority that will be used for the dispatch calls
     pub authority: String,
     /// The redirect uri that the authorization endpoint will redirect to and provide the code

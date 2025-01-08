@@ -10,7 +10,7 @@ jobs:
     name: Build and upload artifacts
     runs-on: ubuntu-latest
     container:
-      image: antonengelhardt/rust-docker-tools
+      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -25,6 +25,8 @@ jobs:
             ~/.cargo/git/db/
             target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
 
       - name: Build
         run: |

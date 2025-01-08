@@ -41,12 +41,12 @@ data:
                           configuration:
                             "@type": "type.googleapis.com/google.protobuf.StringValue"
                             value: |
-                              config_endpoint: "https://demo-wasm-oidc-plugin.eu.auth0.com/.well-known/openid-configuration"
-                              reload_interval_in_h: 1 # in hours
-
-                              exclude_hosts: [] # or ["httpbin.org"]
-                              exclude_paths: [] # or ["/favicon.ico"]
-                              exclude_urls: [] # or ["http://localhost:10000/#/HTTP_Methods/get_get"]
+                              exclude_hosts:
+                                # - "httpbin.org"
+                              exclude_paths:
+                                # - "/favicon.ico"
+                              exclude_urls:
+                                # - https://httpbin.org/favicon.ico
 
                               access_token_header_name: # or "Authorization"
                               access_token_header_prefix: "Bearer "
@@ -54,19 +54,37 @@ data:
                               id_token_header_prefix: "Bearer "
 
                               cookie_name: "oidcSession"
+                              logout_path: "/logout"
                               filter_plugin_cookies: true # or false
                               cookie_duration: 8640000 # in seconds
                               token_validation: true # or false
                               aes_key: "redacted"
 
-                              authority: "demo-wasm-oidc-plugin.eu.auth0.com"
-                              redirect_uri: "https://demo.wasm-oidc-plugin.ae02.de/oidc/callback"
-                              client_id: qxgINfU3gutYjea8hEmpra5JG5jyqeAY
-                              scope: "openid profile email"
-                              claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
-
-                              client_secret: "redacted"
-                              audience: qxgINfU3gutYjea8hEmpra5JG5jyqeAY
+                              reload_interval_in_h: 1 # in hours
+                              ticking_interval_in_ms: 500 # in milliseconds
+                              open_id_configs:
+                                - name: auth0
+                                  image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Logo_de_Auth0.svg/2560px-Logo_de_Auth0.svg.png"
+                                  config_endpoint: "https://demo-wasm-oidc-plugin.eu.auth0.com/.well-known/openid-configuration"
+                                  upstream_cluster: "auth0"
+                                  authority: "demo-wasm-oidc-plugin.eu.auth0.com"
+                                  redirect_uri: "https://demo.wasm-oidc-plugin.ae02.de/oidc/callback"
+                                  client_id: qxgINfU3gutYjea8hEmpra5JG5jyqeAY
+                                  scope: "openid profile email"
+                                  claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+                                  client_secret: "redacted"
+                                  audience: qxgINfU3gutYjea8hEmpra5JG5jyqeAY
+                                - name: "google (unusable, will not work)"
+                                  image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/2560px-Google_2015_logo.svg.png"
+                                  config_endpoint: "https://accounts.google.com/.well-known/openid-configuration"
+                                  upstream_cluster: "google"
+                                  authority: "accounts.google.com"
+                                  redirect_uri: "http://localhost:10000/oidc/callback"
+                                  client_id: "google-client-id"
+                                  scope: "openid profile email"
+                                  claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+                                  client_secret: "google-client-secret"
+                                  audience: "google-client-id"
 
                           vm_config:
                             runtime: "envoy.wasm.runtime.v8"
@@ -90,12 +108,12 @@ data:
                       socket_address:
                         address: httpbin-service.wasm-oidc-plugin.svc.cluster.local
                         port_value: 80
-      - name: oidc
+      - name: auth0
         connect_timeout: 5s
-        type: LOGICAL_DNS
+        type: STRICT_DNS
         dns_lookup_family: V4_ONLY
         load_assignment:
-          cluster_name: oidc
+          cluster_name: auth0
           endpoints:
             - lb_endpoints:
                 - endpoint:
@@ -108,3 +126,26 @@ data:
           typed_config:
             "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
             sni: "demo-wasm-oidc-plugin.eu.auth0.com"
+      - name: google
+        connect_timeout: 5s
+        type: STRICT_DNS
+        dns_lookup_family: V4_ONLY
+        load_assignment:
+          cluster_name: google
+          endpoints:
+            - lb_endpoints:
+                - endpoint:
+                    address:
+                      socket_address:
+                        address: accounts.google.com
+                        port_value: 443
+                - endpoint:
+                    address:
+                      socket_address:
+                        address: www.googleapis.com
+                        port_value: 443
+        transport_socket:
+          name: envoy.transport_sockets.tls
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+            sni: "accounts.google.com"
