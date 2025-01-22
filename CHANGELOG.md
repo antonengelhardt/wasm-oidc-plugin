@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.5.4
+
+### 🎨 Styling
+
+- Clean up Cargo.toml, chore(deps): upgrade url to 2.5.4
+
+### ⚙️ Miscellaneous Tasks
+
+- **(deny)** Upgrade cargo-deny to v2 action
+- **(deny)** New template
+- **(ci)** Add audit, outdated and verify-project checks
+- **(audit)** Add audit.toml file & downgrade lockfile to v3
+
 ## v0.5.3
 
 ### 🚜 Refactor
