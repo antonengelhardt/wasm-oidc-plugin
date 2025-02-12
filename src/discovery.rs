@@ -32,9 +32,9 @@ pub struct Root {
     /// Plugin config loaded from the envoy configuration
     pub plugin_config: Option<Arc<PluginConfiguration>>,
     /// A set of Open ID Resolvers which are used to load the configuration from the discovery endpoint
-    pub open_id_resolvers: Mutex<Vec<OpenIdResolver>>,
+    pub open_id_resolvers: Vec<OpenIdResolver>,
     /// A set of Open ID Providers which are used to store the configuration from the discovery endpoint
-    pub open_id_providers: Mutex<Vec<OpenIdProvider>>,
+    pub open_id_providers: Vec<OpenIdProvider>,
     /// Queue of waiting requests which are waiting for the configuration to be loaded
     pub waiting: Mutex<Vec<u32>>,
     /// Flag to determine if the discovery is active
@@ -159,7 +159,7 @@ impl RootContext for Root {
                             };
                             resolvers.push(open_id_resolver);
                         }
-                        self.open_id_resolvers = Mutex::new(resolvers);
+                        self.open_id_resolvers = resolvers;
 
                         // Tick immediately to load the configuration.
                         // See `on_tick` for more information.
@@ -187,7 +187,7 @@ impl RootContext for Root {
 
                 // Return the http context.
                 Some(Box::new(ConfiguredOidc {
-                    open_id_providers: Arc::new(self.open_id_providers.lock().unwrap().to_vec()),
+                    open_id_providers: Arc::new(self.open_id_providers.clone()),
                     plugin_config: self.plugin_config.clone()?,
                     token_id: None,
                     request_id: None,
@@ -231,7 +231,7 @@ impl RootContext for Root {
 
             // Set discovery to active and set the state of all resolvers to `LoadingConfig`.
             self.discovery_active = true;
-            for resolver in self.open_id_resolvers.lock().unwrap().iter_mut() {
+            for resolver in self.open_id_resolvers.iter_mut() {
                 resolver.state = OpenIdResolverState::LoadingConfig;
             }
             // Tick every x ms to not overload the openid configuration endpoint. x is the configured interval.
@@ -245,8 +245,6 @@ impl RootContext for Root {
         // configured interval.
         let all_resolvers_done = self
             .open_id_resolvers
-            .lock()
-            .unwrap()
             .iter_mut()
             .all(|r| matches!(r.state, OpenIdResolverState::Ready { .. }));
 
@@ -278,12 +276,12 @@ impl RootContext for Root {
         }
 
         // Make call to openid configuration endpoint for all providers whose state is not ready.
-        for resolver in self.open_id_resolvers.lock().unwrap().iter_mut() {
+        for resolver in self.open_id_resolvers.iter_mut() {
             match &resolver.state {
                 OpenIdResolverState::LoadingConfig { .. } => {
                     // Make call to openid configuration endpoint and load configuration
                     // The response is handled in `on_http_call_response`.
-                    match self.dispatch_http_call(
+                    match hostcalls::dispatch_http_call(
                         &resolver.open_id_config.upstream_cluster,
                         vec![
                             (":method", "GET"),
@@ -309,7 +307,7 @@ impl RootContext for Root {
                 // Make call to jwks endpoint for all providers whose state is not ready.
                 // The response is handled in `on_http_call_response`.
                 OpenIdResolverState::LoadingJwks { open_id_response } => {
-                    match self.dispatch_http_call(
+                    match hostcalls::dispatch_http_call(
                         &resolver.open_id_config.upstream_cluster,
                         vec![
                             (":method", "GET"),
@@ -356,9 +354,10 @@ impl Context for Root {
         _num_trailers: usize,
     ) {
         debug!("received http call response with token_id: {}", token_id);
+        let body = self.get_http_call_response_body(0, _body_size);
 
         // Find resolver to update based on toke_id
-        let mut binding = self.open_id_resolvers.lock().unwrap();
+        let binding = &mut self.open_id_resolvers;
         let resolver_to_update = match binding
             .iter_mut()
             .find(|resolver| resolver.token_ids.contains(&token_id))
@@ -381,7 +380,7 @@ impl Context for Root {
             // openid configuration.
             OpenIdResolverState::LoadingConfig => {
                 // Parse the response body as json.
-                let body = match self.get_http_call_response_body(0, _body_size) {
+                let body = match body {
                     Some(body) => body,
                     None => {
                         warn!("no body in openid config response");
@@ -416,7 +415,7 @@ impl Context for Root {
                 open_id_response, ..
             } => {
                 // Parse body using serde_json or fail
-                let body = match self.get_http_call_response_body(0, _body_size) {
+                let body = match body {
                     Some(body) => body,
                     None => {
                         warn!("no body in jwks response");
@@ -450,15 +449,14 @@ impl Context for Root {
                         }
 
                         // Find OpenIdProvider to update or create a new one
-                        let mut open_id_providers = self.open_id_providers.lock().unwrap();
-                        let provider = open_id_providers.iter_mut().find(|provider| {
+                        let provider = self.open_id_providers.iter_mut().find(|provider| {
                             provider.issuer == resolver_to_update.open_id_config.authority
                         });
 
                         if let Some(p) = provider {
                             p.public_keys = keys;
                         } else {
-                            open_id_providers.push(OpenIdProvider {
+                            self.open_id_providers.push(OpenIdProvider {
                                 open_id_config: resolver_to_update.open_id_config.clone(),
                                 auth_endpoint: open_id_response.authorization_endpoint.clone(),
                                 token_endpoint: open_id_response.token_endpoint.clone(),

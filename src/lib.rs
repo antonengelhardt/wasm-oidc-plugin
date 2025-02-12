@@ -48,8 +48,8 @@ proxy_wasm::main! {{
     // plugin config and the discovery endpoints.
     proxy_wasm::set_root_context(|_| -> Box<dyn RootContext> { Box::new(Root {
         plugin_config: None,
-        open_id_providers: Mutex::new(vec![]),
-        open_id_resolvers: Mutex::new(vec![]),
+        open_id_providers: vec![],
+        open_id_resolvers: vec![],
         waiting: Mutex::new(Vec::new()),
         discovery_active: false,
     }) });
