@@ -125,7 +125,7 @@ The plugin is configured via the `envoy.yaml`-file. The following configuration 
 | `redirect_uri` | `string` | The redirect URI, that the `authorization_endpoint` will redirect to. | `http://localhost:10000/oidc/callback` | ✅ |
 | `client_id` | `string` | The client ID, for getting and exchanging the code. | `wasm-oidc-plugin` | ✅ |
 | `scope` | `string` | The scope, to validate | `openid email` | ✅ |
-| `claims` | `string` | The claims, to validate. Make sure to escape quotes with a backslash | `{\"id_token\":{\"groups\":null,\"username\":null}}` | ✅ |
+| `claims` | `map` | The claims to request as defined [here](https://openid.net/specs/openid-connect-core-1_0.html#ClaimsParameter) | `{"id_token":{"groups":null,"username":null}}` | ✅ |
 | `client_secret` | `string` | The client secret, that is used to authenticate with the `authorization_endpoint`. | `secret` | ✅ |
 | `audience` | `string` | The audience, that is used to validate the token. | `wasm-oidc-plugin` | ✅ |
 

@@ -61,7 +61,10 @@ static_resources:
                               redirect_uri: "http://localhost:10000/oidc/callback"
                               client_id: "google-client-id"
                               scope: "openid profile email"
-                              claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+                              claims:
+                                id_token:
+                                  groups: null
+                                  username: null
                               client_secret: "google-client-secret"
                               audience: "google-client-id"
                       vm_config:

@@ -550,11 +550,6 @@ impl Root {
                 return Err(PluginError::ConfigError("`scope` is empty".to_string()));
             }
 
-            // Claims
-            if open_id_provider.claims.is_empty() {
-                return Err(PluginError::ConfigError("`claims` is empty".to_string()));
-            }
-
             // Client Secret
             if open_id_provider.client_secret.reveal().is_empty() {
                 return Err(PluginError::ConfigError(
