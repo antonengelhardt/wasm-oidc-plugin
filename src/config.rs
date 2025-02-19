@@ -1,5 +1,6 @@
 // aes_gcm
 use aes_gcm::{Aes256Gcm, KeyInit};
+use jwt_simple::reexports::anyhow::{self, ensure};
 
 // core
 use core::fmt;
@@ -70,6 +71,47 @@ pub struct PluginConfiguration {
     /// AES Key
     #[serde(deserialize_with = "deserialize_aes_key")]
     pub aes_key: Secret<Aes256Gcm>,
+}
+
+impl PluginConfiguration {
+    pub fn parse(config_bytes: &[u8]) -> anyhow::Result<Self> {
+        let config = serde_yaml::from_slice::<Self>(config_bytes)?;
+        config.validate()?;
+        Ok(config)
+    }
+
+    /// Evaluate the plugin configuration and check if the values are valid.
+    /// Type checking is done by serde, so we only need to check the values.
+    fn validate(&self) -> anyhow::Result<()> {
+        ensure!(self.reload_interval_in_h > 0, "`reload_interval` is 0");
+        ensure!(
+            self.cookie_name.len() <= 32,
+            "`cookie_name` is too long, max 32"
+        );
+
+        let cookies_name_regex = Regex::new(r"[\w\d-]+").unwrap();
+        ensure!(cookies_name_regex.is_match(&self.cookie_name), "`cookie_name` is empty or not valid meaning that it contains invalid characters like ;, =, :, /, space");
+
+        ensure!(!self.logout_path.is_empty(), "`logout_path` is empty");
+        ensure!(
+            self.logout_path.starts_with('/'),
+            "`logout_path` does not start with a `/`"
+        );
+        ensure!(self.cookie_duration > 0, "`cookie_duration` is 0");
+
+        for provider in &self.open_id_configs {
+            ensure!(!provider.authority.is_empty(), "`authority` is empty");
+            ensure!(!provider.client_id.is_empty(), "`client_id` is empty");
+            ensure!(!provider.scope.is_empty(), "`scope` is empty");
+            ensure!(
+                !provider.client_secret.reveal().is_empty(),
+                "`client_secret` is empty"
+            );
+            ensure!(!provider.audience.is_empty(), "audience is empty");
+        }
+
+        Ok(())
+    }
 }
 
 /// Struct that holds the configuration for the OpenID Connect provider
