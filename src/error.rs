@@ -11,10 +11,6 @@ use crate::auth::ConfiguredOidc;
 #[derive(Error, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum PluginError {
-    // Configuration Errors
-    #[error("error in the configuration file: {0}")]
-    ConfigError(String),
-
     // Parsing Errors
     #[error("url is not valid: {0}")]
     UrlError(#[from] url::ParseError),

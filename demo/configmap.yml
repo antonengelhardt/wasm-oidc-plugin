@@ -71,7 +71,10 @@ data:
                                   redirect_uri: "https://demo.wasm-oidc-plugin.ae02.de/oidc/callback"
                                   client_id: qxgINfU3gutYjea8hEmpra5JG5jyqeAY
                                   scope: "openid profile email"
-                                  claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+                                  claims:
+                                    id_token:
+                                      groups: null
+                                      username: null
                                   client_secret: "redacted"
                                   audience: qxgINfU3gutYjea8hEmpra5JG5jyqeAY
                                 - name: "google (unusable, will not work)"
@@ -82,7 +85,10 @@ data:
                                   redirect_uri: "http://localhost:10000/oidc/callback"
                                   client_id: "google-client-id"
                                   scope: "openid profile email"
-                                  claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+                                  claims:
+                                    id_token:
+                                      groups: null
+                                      username: null
                                   client_secret: "google-client-secret"
                                   audience: "google-client-id"
 
