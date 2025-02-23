@@ -433,7 +433,7 @@ impl Context for Root {
 
                         // Find OpenIdProvider to update or create a new one
                         let provider = self.open_id_providers.iter_mut().find(|provider| {
-                            provider.issuer == resolver_to_update.open_id_config.authority
+                            provider.open_id_config.name == resolver_to_update.open_id_config.name
                         });
 
                         if let Some(p) = provider {
