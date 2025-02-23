@@ -35,7 +35,7 @@ use crate::session::{AuthorizationState, Session};
 pub struct ConfiguredOidc {
     /// The configuration of the filter which mainly contains the open id configuration and the
     /// keys to validate the JWT
-    pub open_id_providers: Arc<Vec<OpenIdProvider>>,
+    pub open_id_providers: Vec<OpenIdProvider>,
     /// Plugin configuration parsed from the envoy configuration
     pub plugin_config: Arc<PluginConfiguration>,
     /// Token id of the current request

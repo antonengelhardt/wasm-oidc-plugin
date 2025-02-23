@@ -170,7 +170,7 @@ impl RootContext for Root {
 
                 // Return the http context.
                 Some(Box::new(ConfiguredOidc {
-                    open_id_providers: Arc::new(self.open_id_providers.clone()),
+                    open_id_providers: self.open_id_providers.clone(),
                     plugin_config: self.plugin_config.clone()?,
                     token_id: None,
                     request_id: None,
