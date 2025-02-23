@@ -436,17 +436,19 @@ impl Context for Root {
                             provider.open_id_config.name == resolver_to_update.open_id_config.name
                         });
 
+                        let new_provider = OpenIdProvider {
+                            open_id_config: resolver_to_update.open_id_config.clone(),
+                            auth_endpoint: open_id_response.authorization_endpoint.clone(),
+                            token_endpoint: open_id_response.token_endpoint.clone(),
+                            end_session_endpoint: open_id_response.end_session_endpoint.clone(),
+                            issuer: open_id_response.issuer.clone(),
+                            public_keys: keys,
+                        };
+
                         if let Some(p) = provider {
-                            p.public_keys = keys;
+                            *p = new_provider;
                         } else {
-                            self.open_id_providers.push(OpenIdProvider {
-                                open_id_config: resolver_to_update.open_id_config.clone(),
-                                auth_endpoint: open_id_response.authorization_endpoint.clone(),
-                                token_endpoint: open_id_response.token_endpoint.clone(),
-                                end_session_endpoint: open_id_response.end_session_endpoint.clone(),
-                                issuer: open_id_response.issuer.clone(),
-                                public_keys: keys,
-                            });
+                            self.open_id_providers.push(new_provider);
                         }
 
                         resolver_to_update.state = OpenIdResolverState::Ready {};
