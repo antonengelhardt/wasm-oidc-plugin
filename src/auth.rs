@@ -293,7 +293,7 @@ impl ConfiguredOidc {
                         };
 
                         // Validate token
-                        match self.validate_token(&auth_state.id_token, &session.issuer.unwrap()) {
+                        match self.validate_token(&auth_state.id_token, &session.issuer) {
                             // If the token is valid, this filter passes the request
                             Ok(_) => {
                                 debug!("token is valid, passing request");
@@ -407,13 +407,8 @@ impl ConfiguredOidc {
             encoded_nonce,
         )?;
 
-        // Get issuer from session or return an error
-        let issuer = match session.issuer.clone() {
-            Some(issuer) => issuer,
-            None => {
-                return Err(PluginError::IssuerNotFound);
-            }
-        };
+        // Get issuer from session
+        let issuer = session.issuer.clone();
 
         // Get provider to use based on issuer
         let provider_to_use = match self
@@ -606,7 +601,7 @@ impl ConfiguredOidc {
         let provider = self
             .open_id_providers
             .iter()
-            .find(|provider| provider.issuer == session.issuer.clone().unwrap())
+            .find(|provider| provider.issuer == session.issuer)
             .unwrap();
         // TODO: Error handling
 
@@ -710,7 +705,7 @@ impl ConfiguredOidc {
 
         // Create session struct and encrypt it
         let (session, nonce) = session::Session {
-            issuer: Some(open_id_provider.issuer.clone()),
+            issuer: open_id_provider.issuer.clone(),
             authorization_state: None,
             original_path,
             code_verifier: pkce_verifier_string,

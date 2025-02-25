@@ -32,8 +32,6 @@ pub enum PluginError {
     TokenResponseFormatError(String),
     #[error("token validation failed: {0}")]
     TokenValidationError(#[from] jwt_simple::Error),
-    #[error("issuer not found in session cookie")]
-    IssuerNotFound,
     #[error("no key worked for validation")]
     NoKeyError,
 
