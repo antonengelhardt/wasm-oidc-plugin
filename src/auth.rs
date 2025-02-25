@@ -41,7 +41,7 @@ pub struct ConfiguredOidc {
     /// Token id of the current request
     pub token_id: Option<u32>,
     /// ID of the current request
-    pub request_id: Option<String>,
+    pub request_id: String,
 }
 
 /// The context is used to process incoming HTTP requests when the filter is configured.
@@ -64,11 +64,11 @@ impl HttpContext for ConfiguredOidc {
         debug!("url: {}", url);
 
         // Get x-request-id
-        let x_request_id = self
-            .get_http_request_header("x-request-id")
-            .unwrap_or_default();
-        self.request_id = Some(x_request_id.clone());
-        debug!("x-request-id: {}", x_request_id);
+        if let Some(x_request_id) = self.get_http_request_header("x-request-id") {
+            self.request_id = x_request_id
+        }
+
+        debug!("x-request-id: {}", self.request_id);
 
         // Health check
         if path == "/plugin-health" {
@@ -119,8 +119,7 @@ impl HttpContext for ConfiguredOidc {
                 Err(e) => {
                     warn!(
                         "logout failed for request {} with error: {}",
-                        self.request_id.clone().unwrap(),
-                        e
+                        self.request_id, e
                     );
                     self.show_error_page(503, "Logout failed", "Please try again, delete your cookies or contact your system administrator.");
                 }
@@ -166,8 +165,7 @@ impl HttpContext for ConfiguredOidc {
                 Err(e) => {
                     warn!(
                         "token exchange failed for request {} with error: {}",
-                        self.request_id.clone().unwrap(),
-                        e
+                        self.request_id, e
                     );
                     self.show_error_page(503, "Token exchange failed", "Please try again, delete your cookies or contact your system administrator.");
                 }
@@ -248,8 +246,7 @@ impl Context for ConfiguredOidc {
             Err(e) => {
                 warn!(
                     "storing token in cookie failed for request {} with error: {}",
-                    self.request_id.clone().unwrap(),
-                    e
+                    self.request_id, e
                 );
                 // Send a 503 if storing the token in the cookie failed
                 self.show_error_page(

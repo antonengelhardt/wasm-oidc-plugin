@@ -63,7 +63,7 @@ pub enum PluginError {
 impl ConfiguredOidc {
     pub fn show_error_page(&self, status_code: u32, title: &str, message: &str) {
         let headers = vec![("cache-control", "no-cache"), ("content-type", "text/html")];
-        let request_id = self.request_id.clone().unwrap_or_default();
+        let request_id = &self.request_id;
 
         self.send_http_response(
             status_code,

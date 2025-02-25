@@ -173,7 +173,7 @@ impl RootContext for Root {
                     open_id_providers: self.open_id_providers.clone(),
                     plugin_config: self.plugin_config.clone()?,
                     token_id: None,
-                    request_id: None,
+                    request_id: "no x-request-id header".to_owned(),
                 }))
             }
 
