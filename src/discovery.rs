@@ -5,13 +5,10 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 // log
-use log::{debug, info, warn};
+use log::{debug, error, info, warn};
 
 // proxy-wasm
 use proxy_wasm::{hostcalls, traits::*, types::*};
-
-// regex
-use regex::Regex;
 
 // std
 use std::fmt;
@@ -22,7 +19,6 @@ use url::Url;
 // crate
 use crate::auth::ConfiguredOidc;
 use crate::config::{OpenIdConfig, PluginConfiguration};
-use crate::error::PluginError;
 use crate::pause::PauseRequests;
 use crate::responses::{JWKsResponse, OpenIdDiscoveryResponse, SigningKey};
 
@@ -32,9 +28,9 @@ pub struct Root {
     /// Plugin config loaded from the envoy configuration
     pub plugin_config: Option<Arc<PluginConfiguration>>,
     /// A set of Open ID Resolvers which are used to load the configuration from the discovery endpoint
-    pub open_id_resolvers: Mutex<Vec<OpenIdResolver>>,
+    pub open_id_resolvers: Vec<OpenIdResolver>,
     /// A set of Open ID Providers which are used to store the configuration from the discovery endpoint
-    pub open_id_providers: Mutex<Vec<OpenIdProvider>>,
+    pub open_id_providers: Vec<OpenIdProvider>,
     /// Queue of waiting requests which are waiting for the configuration to be loaded
     pub waiting: Mutex<Vec<u32>>,
     /// Flag to determine if the discovery is active
@@ -119,59 +115,46 @@ impl RootContext for Root {
         info!("plugin is configuring");
 
         // Load the configuration from the plugin configuration.
-        match self.get_plugin_configuration() {
-            None => warn!("no plugin configuration"),
-            Some(config_bytes) => {
-                debug!("got plugin configuration");
+        if let Some(config_bytes) = self.get_plugin_configuration() {
+            debug!("got plugin configuration");
 
-                // Parse the configuration in a yaml format.
-                match serde_yaml::from_slice::<PluginConfiguration>(&config_bytes) {
-                    Err(e) => warn!("error parsing plugin configuration: {:?}", e),
-                    Ok(plugin_config) => {
-                        debug!("parsed plugin configuration: {:#?}", plugin_config);
-
-                        // Evaluate the plugin configuration and check if the values are valid.
-                        // Type checking is done by serde, so we only need to check the values.
-                        match Root::evaluate_config(plugin_config.clone()) {
-                            Err(e) => {
-                                panic!("plugin configuration is invalid: {:?}", e);
-                            }
-                            Ok(_) => {
-                                info!("plugin configuration is valid");
-                            }
-                        }
-
-                        self.plugin_config = Some(Arc::new(plugin_config.clone()));
-
-                        // Create a new resolver for each open id provider in the plugin configuration.
-                        let mut resolvers = vec![];
-                        for open_id_config in plugin_config.open_id_configs.clone() {
-                            info!(
-                                "creating resolver for open id config: {:?}",
-                                open_id_config.name
-                            );
-
-                            // Advance to the next state and store the plugin configuration.
-                            let open_id_resolver = OpenIdResolver {
-                                state: OpenIdResolverState::LoadingConfig,
-                                open_id_config,
-                                token_ids: vec![],
-                            };
-                            resolvers.push(open_id_resolver);
-                        }
-                        self.open_id_resolvers = Mutex::new(resolvers);
-
-                        // Tick immediately to load the configuration.
-                        // See `on_tick` for more information.
-                        self.set_tick_period(Duration::from_millis(1));
-
-                        return true;
-                    }
+            let plugin_config = match PluginConfiguration::parse(&config_bytes) {
+                Ok(config) => config,
+                Err(e) => {
+                    error!("plugin configuration is invalid: {e}");
+                    return false;
                 }
-            }
-        }
+            };
 
-        false
+            self.plugin_config = Some(Arc::new(plugin_config.clone()));
+
+            // Create a new resolver for each open id provider in the plugin configuration.
+            let mut resolvers = vec![];
+            for open_id_config in plugin_config.open_id_configs.clone() {
+                info!(
+                    "creating resolver for open id config: {:?}",
+                    open_id_config.name
+                );
+
+                // Advance to the next state and store the plugin configuration.
+                let open_id_resolver = OpenIdResolver {
+                    state: OpenIdResolverState::LoadingConfig,
+                    open_id_config,
+                    token_ids: vec![],
+                };
+                resolvers.push(open_id_resolver);
+            }
+            self.open_id_resolvers = resolvers;
+
+            // Tick immediately to load the configuration.
+            // See `on_tick` for more information.
+            self.set_tick_period(Duration::from_millis(1));
+
+            true
+        } else {
+            error!("no plugin configuration");
+            false
+        }
     }
 
     /// Creates the http context with the information from the open_id_providers and the plugin_configuration.
@@ -187,10 +170,10 @@ impl RootContext for Root {
 
                 // Return the http context.
                 Some(Box::new(ConfiguredOidc {
-                    open_id_providers: Arc::new(self.open_id_providers.lock().unwrap().to_vec()),
+                    open_id_providers: self.open_id_providers.clone(),
                     plugin_config: self.plugin_config.clone()?,
                     token_id: None,
-                    request_id: None,
+                    request_id: "no x-request-id header".to_owned(),
                 }))
             }
 
@@ -231,7 +214,7 @@ impl RootContext for Root {
 
             // Set discovery to active and set the state of all resolvers to `LoadingConfig`.
             self.discovery_active = true;
-            for resolver in self.open_id_resolvers.lock().unwrap().iter_mut() {
+            for resolver in self.open_id_resolvers.iter_mut() {
                 resolver.state = OpenIdResolverState::LoadingConfig;
             }
             // Tick every x ms to not overload the openid configuration endpoint. x is the configured interval.
@@ -245,8 +228,6 @@ impl RootContext for Root {
         // configured interval.
         let all_resolvers_done = self
             .open_id_resolvers
-            .lock()
-            .unwrap()
             .iter_mut()
             .all(|r| matches!(r.state, OpenIdResolverState::Ready { .. }));
 
@@ -278,12 +259,12 @@ impl RootContext for Root {
         }
 
         // Make call to openid configuration endpoint for all providers whose state is not ready.
-        for resolver in self.open_id_resolvers.lock().unwrap().iter_mut() {
+        for resolver in self.open_id_resolvers.iter_mut() {
             match &resolver.state {
                 OpenIdResolverState::LoadingConfig { .. } => {
                     // Make call to openid configuration endpoint and load configuration
                     // The response is handled in `on_http_call_response`.
-                    match self.dispatch_http_call(
+                    match hostcalls::dispatch_http_call(
                         &resolver.open_id_config.upstream_cluster,
                         vec![
                             (":method", "GET"),
@@ -309,7 +290,7 @@ impl RootContext for Root {
                 // Make call to jwks endpoint for all providers whose state is not ready.
                 // The response is handled in `on_http_call_response`.
                 OpenIdResolverState::LoadingJwks { open_id_response } => {
-                    match self.dispatch_http_call(
+                    match hostcalls::dispatch_http_call(
                         &resolver.open_id_config.upstream_cluster,
                         vec![
                             (":method", "GET"),
@@ -356,9 +337,10 @@ impl Context for Root {
         _num_trailers: usize,
     ) {
         debug!("received http call response with token_id: {}", token_id);
+        let body = self.get_http_call_response_body(0, _body_size);
 
         // Find resolver to update based on toke_id
-        let mut binding = self.open_id_resolvers.lock().unwrap();
+        let binding = &mut self.open_id_resolvers;
         let resolver_to_update = match binding
             .iter_mut()
             .find(|resolver| resolver.token_ids.contains(&token_id))
@@ -381,7 +363,7 @@ impl Context for Root {
             // openid configuration.
             OpenIdResolverState::LoadingConfig => {
                 // Parse the response body as json.
-                let body = match self.get_http_call_response_body(0, _body_size) {
+                let body = match body {
                     Some(body) => body,
                     None => {
                         warn!("no body in openid config response");
@@ -416,7 +398,7 @@ impl Context for Root {
                 open_id_response, ..
             } => {
                 // Parse body using serde_json or fail
-                let body = match self.get_http_call_response_body(0, _body_size) {
+                let body = match body {
                     Some(body) => body,
                     None => {
                         warn!("no body in jwks response");
@@ -450,22 +432,23 @@ impl Context for Root {
                         }
 
                         // Find OpenIdProvider to update or create a new one
-                        let mut open_id_providers = self.open_id_providers.lock().unwrap();
-                        let provider = open_id_providers.iter_mut().find(|provider| {
-                            provider.issuer == resolver_to_update.open_id_config.authority
+                        let provider = self.open_id_providers.iter_mut().find(|provider| {
+                            provider.open_id_config.name == resolver_to_update.open_id_config.name
                         });
 
+                        let new_provider = OpenIdProvider {
+                            open_id_config: resolver_to_update.open_id_config.clone(),
+                            auth_endpoint: open_id_response.authorization_endpoint.clone(),
+                            token_endpoint: open_id_response.token_endpoint.clone(),
+                            end_session_endpoint: open_id_response.end_session_endpoint.clone(),
+                            issuer: open_id_response.issuer.clone(),
+                            public_keys: keys,
+                        };
+
                         if let Some(p) = provider {
-                            p.public_keys = keys;
+                            *p = new_provider;
                         } else {
-                            open_id_providers.push(OpenIdProvider {
-                                open_id_config: resolver_to_update.open_id_config.clone(),
-                                auth_endpoint: open_id_response.authorization_endpoint.clone(),
-                                token_endpoint: open_id_response.token_endpoint.clone(),
-                                end_session_endpoint: open_id_response.end_session_endpoint.clone(),
-                                issuer: open_id_response.issuer.clone(),
-                                public_keys: keys,
-                            });
+                            self.open_id_providers.push(new_provider);
                         }
 
                         resolver_to_update.state = OpenIdResolverState::Ready {};
@@ -479,98 +462,5 @@ impl Context for Root {
                 warn!("ready state is not expected here");
             }
         }
-    }
-}
-
-impl Root {
-    /// Evaluate the plugin configuration and check if the values are valid.
-    /// Type checking is done by serde, so we only need to check the values.
-    ///
-    /// ## Arguments
-    ///
-    /// * `plugin_config` - The plugin configuration to be evaluated
-    ///
-    /// ## Returns
-    ///
-    /// * `Ok(())` if the configuration is valid
-    /// * `Err(PluginError)` if the configuration is invalid
-    pub fn evaluate_config(plugin_config: PluginConfiguration) -> Result<(), PluginError> {
-        // Reload Interval
-        if plugin_config.reload_interval_in_h == 0 {
-            return Err(PluginError::ConfigError(
-                "`reload_interval` is 0".to_string(),
-            ));
-        }
-
-        // Cookie Name
-        if plugin_config.cookie_name.len() > 32 {
-            return Err(PluginError::ConfigError(
-                "`cookie_name` is too long, max 32".to_string(),
-            ));
-        }
-
-        let cookies_name_regex = Regex::new(r"[\w\d-]+").unwrap();
-        if plugin_config.cookie_name.is_empty()
-            || !cookies_name_regex.is_match(&plugin_config.cookie_name)
-        {
-            return Err(PluginError::ConfigError("`cookie_name` is empty or not valid meaning that it contains invalid characters like ;, =, :, /, space".to_string()));
-        }
-
-        // Logout Path
-        if plugin_config.logout_path.is_empty() {
-            return Err(PluginError::ConfigError(
-                "`logout_path` is empty".to_string(),
-            ));
-        }
-
-        if !plugin_config.logout_path.starts_with('/') {
-            return Err(PluginError::ConfigError(
-                "`logout_path` does not start with a `/`".to_string(),
-            ));
-        }
-
-        // Cookie Duration
-        if plugin_config.cookie_duration == 0 {
-            return Err(PluginError::ConfigError(
-                "`cookie_duration` is 0".to_string(),
-            ));
-        }
-
-        for open_id_provider in plugin_config.open_id_configs {
-            // Authority
-            if open_id_provider.authority.is_empty() {
-                return Err(PluginError::ConfigError("`authority` is empty".to_string()));
-            }
-
-            // Client Id
-            if open_id_provider.client_id.is_empty() {
-                return Err(PluginError::ConfigError("`client_id` is empty".to_string()));
-            }
-
-            // Scope
-            if open_id_provider.scope.is_empty() {
-                return Err(PluginError::ConfigError("`scope` is empty".to_string()));
-            }
-
-            // Claims
-            if open_id_provider.claims.is_empty() {
-                return Err(PluginError::ConfigError("`claims` is empty".to_string()));
-            }
-
-            // Client Secret
-            if open_id_provider.client_secret.reveal().is_empty() {
-                return Err(PluginError::ConfigError(
-                    "client_secret is empty".to_string(),
-                ));
-            }
-
-            // Audience
-            if open_id_provider.audience.is_empty() {
-                return Err(PluginError::ConfigError("audience is empty".to_string()));
-            }
-        }
-
-        // Else return Ok
-        Ok(())
     }
 }

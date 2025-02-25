@@ -35,13 +35,13 @@ use crate::session::{AuthorizationState, Session};
 pub struct ConfiguredOidc {
     /// The configuration of the filter which mainly contains the open id configuration and the
     /// keys to validate the JWT
-    pub open_id_providers: Arc<Vec<OpenIdProvider>>,
+    pub open_id_providers: Vec<OpenIdProvider>,
     /// Plugin configuration parsed from the envoy configuration
     pub plugin_config: Arc<PluginConfiguration>,
     /// Token id of the current request
     pub token_id: Option<u32>,
     /// ID of the current request
-    pub request_id: Option<String>,
+    pub request_id: String,
 }
 
 /// The context is used to process incoming HTTP requests when the filter is configured.
@@ -64,11 +64,11 @@ impl HttpContext for ConfiguredOidc {
         debug!("url: {}", url);
 
         // Get x-request-id
-        let x_request_id = self
-            .get_http_request_header("x-request-id")
-            .unwrap_or_default();
-        self.request_id = Some(x_request_id.clone());
-        debug!("x-request-id: {}", x_request_id);
+        if let Some(x_request_id) = self.get_http_request_header("x-request-id") {
+            self.request_id = x_request_id
+        }
+
+        debug!("x-request-id: {}", self.request_id);
 
         // Health check
         if path == "/plugin-health" {
@@ -119,8 +119,7 @@ impl HttpContext for ConfiguredOidc {
                 Err(e) => {
                     warn!(
                         "logout failed for request {} with error: {}",
-                        self.request_id.clone().unwrap(),
-                        e
+                        self.request_id, e
                     );
                     self.show_error_page(503, "Logout failed", "Please try again, delete your cookies or contact your system administrator.");
                 }
@@ -166,8 +165,7 @@ impl HttpContext for ConfiguredOidc {
                 Err(e) => {
                     warn!(
                         "token exchange failed for request {} with error: {}",
-                        self.request_id.clone().unwrap(),
-                        e
+                        self.request_id, e
                     );
                     self.show_error_page(503, "Token exchange failed", "Please try again, delete your cookies or contact your system administrator.");
                 }
@@ -248,8 +246,7 @@ impl Context for ConfiguredOidc {
             Err(e) => {
                 warn!(
                     "storing token in cookie failed for request {} with error: {}",
-                    self.request_id.clone().unwrap(),
-                    e
+                    self.request_id, e
                 );
                 // Send a 503 if storing the token in the cookie failed
                 self.show_error_page(
@@ -293,7 +290,7 @@ impl ConfiguredOidc {
                         };
 
                         // Validate token
-                        match self.validate_token(&auth_state.id_token, &session.issuer.unwrap()) {
+                        match self.validate_token(&auth_state.id_token, &session.issuer) {
                             // If the token is valid, this filter passes the request
                             Ok(_) => {
                                 debug!("token is valid, passing request");
@@ -407,13 +404,8 @@ impl ConfiguredOidc {
             encoded_nonce,
         )?;
 
-        // Get issuer from session or return an error
-        let issuer = match session.issuer.clone() {
-            Some(issuer) => issuer,
-            None => {
-                return Err(PluginError::IssuerNotFound);
-            }
-        };
+        // Get issuer from session
+        let issuer = session.issuer.clone();
 
         // Get provider to use based on issuer
         let provider_to_use = match self
@@ -606,7 +598,7 @@ impl ConfiguredOidc {
         let provider = self
             .open_id_providers
             .iter()
-            .find(|provider| provider.issuer == session.issuer.clone().unwrap())
+            .find(|provider| provider.issuer == session.issuer)
             .unwrap();
         // TODO: Error handling
 
@@ -710,7 +702,7 @@ impl ConfiguredOidc {
 
         // Create session struct and encrypt it
         let (session, nonce) = session::Session {
-            issuer: Some(open_id_provider.issuer.clone()),
+            issuer: open_id_provider.issuer.clone(),
             authorization_state: None,
             original_path,
             code_verifier: pkce_verifier_string,
@@ -730,6 +722,9 @@ impl ConfiguredOidc {
         // Build cookie headers
         let mut headers = Session::make_set_cookie_headers(&set_cookie_values);
 
+        let claims =
+            serde_json::to_string(&open_id_provider.open_id_config.claims).unwrap_or_default();
+
         // Build URL
         let location = Url::parse_with_params(
             open_id_provider.auth_endpoint.as_str(),
@@ -744,7 +739,7 @@ impl ConfiguredOidc {
                     open_id_provider.open_id_config.redirect_uri.as_str(),
                 ),
                 ("scope", &open_id_provider.open_id_config.scope),
-                ("claims", &open_id_provider.open_id_config.claims),
+                ("claims", &claims),
             ],
         )
         .unwrap();

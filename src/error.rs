@@ -11,10 +11,6 @@ use crate::auth::ConfiguredOidc;
 #[derive(Error, Debug)]
 #[allow(clippy::enum_variant_names)]
 pub enum PluginError {
-    // Configuration Errors
-    #[error("error in the configuration file: {0}")]
-    ConfigError(String),
-
     // Parsing Errors
     #[error("url is not valid: {0}")]
     UrlError(#[from] url::ParseError),
@@ -36,8 +32,6 @@ pub enum PluginError {
     TokenResponseFormatError(String),
     #[error("token validation failed: {0}")]
     TokenValidationError(#[from] jwt_simple::Error),
-    #[error("issuer not found in session cookie")]
-    IssuerNotFound,
     #[error("no key worked for validation")]
     NoKeyError,
 
@@ -69,7 +63,7 @@ pub enum PluginError {
 impl ConfiguredOidc {
     pub fn show_error_page(&self, status_code: u32, title: &str, message: &str) {
         let headers = vec![("cache-control", "no-cache"), ("content-type", "text/html")];
-        let request_id = self.request_id.clone().unwrap_or_default();
+        let request_id = &self.request_id;
 
         self.send_http_response(
             status_code,
