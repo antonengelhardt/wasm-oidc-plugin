@@ -191,11 +191,7 @@ impl HttpContext for ConfiguredOidc {
                         header_name,
                         format!(
                             "{}{}",
-                            self.plugin_config
-                                .access_token_header_prefix
-                                .as_ref()
-                                .unwrap(),
-                            access_token
+                            self.plugin_config.access_token_header_prefix, access_token
                         )
                         .as_str(),
                     );
@@ -208,12 +204,8 @@ impl HttpContext for ConfiguredOidc {
                     // Forward id token in header
                     self.add_http_request_header(
                         header_name,
-                        format!(
-                            "{}{}",
-                            self.plugin_config.id_token_header_prefix.as_ref().unwrap(),
-                            id_token
-                        )
-                        .as_str(),
+                        format!("{}{}", self.plugin_config.id_token_header_prefix, id_token)
+                            .as_str(),
                     );
                 }
 
