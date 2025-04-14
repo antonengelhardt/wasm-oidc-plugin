@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 // arc
 use std::sync::{Arc, Mutex};
 
@@ -425,7 +426,7 @@ impl Context for Root {
                         let mut keys: Vec<SigningKey> = vec![];
                         for key in jwks_response.keys {
                             // Create the signing key from the JWK
-                            let signing_key = SigningKey::from(key);
+                            let signing_key = SigningKey::try_from(key).unwrap();
 
                             // Add the signing key to the list of keys
                             keys.push(signing_key);

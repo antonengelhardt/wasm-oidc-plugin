@@ -28,6 +28,7 @@ regex = "1.11.1"
 serde_regex = "1.1.0"
 thiserror = "1.0.68"
 url = { version = "2.5.4", features = ["serde"] }
+anyhow = "1.0.98"
 
 [profile.release]
 lto = true

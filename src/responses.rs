@@ -12,11 +12,15 @@ use jwt_simple::{
 };
 
 // log
-use log::{debug, info};
+use log::info;
 
 // serde
 use serde::Deserialize;
 use url::Url;
+
+use anyhow::{self, bail, Context};
+
+use std::convert::TryFrom;
 
 /// [OpenID Connect Discovery Response](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig)
 #[derive(Deserialize, Debug)]
@@ -86,27 +90,32 @@ impl SigningKey {
 
 /// Implementation of the `From` trait for the `SigningKey` enum to convert the `JsonWebKey` into
 /// the `SigningKey` enum
-impl From<JsonWebKey> for SigningKey {
+impl TryFrom<JsonWebKey> for SigningKey {
+    type Error = anyhow::Error;
     /// Function that converts the `JsonWebKey` into the `SigningKey` enum
-    fn from(key: JsonWebKey) -> Self {
+    fn try_from(key: JsonWebKey) -> anyhow::Result<Self> {
         match key {
             // RSA Key of 256 bits
             JsonWebKey::RS256 { kty, n, e, .. } => {
                 // Check if the key is of type RSA
                 if kty != "RSA" {
-                    debug!("key is not of type RSA although alg is RS256");
+                    bail!("key is not of type RSA although alg is RS256");
                 }
 
                 // Decode and parse the public key components
-                let n_dec = base64engine_urlsafe.decode(n).unwrap();
-                let e_dec = base64engine_urlsafe.decode(e).unwrap();
+                let n_dec = base64engine_urlsafe
+                    .decode(n)
+                    .context("n is invalid base64")?;
+                let e_dec = base64engine_urlsafe
+                    .decode(e)
+                    .context("e is invalid base64")?;
 
                 info!("loaded RS256 public key");
 
-                SigningKey::RS256PublicKey(
+                Ok(SigningKey::RS256PublicKey(
                     jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
-                        .unwrap(),
-                )
+                        .context("invalid RSA key")?,
+                ))
             } // Add more key types here
         }
     }
