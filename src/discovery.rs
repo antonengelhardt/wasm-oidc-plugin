@@ -229,7 +229,7 @@ impl RootContext for Root {
         // configured interval.
         let all_resolvers_done = self
             .open_id_resolvers
-            .iter_mut()
+            .iter()
             .all(|r| matches!(r.state, OpenIdResolverState::Ready { .. }));
 
         if self.discovery_active && all_resolvers_done {
