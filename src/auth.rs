@@ -19,7 +19,7 @@ use proxy_wasm::traits::*;
 use proxy_wasm::types::*;
 
 // url
-use url::{form_urlencoded, Url};
+use url::form_urlencoded;
 
 use crate::config::PluginConfiguration;
 use crate::discovery::OpenIdProvider;
@@ -59,8 +59,7 @@ impl HttpContext for ConfiguredOidc {
         let scheme = self
             .get_http_request_header(":scheme")
             .unwrap_or("http".to_string());
-        let url = Url::parse(&format!("{}://{}{}", scheme, host, path))
-            .unwrap_or(Url::parse("http://example.com").unwrap());
+        let url = format!("{}://{}{}", scheme, host, path);
         debug!("url: {}", url);
 
         // Get x-request-id
@@ -105,7 +104,7 @@ impl HttpContext for ConfiguredOidc {
             .plugin_config
             .exclude_urls
             .iter()
-            .any(|x| x.is_match(url.as_str()))
+            .any(|x| x.is_match(&url))
         {
             debug!("url {} is excluded, forwarding request.", url.as_str());
             self.filter_proxy_cookies();
