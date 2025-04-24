@@ -186,9 +186,7 @@ impl RootContext for Root {
                 self.waiting.lock().unwrap().push(context_id);
 
                 // Return the http context in `Unconfigured` state.
-                Some(Box::new(PauseRequests {
-                    original_path: None,
-                }))
+                Some(Box::new(PauseRequests::default()))
             }
         }
     }
