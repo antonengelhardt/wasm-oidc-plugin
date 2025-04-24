@@ -1,3 +1,5 @@
+use anyhow::Context as _; // avoid conflict with proxy_wasm::traits::Context
+
 // base64
 use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as _};
 
@@ -121,6 +123,7 @@ impl HttpContext for ConfiguredOidc {
                         self.request_id, e
                     );
                     self.show_error_page(503, "Logout failed", "Please try again, delete your cookies or contact your system administrator.");
+                    return Action::Pause;
                 }
             }
         }
@@ -571,7 +574,7 @@ impl ConfiguredOidc {
     }
 
     /// Clear the cookies and redirect to the base path or `end_session_endpoint`.
-    fn logout(&self) -> Result<Action, PluginError> {
+    fn logout(&self) -> anyhow::Result<Action> {
         let cookie_values = Session::make_cookie_values("", "", &self.plugin_config.cookie_name, 0);
 
         let mut headers = Session::make_set_cookie_headers(&cookie_values);
@@ -590,8 +593,7 @@ impl ConfiguredOidc {
             .open_id_providers
             .iter()
             .find(|provider| provider.issuer == session.issuer)
-            .unwrap();
-        // TODO: Error handling
+            .context("unknown issuer")?;
 
         // Redirect to end session endpoint, if available (not all OIDC providers support this)
         let location = match &provider.end_session_endpoint {
