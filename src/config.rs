@@ -139,7 +139,7 @@ pub struct OpenIdConfig {
     /// The scope
     pub scope: String,
     /// The claims
-    pub claims: serde_json::Map<String, serde_json::Value>,
+    pub claims: String,
 
     // Everything relevant for the Token Exchange Flow
     /// The client secret

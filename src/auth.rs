@@ -715,9 +715,6 @@ impl ConfiguredOidc {
         // Build cookie headers
         let mut headers = Session::make_set_cookie_headers(&set_cookie_values);
 
-        let claims =
-            serde_json::to_string(&open_id_provider.open_id_config.claims).unwrap_or_default();
-
         // Build URL
         let location = Url::parse_with_params(
             open_id_provider.auth_endpoint.as_str(),
@@ -732,7 +729,7 @@ impl ConfiguredOidc {
                     open_id_provider.open_id_config.redirect_uri.as_str(),
                 ),
                 ("scope", &open_id_provider.open_id_config.scope),
-                ("claims", &claims),
+                ("claims", &open_id_provider.open_id_config.claims),
             ],
         )
         .unwrap();
