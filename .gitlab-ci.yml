@@ -24,7 +24,7 @@ build:
     - main
   stage: build
   script:
-    - cargo build --target wasm32-wasi --release
+    - cargo build --target wasm32-wasip1 --release
   artifacts:
     paths:
       - target/wasm32-wasi/release/wasm_oidc_plugin.wasm
