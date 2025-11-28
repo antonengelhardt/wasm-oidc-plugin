@@ -301,4 +301,3 @@ You can add the endpoint in your `envoy.yaml`-file like this:
 ```
 
 The rest should work fine.
-```
