@@ -125,15 +125,24 @@ The plugin is configured via the `envoy.yaml`-file. The following configuration 
 | `redirect_uri` | `string` | The redirect URI, that the `authorization_endpoint` will redirect to. | `http://localhost:10000/oidc/callback` | ✅ |
 | `client_id` | `string` | The client ID, for getting and exchanging the code. | `wasm-oidc-plugin` | ✅ |
 | `scope` | `string` | The scope, to validate | `openid email` | ✅ |
-| `claims` | `string` | The claims, to validate. Make sure to escape quotes with a backslash | `{\"id_token\":{\"groups\":null,\"username\":null}}` | ✅ |
+| `claims` | `map` | The claims to request as defined [here](https://openid.net/specs/openid-connect-core-1_0.html#ClaimsParameter) | See below | ✅ |
 | `client_secret` | `string` | The client secret, that is used to authenticate with the `authorization_endpoint`. | `secret` | ✅ |
 | `audience` | `string` | The audience, that is used to validate the token. | `wasm-oidc-plugin` | ✅ |
 
-With these configuration options, the plugin starts and loads more information itself such as all OpenID provider's public keys, issuer, etc.
+#### `claims`
+
+The claims are defined as a map of strings.
+
+```yaml
+claims:
+  id_token:
+    groups: null
+    username: null
+```
 
 ### States
 
-For that a state is used, which determines, what to load next. The following states are possible and depending on the outcome, the state is changed or not:
+A state determines what to load next. The following states are possible and depending on the outcome, the state is changed or not:
 
 | State           | Description                                                                                                           |
 | --------------- | --------------------------------------------------------------------------------------------------------------------- |
@@ -177,7 +186,7 @@ Then, one of the following cases is handled:
 2. The request is excluded from the filter. The request is passed to the backend without any further checks.
 3. The request has the authorization code in the URL query. This means that the user has been redirected back from the `authorization_endpoint` after successful authentication. The plugin exchanges the code for a token using the `token_endpoint` and stores the token in the session. Then, the user is redirected back to the original request.
 4. The request has a valid session cookie. The plugin decoded, decrypts and then validates the cookie and passes the request depending on the outcome of the validation of the token.
-5. The request has no valid session cookie. The plugin redirects the user to the `authorization_endpoint` to authenticate. Once, the user returns, the second case is handled.
+5. The request has no valid session cookie. The plugin redirects the user to the `authorization_endpoint` to authenticate. Once, the user returns, the second case is handled. If multiple OpenID providers are configured, the user is redirected to a page where they can select the provider to authenticate with.
 
 ```mermaid
 sequenceDiagram

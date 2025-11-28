@@ -84,8 +84,7 @@ impl SigningKey {
     }
 }
 
-/// Implementation of the `From` trait for the `SigningKey` enum to convert the `JsonWebKey` into
-/// the `SigningKey` enum
+/// Implementation of the `From` trait for the `SigningKey` enum to convert the `JsonWebKey` into the `SigningKey` enum
 impl From<JsonWebKey> for SigningKey {
     /// Function that converts the `JsonWebKey` into the `SigningKey` enum
     fn from(key: JsonWebKey) -> Self {

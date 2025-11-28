@@ -41,7 +41,7 @@ pub struct AuthorizationState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
     /// Issuer of the OpenID Connect Provider
-    pub issuer: Option<String>,
+    pub issuer: String,
     /// Authorization state
     pub authorization_state: Option<AuthorizationState>,
     /// Original Path to which the user should be redirected after login
