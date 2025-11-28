@@ -102,20 +102,18 @@ impl Session {
         // Build the cookie values
         for (i, cookie_part) in cookie_parts.enumerate() {
             let cookie_value = format!(
-                "{}-{}={}; Path=/; HttpOnly; Secure; Max-Age={}",
-                cookie_name, i, cookie_part, cookie_duration
+                "{cookie_name}-{i}={cookie_part}; Path=/; Secure;Max-Age={cookie_duration}; SameSite=Lax",
             );
             cookie_values.push(cookie_value);
         }
 
         let num_parts = cookie_values.len();
-        let num_parts_cookie_value = format!("{cookie_name}-parts={num_parts}; Path=/; HttpOnly; Secure; Max-Age={cookie_duration}; ");
+        let num_parts_cookie_value = format!("{cookie_name}-parts={num_parts}; Path=/; Secure; Max-Age={cookie_duration}; SameSite=Lax");
         cookie_values.push(num_parts_cookie_value);
 
         // Build nonce cookie value
         let nonce_cookie_value = format!(
-            "{}-nonce={}; Path=/; HttpOnly; Secure; Max-Age={}; ",
-            cookie_name, &encoded_nonce, cookie_duration
+            "{cookie_name}-nonce={encoded_nonce}; Path=/; Secure;Max-Age={cookie_duration};SameSite=Lax",
         );
         cookie_values.push(nonce_cookie_value);
 
@@ -157,7 +155,7 @@ impl Session {
 
         // Parse cookie into a struct
         let state = serde_json::from_slice::<Session>(&decrypted_cookie)?;
-        debug!("state: {:?}", state);
+        debug!("state: {state:?}");
         Ok(state)
     }
 }

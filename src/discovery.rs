@@ -20,7 +20,7 @@ use std::fmt;
 use url::Url;
 
 // crate
-use crate::auth::ConfiguredOidc;
+use crate::auth::OidcHttpContext;
 use crate::config::{OpenIdConfig, PluginConfiguration};
 use crate::error::PluginError;
 use crate::pause::PauseRequests;
@@ -128,7 +128,7 @@ impl RootContext for Root {
                 match serde_yaml::from_slice::<PluginConfiguration>(&config_bytes) {
                     Err(e) => warn!("error parsing plugin configuration: {:?}", e),
                     Ok(plugin_config) => {
-                        debug!("parsed plugin configuration: {:#?}", plugin_config);
+                        debug!("parsed plugin configuration: {plugin_config:#?}");
 
                         // Evaluate the plugin configuration and check if the values are valid.
                         // Type checking is done by serde, so we only need to check the values.
@@ -186,7 +186,7 @@ impl RootContext for Root {
                 debug!("creating http context with root context information");
 
                 // Return the http context.
-                Some(Box::new(ConfiguredOidc {
+                Some(Box::new(OidcHttpContext {
                     open_id_providers: Arc::new(self.open_id_providers.lock().unwrap().to_vec()),
                     plugin_config: self.plugin_config.clone()?,
                     token_id: None,
@@ -355,7 +355,7 @@ impl Context for Root {
         _body_size: usize,
         _num_trailers: usize,
     ) {
-        debug!("received http call response with token_id: {}", token_id);
+        debug!("received http call response with token_id: {token_id}");
 
         // Find resolver to update based on toke_id
         let mut binding = self.open_id_resolvers.lock().unwrap();
@@ -365,7 +365,7 @@ impl Context for Root {
         {
             Some(resolver) => resolver,
             None => {
-                debug!("no resolver found for token_id: {}", token_id);
+                debug!("no resolver found for token_id: {token_id}");
                 return;
             }
         };

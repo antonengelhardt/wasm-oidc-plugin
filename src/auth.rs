@@ -29,10 +29,10 @@ use crate::responses::{CodeCallback, ProviderSelectionCallback};
 use crate::session;
 use crate::session::{AuthorizationState, Session};
 
-/// The `ConfiguredOidc is the main filter struct and responsible for the OpenID authentication flow.
+/// The `OidcHttpContext` is the main filter struct and responsible for the OpenID authentication flow.
 /// Requests arriving are checked for a valid cookie. If the cookie is valid, the request is
 /// forwarded. If the cookie is not valid, the user is redirected to the authorization endpoint.
-pub struct ConfiguredOidc {
+pub struct OidcHttpContext {
     /// The configuration of the filter which mainly contains the open id configuration and the
     /// keys to validate the JWT
     pub open_id_providers: Arc<Vec<OpenIdProvider>>,
@@ -45,21 +45,28 @@ pub struct ConfiguredOidc {
 }
 
 /// The context is used to process incoming HTTP requests when the filter is configured.
-/// * If the host, path or URL is excluded, the request is forwarded.
-/// * If the path matches the provider selection endpoint, the user is redirected to the authorization endpoint.
-/// * If the path matches the redirect_uri, the code is exchanged for a token.
-/// * If the cookie is valid, the request is forwarded.
-/// * If the cookie is not valid, the user is redirected to the auth page or the authorization endpoint.
-impl HttpContext for ConfiguredOidc {
+///
+/// ## Flow
+///
+/// * Check for excluded hosts, paths or URLs and forward the request if excluded
+/// * Check for health route and return 200
+/// * Check for logout route and clear cookies
+/// * Check for provider selection route and redirect to authorization endpoint
+/// * Check for code callback route and exchange code for token
+/// * Validate cookie and forward request if valid
+/// * If the cookie is not valid, generate the auth page or redirect to the authorization endpoint.
+///
+impl HttpContext for OidcHttpContext {
     /// This function is called when the request headers are received.
     fn on_http_request_headers(&mut self, _: usize, _: bool) -> Action {
         // Get the host, path and scheme from the request headers
         let host = self.get_host().unwrap_or_default();
         let path = self.get_http_request_header(":path").unwrap_or_default();
+        let query = path.split('?').last().unwrap();
         let scheme = self
             .get_http_request_header(":scheme")
             .unwrap_or("http".to_string());
-        let url = Url::parse(&format!("{}://{}{}", scheme, host, path))
+        let url = Url::parse(&format!("{scheme}://{host}{path}"))
             .unwrap_or(Url::parse("http://example.com").unwrap());
         debug!("url: {}", url);
 
@@ -70,46 +77,15 @@ impl HttpContext for ConfiguredOidc {
         self.request_id = Some(x_request_id.clone());
         debug!("x-request-id: {}", x_request_id);
 
+        // If the request should be excluded, continue
+        if self.request_should_be_excluded(&host, &path, &url) {
+            return Action::Continue;
+        }
+
         // Health check
         if path == "/plugin-health" {
             self.send_http_response(200, vec![], Some(b"OK"));
             return Action::Pause;
-        }
-
-        // If the host is one of the exclude hosts, forward the request
-        if self
-            .plugin_config
-            .exclude_hosts
-            .iter()
-            .any(|x| x.is_match(&host))
-        {
-            debug!("host {} is excluded, forwarding request.", host);
-            self.filter_proxy_cookies();
-            return Action::Continue;
-        }
-
-        // If the path is one of the exclude paths, forward the request
-        if self
-            .plugin_config
-            .exclude_paths
-            .iter()
-            .any(|x| x.is_match(&path))
-        {
-            debug!("path {} is excluded, forwarding request.", path);
-            self.filter_proxy_cookies();
-            return Action::Continue;
-        }
-
-        // If the URL is one of the exclude URLs, forward the request
-        if self
-            .plugin_config
-            .exclude_urls
-            .iter()
-            .any(|x| x.is_match(url.as_str()))
-        {
-            debug!("url {} is excluded, forwarding request.", url.as_str());
-            self.filter_proxy_cookies();
-            return Action::Continue;
         }
 
         // If Path is logout route, clear cookies and redirect to base path
@@ -118,11 +94,10 @@ impl HttpContext for ConfiguredOidc {
                 Ok(action) => return action,
                 Err(e) => {
                     warn!(
-                        "logout failed for request {} with error: {}",
+                        "logout failed for request {} with error: {e}",
                         self.request_id.clone().unwrap(),
-                        e
                     );
-                    self.show_error_page(503, "Logout failed", "Please try again, delete your cookies or contact your system administrator.");
+                    self.show_error_page(503, "Logout failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
                 }
             }
         }
@@ -130,29 +105,17 @@ impl HttpContext for ConfiguredOidc {
         // If the path matches the provider selection endpoint, redirect to the authorization endpoint
         // with the selected provider.
         if path.contains("/_wasm-oidc-plugin/provider-selection") {
-            let query = path.split('?').last().unwrap();
-
-            // Deserialize the query into a struct
-            let provider_selection_callback =
-                serde_urlencoded::from_str::<ProviderSelectionCallback>(query).unwrap();
-            // TODO: Error handling (crashes: https://localhost:10000/_wasm-oidc-plugin/provider-selection?n-a)
-
-            // Find the provider to authorize with
-            let provider_to_authorize_with = self
-                .open_id_providers
-                .iter()
-                .find(|provider| {
-                    provider.open_id_config.name
-                        == provider_selection_callback.authorize_with_provider
-                })
-                .unwrap();
-            // TODO: Error handling
-
-            // Redirect to the authorization endpoint
-            self.redirect_to_authorization_endpoint(
-                provider_to_authorize_with,
-                Some(provider_selection_callback.return_to),
-            );
+            match self.provider_selection(query) {
+                Ok(_) => return Action::Pause,
+                Err(e) => {
+                    warn!(
+                        "provider selection failed for request {} with error: {e}",
+                        self.request_id.clone().unwrap(),
+                    );
+                    self.show_error_page(503, "Provider selection failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
+                    return Action::Pause;
+                }
+            }
         }
 
         // If the path matches one of the `redirect_uri`s, exchange the code for a token
@@ -165,11 +128,11 @@ impl HttpContext for ConfiguredOidc {
                 Ok(_) => return Action::Pause,
                 Err(e) => {
                     warn!(
-                        "token exchange failed for request {} with error: {}",
+                        "token exchange failed for request {} with error: {e}",
                         self.request_id.clone().unwrap(),
-                        e
                     );
-                    self.show_error_page(503, "Token exchange failed", "Please try again, delete your cookies or contact your system administrator.");
+                    // TODO: Show explicit error to the user?
+                    self.show_error_page(503, "Token exchange failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
                 }
             }
             return Action::Pause;
@@ -181,44 +144,15 @@ impl HttpContext for ConfiguredOidc {
                 // disable logging for these errors
                 PluginError::SessionCookieNotFoundError => {}
                 PluginError::NonceCookieNotFoundError => {}
-                _ => warn!("cookie validation failed: {}", e),
+                _ => {
+                    warn!("cookie validation failed for request {}: {e}", self.request_id.clone().unwrap());
+                    self.show_error_page(503, "Cookie validation failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
+                }
             },
             Ok(auth_state) => {
-                // Forward access token in header, if configured
-                if let Some(header_name) = &self.plugin_config.access_token_header_name {
-                    // Get access token
-                    let access_token = &auth_state.access_token;
-                    // Forward access token in header
-                    self.add_http_request_header(
-                        header_name,
-                        format!(
-                            "{}{}",
-                            self.plugin_config
-                                .access_token_header_prefix
-                                .as_ref()
-                                .unwrap(),
-                            access_token
-                        )
-                        .as_str(),
-                    );
-                }
-
-                // Forward id token in header, if configured
-                if let Some(header_name) = &self.plugin_config.id_token_header_name {
-                    // Get id token
-                    let id_token = &auth_state.id_token;
-                    // Forward id token in header
-                    self.add_http_request_header(
-                        header_name,
-                        format!(
-                            "{}{}",
-                            self.plugin_config.id_token_header_prefix.as_ref().unwrap(),
-                            id_token
-                        )
-                        .as_str(),
-                    );
-                }
-
+                // Append headers
+                self.append_headers(&auth_state);
+                // Filter proxy cookies
                 self.filter_proxy_cookies();
 
                 // Allow request to pass
@@ -227,7 +161,7 @@ impl HttpContext for ConfiguredOidc {
         }
 
         // If any previous condition was not met, it means that the cookie is not valid or not present.
-        //hThen, sow the auth page or redirect to the authorization endpoint (depending on the number of providers)
+        // Then, show the auth page or redirect to the authorization endpoint (depending on the number of providers)
         self.generate_auth_page();
 
         // Pause the request
@@ -236,7 +170,7 @@ impl HttpContext for ConfiguredOidc {
 }
 
 /// This context is used to process HTTP responses from the token endpoint.
-impl Context for ConfiguredOidc {
+impl Context for OidcHttpContext {
     /// This function catches the response from the token endpoint. We use an inner function to
     /// handle errors more easily.
     fn on_http_call_response(&mut self, token_id: u32, _: usize, body_size: usize, _: usize) {
@@ -247,24 +181,78 @@ impl Context for ConfiguredOidc {
             }
             Err(e) => {
                 warn!(
-                    "storing token in cookie failed for request {} with error: {}",
+                    "storing token in cookie failed for request {} with error: {e}",
                     self.request_id.clone().unwrap(),
-                    e
                 );
                 // Send a 503 if storing the token in the cookie failed
                 self.show_error_page(
                     503,
                     "Storing Token in Cookie failed",
-                    "Please try again, delete your cookies or contact your system administrator.",
+                    "Please try again, delete your cookies or contact your system administrator with the request id!",
                 );
             }
         }
     }
 }
 
-/// Helper functions for the `ConfiguredOidc`` struct.
-impl ConfiguredOidc {
+/// Helper functions for the `OidcHttpContext`` struct.
+impl OidcHttpContext {
+    /// Check if the request is excluded.
+    ///
+    /// ## Arguments
+    /// * `host` - The host of the request
+    /// * `path` - The path of the request
+    /// * `url` - The URL of the request
+    ///
+    /// ## Returns
+    /// * `true` - If the request is excluded
+    /// * `false` - If the request is not excluded
+    ///
+    fn request_should_be_excluded(&self, host: &str, path: &str, url: &Url) -> bool {
+        // If the host is one of the exclude hosts, forward the request
+        if self
+            .plugin_config
+            .exclude_hosts
+            .iter()
+            .any(|x| x.is_match(&host))
+        {
+            debug!("host {host} is excluded, forwarding request.");
+            self.filter_proxy_cookies();
+            return true;
+        }
+
+        // If the path is one of the exclude paths, forward the request
+        if self
+            .plugin_config
+            .exclude_paths
+            .iter()
+            .any(|x| x.is_match(&path))
+        {
+            debug!("path {path} is excluded, forwarding request.");
+            self.filter_proxy_cookies();
+            return true;
+        }
+
+        // If the URL is one of the exclude URLs, forward the request
+        if self
+            .plugin_config
+            .exclude_urls
+            .iter()
+            .any(|x| x.is_match(url.as_str()))
+        {
+            debug!("url {url} is excluded, forwarding request.");
+            self.filter_proxy_cookies();
+            return true;
+        }
+
+        false
+    }
+
     /// Check if the cookie is valid and if the token is valid.
+    ///
+    /// ## Returns
+    /// * Ok(AuthorizationState) - If the cookie is valid and the token is valid
+    /// * Err(PluginError) - If the cookie is not valid or the token is not valid
     fn validate_cookie(&self) -> Result<AuthorizationState, PluginError> {
         // Get cookie and nonce
         let cookie = self.get_session_cookie_as_string()?;
@@ -328,6 +316,7 @@ impl ConfiguredOidc {
     /// A result with the following variants:
     /// * Ok(()) - If the token is valid
     /// * Err(PluginError) - If the token is invalid
+    ///
     fn validate_token(&self, token: &str, issuer: &str) -> Result<(), PluginError> {
         // Get provider to use based on issuer
         let provider_to_use = match self
@@ -374,6 +363,36 @@ impl ConfiguredOidc {
         Err(PluginError::NoKeyError)
     }
 
+    /// Redirect to the authorization endpoint with the selected provider.
+    ///
+    /// ## Arguments
+    ///
+    /// * `query` - The query string from the provider selection callback
+    ///
+    fn provider_selection(&mut self, query: &str) -> Result<(), PluginError> {
+        // Deserialize the query into a struct
+        let provider_selection_callback =
+            serde_urlencoded::from_str::<ProviderSelectionCallback>(query)?;
+
+        // Find the provider to authorize with
+        let provider_to_authorize_with = self
+            .open_id_providers
+            .iter()
+            .find(|provider| {
+                provider.open_id_config.name == provider_selection_callback.authorize_with_provider
+            })
+            .ok_or(PluginError::ProviderNotFoundError(
+                "unknown provider".to_string(),
+            ))?;
+
+        // Redirect to the authorization endpoint
+        self.redirect_to_authorization_endpoint(
+            provider_to_authorize_with,
+            Some(provider_selection_callback.return_to),
+        );
+        Ok(())
+    }
+
     /// Exchange the code for a token using the token endpoint.
     /// This function is called when the user is redirected back to the callback URL.
     /// The code is extracted from the URL and exchanged for a token using the token endpoint.
@@ -391,7 +410,7 @@ impl ConfiguredOidc {
 
         // Get Query String from URL
         let query = path.split('?').last().unwrap_or_default();
-        debug!("query: {}", query);
+        debug!("query: {query}");
 
         // Get state from query
         let callback_params = serde_urlencoded::from_str::<CodeCallback>(query)?;
@@ -431,9 +450,9 @@ impl ConfiguredOidc {
 
         // Get state and code from query
         let code = callback_params.code;
-        debug!("authorization code: {}", code);
+        debug!("authorization code: {code}");
         let state = callback_params.state;
-        debug!("client state: {}", state);
+        debug!("client state: {state}");
         debug!("cookie state: {}", session.state);
 
         // Compare state
@@ -470,7 +489,7 @@ impl ConfiguredOidc {
             .finish();
 
         // Dispatch request to token endpoint using built-in envoy function
-        debug!("sending data to token endpoint: {}", data);
+        debug!("sending data to token endpoint: {data}");
         match self.dispatch_http_call(
             &provider_to_use.open_id_config.upstream_cluster,
             vec![
@@ -555,7 +574,7 @@ impl ConfiguredOidc {
 
                 // Parse authorization state from token response
                 let authorization_state = serde_json::from_slice::<AuthorizationState>(&body)?;
-                debug!("authorization state: {:?}", authorization_state);
+                debug!("authorization state: {authorization_state:?}");
 
                 // Add authorization state to session
                 session.authorization_state = Some(authorization_state);
@@ -581,7 +600,6 @@ impl ConfiguredOidc {
 
                 // Redirect back to the original URL and set the cookie.
                 self.send_http_response(307, headers, Some(b"Redirecting..."));
-                debug!("token stored in cookie");
                 Ok(())
             }
         }
@@ -754,6 +772,46 @@ impl ConfiguredOidc {
         self.send_http_response(307, headers, Some(b"Redirecting..."));
 
         Action::Pause
+    }
+
+    /// Append the access token and id token to the request headers.
+    ///
+    /// ## Arguments
+    ///
+    /// * `auth_state` - The authorization state containing the access token and id token
+    fn append_headers(&self, auth_state: &AuthorizationState) {
+        // Forward access token in header, if configured
+        if let Some(header_name) = &self.plugin_config.access_token_header_name {
+            // Get access token
+            let access_token = &auth_state.access_token;
+            // Forward access token in header
+            self.add_http_request_header(
+                header_name,
+                format!(
+                    "{}{access_token}",
+                    self.plugin_config
+                        .access_token_header_prefix
+                        .as_ref()
+                        .unwrap(),
+                )
+                .as_str(),
+            );
+        }
+
+        // Forward id token in header, if configured
+        if let Some(header_name) = &self.plugin_config.id_token_header_name {
+            // Get id token
+            let id_token = &auth_state.id_token;
+            // Forward id token in header
+            self.add_http_request_header(
+                header_name,
+                format!(
+                    "{}{id_token}",
+                    self.plugin_config.id_token_header_prefix.as_ref().unwrap(),
+                )
+                .as_str(),
+            );
+        }
     }
 
     /// Get the cookie of the HTTP request by name

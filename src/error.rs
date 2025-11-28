@@ -5,7 +5,7 @@ use proxy_wasm::traits::HttpContext;
 use thiserror::Error;
 
 // crate
-use crate::auth::ConfiguredOidc;
+use crate::auth::OidcHttpContext;
 
 /// Error type for the plugin
 #[derive(Error, Debug)]
@@ -66,7 +66,7 @@ pub enum PluginError {
     StateMismatchError,
 }
 
-impl ConfiguredOidc {
+impl OidcHttpContext {
     pub fn show_error_page(&self, status_code: u32, title: &str, message: &str) {
         let headers = vec![("cache-control", "no-cache"), ("content-type", "text/html")];
         let request_id = self.request_id.clone().unwrap_or_default();

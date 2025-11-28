@@ -8,16 +8,15 @@
 pub fn provider_card(url: &str, name: &str, logo: &str) -> String {
     format!(
         r#"
-                <a href="{}" class="provider-link">
+                <a href="{url}" class="provider-link">
                     <div class="provider-card">
                         <div class="logo-container">
-                            <img src="{}" alt="{}" class="provider-logo">
+                            <img src="{logo}" alt="{name}" class="provider-logo">
                         </div>
-                        <h2 class="provider-name">{}</h2>
+                        <h2 class="provider-name">{name}</h2>
                     </div>
                 </a>
             "#,
-        url, logo, name, name
     )
 }
 
