@@ -135,15 +135,43 @@ With these configuration options, the plugin starts and loads more information i
 
 For that a state is used, which determines, what to load next. The following states are possible and depending on the outcome, the state is changed or not:
 
-| State | Description |
-| ---- | ----------- |
-| `LoadingConfig` | The plugin is loading the configuration from all `config_endpoint`s. |
-| `LoadingJwks` | The plugin is loading the public keys from all `jwks_uri`. |
-| `Ready` | The plugin is ready to handle requests and will reload the configuration after the `reload_interval_in_h` has passed. |
+| State           | Description                                                                                                           |
+| --------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `LoadingConfig` | The plugin is loading the configuration from all `config_endpoint`s.                                                  |
+| `LoadingJwks`   | The plugin is loading the public keys from all `jwks_uri`.                                                            |
+| `Ready`         | The plugin is ready to handle requests and will reload the configuration after the `reload_interval_in_h` has passed. |
 
 Below is a state diagram for one single OpenID Provider
 
-![State Diagram](./docs/sequence-discovery.png)
+```mermaid
+stateDiagram-v2
+    [*] --> LoadingConfig: on_configure() creates resolvers
+
+    note right of LoadingConfig
+        Plugin config loaded from envoy.yaml
+        Resolvers created for each OpenID provider
+        HTTP call to config_endpoint
+    end note
+
+    LoadingConfig --> LoadingJwks: OpenID config response received
+
+    note right of LoadingJwks
+        OpenIdDiscoveryResponse parsed
+        Contains jwks_uri, auth_endpoint, token_endpoint
+        HTTP call to jwks_uri
+    end note
+
+    LoadingJwks --> Ready: JWKS response received
+
+    note right of Ready
+        Public keys extracted from JWKS
+        OpenIdProvider created and stored
+        Queued requests resumed
+    end note
+
+    Ready --> LoadingConfig: [every reload_interval_in_h]
+    Ready --> Ready: Process HTTP requests
+```
 
 ### Handling a request
 
@@ -157,7 +185,36 @@ Then, one of the following cases is handled:
 4. The request has a valid session cookie. The plugin decoded, decrypts and then validates the cookie and passes the request depending on the outcome of the validation of the token.
 5. The request has no valid session cookie. The plugin redirects the user to the `authorization_endpoint` to authenticate. Once, the user returns, the second case is handled.
 
-![Sequence Diagram](./docs/sequence-authorization-code-flow.png)
+```mermaid
+sequenceDiagram
+    participant User
+    participant Plugin
+    participant Auth as Auth-Endpoint
+    participant Token as Token-Endpoint
+    participant App as App/Backend
+
+    Note over User, App: [No Cookies Present]
+    User->>Plugin: Tries to Access App/Backend
+    Plugin-->>User: Redirect to Auth-Endpoint
+    User->>Auth: User authenticates
+    Auth-->>Plugin: Authorization Code
+    Plugin->>Token: Exchange Code for Tokens
+    Token-->>Plugin: Tokens
+    Plugin-->>User: Reply with Cookies and redirect to Original Path
+
+    Note over User, App: [Cookies Present]
+    User->>Plugin: Tries to Access App/Backend
+
+    critical [Validation]
+        Plugin->>Plugin: Validate Cookie with keys
+    end
+
+    alt [Valid]
+        Plugin->>App: Allow Request
+    else [Invalid]
+        Plugin-->>User: Redirect to Auth-Endpoint
+    end
+```
 
 ## Tools
 
@@ -241,3 +298,4 @@ You can add the endpoint in your `envoy.yaml`-file like this:
 ```
 
 The rest should work fine.
+```
