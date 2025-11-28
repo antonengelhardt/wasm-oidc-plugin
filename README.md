@@ -148,25 +148,19 @@ stateDiagram-v2
     [*] --> LoadingConfig: on_configure() creates resolvers
 
     note right of LoadingConfig
-        Plugin config loaded from envoy.yaml
-        Resolvers created for each OpenID provider
-        HTTP call to config_endpoint
+        Plugin config loaded + getting OpenIDConfig
     end note
 
     LoadingConfig --> LoadingJwks: OpenID config response received
 
     note right of LoadingJwks
-        OpenIdDiscoveryResponse parsed
-        Contains jwks_uri, auth_endpoint, token_endpoint
-        HTTP call to jwks_uri
+        Getting Keys from Endpoint
     end note
 
     LoadingJwks --> Ready: JWKS response received
 
     note right of Ready
-        Public keys extracted from JWKS
-        OpenIdProvider created and stored
-        Queued requests resumed
+        Keys stored, providers created, queued requests resumed
     end note
 
     Ready --> LoadingConfig: [every reload_interval_in_h]
