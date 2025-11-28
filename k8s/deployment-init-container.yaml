@@ -52,7 +52,7 @@ spec:
 
       containers:
         - name: envoy
-          image: envoyproxy/envoy:v1.31-latest
+          image: envoyproxy/envoy:v1.36-latest
 
           resources:
             requests:
