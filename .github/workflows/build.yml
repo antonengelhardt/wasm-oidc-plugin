@@ -185,7 +185,6 @@ jobs:
             rollout restart deployment wasm-oidc-plugin -n wasm-oidc-plugin \
             && kubectl rollout status deployment wasm-oidc-plugin -n wasm-oidc-plugin --timeout=300s
 
-
   # changelog-and-release:
   #   runs-on: ubuntu-latest
   #   permissions:

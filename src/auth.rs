@@ -62,7 +62,7 @@ impl HttpContext for OidcHttpContext {
         // Get the host, path and scheme from the request headers
         let host = self.get_host().unwrap_or_default();
         let path = self.get_http_request_header(":path").unwrap_or_default();
-        let query = path.split('?').last().unwrap();
+        let query = path.split('?').next_back().unwrap();
         let scheme = self
             .get_http_request_header(":scheme")
             .unwrap_or("http".to_string());
@@ -145,7 +145,10 @@ impl HttpContext for OidcHttpContext {
                 PluginError::SessionCookieNotFoundError => {}
                 PluginError::NonceCookieNotFoundError => {}
                 _ => {
-                    warn!("cookie validation failed for request {}: {e}", self.request_id.clone().unwrap());
+                    warn!(
+                        "cookie validation failed for request {}: {e}",
+                        self.request_id.clone().unwrap()
+                    );
                     self.show_error_page(503, "Cookie validation failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
                 }
             },
@@ -214,7 +217,7 @@ impl OidcHttpContext {
             .plugin_config
             .exclude_hosts
             .iter()
-            .any(|x| x.is_match(&host))
+            .any(|x| x.is_match(host))
         {
             debug!("host {host} is excluded, forwarding request.");
             self.filter_proxy_cookies();
@@ -226,7 +229,7 @@ impl OidcHttpContext {
             .plugin_config
             .exclude_paths
             .iter()
-            .any(|x| x.is_match(&path))
+            .any(|x| x.is_match(path))
         {
             debug!("path {path} is excluded, forwarding request.");
             self.filter_proxy_cookies();
@@ -409,7 +412,7 @@ impl OidcHttpContext {
         debug!("received request for OpenID callback");
 
         // Get Query String from URL
-        let query = path.split('?').last().unwrap_or_default();
+        let query = path.split('?').next_back().unwrap_or_default();
         debug!("query: {query}");
 
         // Get state from query

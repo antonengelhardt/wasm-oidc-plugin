@@ -248,7 +248,7 @@ impl RootContext for Root {
             .lock()
             .unwrap()
             .iter_mut()
-            .all(|r| matches!(r.state, OpenIdResolverState::Ready { .. }));
+            .all(|r| matches!(r.state, OpenIdResolverState::Ready));
 
         if self.discovery_active && all_resolvers_done {
             info!(
@@ -280,7 +280,7 @@ impl RootContext for Root {
         // Make call to openid configuration endpoint for all providers whose state is not ready.
         for resolver in self.open_id_resolvers.lock().unwrap().iter_mut() {
             match &resolver.state {
-                OpenIdResolverState::LoadingConfig { .. } => {
+                OpenIdResolverState::LoadingConfig => {
                     // Make call to openid configuration endpoint and load configuration
                     // The response is handled in `on_http_call_response`.
                     match self.dispatch_http_call(
@@ -331,7 +331,7 @@ impl RootContext for Root {
                         }
                     }
                 }
-                OpenIdResolverState::Ready {} => {
+                OpenIdResolverState::Ready => {
                     // Clear all token ids as the resolver is ready
                     resolver.token_ids.clear();
                 }
@@ -475,7 +475,7 @@ impl Context for Root {
             }
 
             // If the plugin is in `Ready` state, the response is ignored and the state is not changed.
-            OpenIdResolverState::Ready { .. } => {
+            OpenIdResolverState::Ready => {
                 warn!("ready state is not expected here");
             }
         }
