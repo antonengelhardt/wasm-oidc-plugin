@@ -31,7 +31,7 @@ spec:
 
       containers:
         - name: envoy
-          image: antonengelhardt/wasm-oidc-plugin:latest
+          image: ghcr.io/antonengelhardt/wasm-oidc-plugin:latest
 
           resources:
             requests:

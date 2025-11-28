@@ -79,7 +79,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Install cargo audit
-        run: cargo install cargo-audit
+        run: cargo install cargo-audit --locked || true
 
       - name: Audit
         run: cargo audit -f audit.toml
@@ -116,7 +116,7 @@ jobs:
             ${{ runner.os }}-cargo-
 
       - name: Install cargo-outdated
-        run: cargo install cargo-outdated
+        run: cargo install cargo-outdated --locked || true
 
       - name: Rust version
         run: rustc --version && cargo --version
