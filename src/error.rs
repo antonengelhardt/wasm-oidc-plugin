@@ -91,6 +91,9 @@ impl OidcHttpContext {
                                 --card-border: #e9ecef;
                                 --toggle-bg: #e2e8f0;
                                 --toggle-border: #cbd5e1;
+                                --button-bg: #3498db;
+                                --button-text: #ffffff;
+                                --button-hover: #2980b9;
                             }}
                             .dark-mode {{
                                 --bg-color: #1a1a1a;
@@ -99,6 +102,9 @@ impl OidcHttpContext {
                                 --card-border: #4a4a4a;
                                 --toggle-bg: #4a5568;
                                 --toggle-border: #2d3748;
+                                --button-bg: #2980b9;
+                                --button-text: #ffffff;
+                                --button-hover: #3498db;
                             }}
                             body {{
                                 font-family: Helvetica, sans-serif;
@@ -185,6 +191,20 @@ impl OidcHttpContext {
                                 content: "🌙";
                                 background-color: #2c3e50;
                             }}
+                            .reset-button {{
+                                margin-top: 20px;
+                                padding: 10px 20px;
+                                background-color: var(--button-bg);
+                                color: var(--button-text);
+                                border: none;
+                                border-radius: 5px;
+                                cursor: pointer;
+                                font-size: 16px;
+                                transition: background-color 0.3s ease;
+                            }}
+                            .reset-button:hover {{
+                                background-color: var(--button-hover);
+                            }}
                         </style>
                     </head>
                     <body>
@@ -199,6 +219,7 @@ impl OidcHttpContext {
                             <h2>{title}</h2>
                             <p>{message}</p>
                             <p class="request-id">Request-ID: {request_id}</p>
+                            <button class="reset-button" onclick="resetCookies()">Reset Cookies and back</button>
                         </div>
                         <script>
                             const darkModeToggle = document.getElementById('darkModeToggle');
@@ -222,6 +243,17 @@ impl OidcHttpContext {
                                     localStorage.setItem('darkMode', null);
                                 }}
                             }});
+
+                            function resetCookies() {{
+                                const cookies = document.cookie.split('; ');
+                                for (let i = 0; i < cookies.length; i++) {{
+                                    const cookie = cookies[i];
+                                    const cookie_name = cookie.split('=')[0];
+                                    document.cookie = cookie_name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Lax';
+                                }}
+                                // Go back to referrer
+                                window.location.href = document.referrer;
+                            }}
                         </script>
                     </body>
                     </html>
