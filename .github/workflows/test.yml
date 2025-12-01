@@ -6,84 +6,64 @@ on:
 jobs:
   cargo-deny:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Rust version
-        run: rustc --version && cargo --version
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: true
 
       - name: Cargo Deny
         uses: EmbarkStudios/cargo-deny-action@v2
 
   clippy:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up cargo cache
-        uses: actions/cache@v4
+      - name: Setup Rust with wasm32-wasip1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Rust version
-        run: rustc --version && cargo --version
+          target: wasm32-wasip1
+          components: clippy
+          cache: true
 
       - name: Clippy
-        run: |
-          rustc --version && cargo --version
-          cargo clippy --release --all-targets --target=wasm32-wasip1 -- -D warnings
+        run: cargo clippy --release --all-targets --target=wasm32-wasip1 -- -D warnings
 
   fmt:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Rust version
-        run: rustc --version && cargo --version
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: rustfmt
+          cache: false
 
       - name: Fmt
         run: cargo fmt -- --check
 
   audit:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up cargo cache
-        uses: actions/cache@v4
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          cache: true
 
       - name: Install cargo audit
-        run: cargo install cargo-audit --locked || true
+        uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: cargo-audit
 
       - name: Audit
         run: cargo audit -f audit.toml
@@ -94,8 +74,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Rust version
-        run: rustc --version && cargo --version
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          cache: false
 
       - name: Verify project
         run: cargo verify-project
@@ -106,84 +88,48 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up cargo cache
-        uses: actions/cache@v4
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          cache: true
 
       - name: Install cargo-outdated
-        run: cargo install cargo-outdated --locked || true
-
-      - name: Rust version
-        run: rustc --version && cargo --version
+        uses: taiki-e/cache-cargo-install-action@v2
+        with:
+          tool: cargo-outdated
 
       - name: Outdated
         run: cargo outdated --root-deps-only --exit-code 1
 
   test:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up cargo cache
-        uses: actions/cache@v4
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Rust version
-        run: rustc --version && cargo --version
+          cache: true
 
       - name: Test
         run: cargo test --workspace
 
   build:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/antonengelhardt/rust-docker-tools
     needs: [audit, outdated, verify-project, cargo-deny, clippy, fmt, test]
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up cargo cache
-        uses: actions/cache@v4
+      - name: Setup Rust with wasm32-wasip1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Rust version
-        run: rustc --version && cargo --version
+          target: wasm32-wasip1
+          cache: true
 
       - name: Build wasm-oidc-plugin
-        run: |
-          cargo build --target wasm32-wasip1 --release
+        run: cargo build --target wasm32-wasip1 --release
 
       - name: Upload plugin as artifact
         uses: actions/upload-artifact@v4
@@ -194,26 +140,27 @@ jobs:
   docker-image:
     needs: [audit, outdated, verify-project, cargo-deny, clippy, fmt, test]
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Login
-        uses: docker/login-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Pull previous image to cache
-        run: docker pull antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }} || true
-
-      - name: Push to Docker Hub
-        uses: docker/build-push-action@v2
+      - name: Build and push
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref}}
+          tags: antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }}
+          cache-from: type=registry,ref=antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }}
+          cache-to: type=inline
 
   ghcr-image:
     runs-on: ubuntu-latest
@@ -221,20 +168,25 @@ jobs:
     permissions:
       contents: read
       packages: write
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Login
-        uses: docker/login-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push to GHCR
-        run: |
-          docker pull ghcr.io/antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }} || true # Pull the image to cache
-          docker build -t ghcr.io/antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }} .
-          docker push ghcr.io/antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }}
+          cache-from: type=registry,ref=ghcr.io/antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }}
+          cache-to: type=inline
