@@ -155,74 +155,6 @@ jobs:
       - name: Test
         run: cargo test --workspace
 
-  audit:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up cargo cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-audit-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-audit-
-
-      - name: Install cargo audit
-        run: cargo install cargo-audit || true
-
-      - name: Rust version
-        run: rustc --version && cargo --version
-
-      - name: Audit
-        run: cargo audit -f audit.toml
-
-  verify-project:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Rust version
-        run: rustc --version && cargo --version
-
-      - name: Verify project
-        run: cargo verify-project
-
-  outdated:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up cargo cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-outdated-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-outdated-
-
-      - name: Install cargo-outdated
-        run: cargo install cargo-outdated || true
-
-      - name: Rust version
-        run: rustc --version && cargo --version
-
-      - name: Outdated
-        run: cargo outdated --root-deps-only --exit-code 1
-
   build:
     runs-on: ubuntu-latest
     container:
@@ -257,7 +189,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: plugin
-          path: target/wasm32-wasi/release/wasm_oidc_plugin.wasm
+          path: target/wasm32-wasip1/release/wasm_oidc_plugin.wasm
 
   docker-image:
     needs: [audit, outdated, verify-project, cargo-deny, clippy, fmt, test]

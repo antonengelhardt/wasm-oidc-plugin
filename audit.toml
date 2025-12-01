@@ -22,7 +22,7 @@ show_tree = true # Show inverse dependency trees along with advisories (default:
 
 # Target Configuration
 [target]
-arch = ["wasm32-wasi"] # Ignore advisories for CPU architectures other than these
+arch = ["wasm32-wasip1"] # Ignore advisories for CPU architectures other than these
 os = ["wasi"] # Ignore advisories for operating systems other than these
 
 [yanked]
