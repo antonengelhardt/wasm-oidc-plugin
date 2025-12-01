@@ -104,13 +104,14 @@ The plugin is configured via the `envoy.yaml`-file. The following configuration 
 | `access_token_header_prefix` | `string` | The prefix of the header, that is used to forward the access token, if empty "" is used. | `Bearer ` | ❌ |
 | `id_token_header_name` | `string` | If set, this name will be used to forward the id token to the backend. | `X-Id-Token` | ❌ |
 | `id_token_header_prefix` | `string` | The prefix of the header, that is used to forward the id token, if empty "" is used. | `Bearer ` | ❌ |
-| `cookie_name` | `string` | The name of the cookie, that is used to store the session. | `oidcSession` | ✅ |
+| `cookie_name` | `string` | The name of the cookie, that is used to store the session.  Will be suffixed with a dash and a number for multiple cookies if the state is too long. | `oidcSession` | ✅ |
 | `logout_path` | `string` | The path, that is used to logout the user. The user will be redirected to `end_session_endpoint` of the OIDC provider, if the server supports this; alternatively the user is sent to "/" | `/logout` | ✅ |
 | `filter_plugin_cookies` | `bool` | Whether to filter the cookies that are managed and controlled by the plugin (namely cookie_name and `nonce`). | `true` | ✅ |
 | `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` | ✅ |
 | `token_validation` | bool | Whether to validate the token or not. | `true` | ✅ |
 | `aes_key` | `string` | A base64 encoded AES-256 Key: `openssl rand -base64 32` | `SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q=` | ✅ |
 | `reload_interval_in_h` | `u64` | The interval in hours, after which the OpenID configuration is reloaded. | `24` | ✅ |
+| `ticking_interval_in_ms` | `u64` | The interval in milliseconds, after which the plugin will wait for the discovery endpoint to respond or send a new request. | `500` | ✅ |
 | `open_id_configs` | `Vec<OpenIdConfig>` | A list of OpenID Configuration objects. | See below | ✅ |
 
 #### `OpenIdConfig`
