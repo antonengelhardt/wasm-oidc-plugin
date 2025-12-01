@@ -37,7 +37,7 @@ spec:
               git clone -b main https://${GITHUB_PAT}@github.com/your-org/your-repo.git #! Change URL and branch
               cd your-repo #! Change directory
               cargo build --target wasm32-wasip1 --release
-              cp target/wasm32-wasi/release/name_of_your_wasm_plugin.wasm /plugins/name_of_your_wasm_plugin.wasm #! Rename, if necessary
+              cp target/wasm32-wasip1/release/name_of_your_wasm_plugin.wasm /plugins/name_of_your_wasm_plugin.wasm #! Rename, if necessary
 
           env:
             - name: GITHUB_PAT #? if your repo is private, you need to provide a github personal access token in a secret
