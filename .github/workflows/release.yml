@@ -9,28 +9,17 @@ jobs:
   build:
     name: Build and upload artifacts
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/antonengelhardt/rust-docker-tools
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up cargo cache
-        uses: actions/cache@v4
+      - name: Setup Rust with wasm32-wasip1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          cache: true
 
       - name: Build
-        run: |
-          cargo build --target wasm32-wasip1 --release
+        run: cargo build --target wasm32-wasip1 --release
 
       - name: Archive production artifacts
         uses: actions/upload-artifact@v4
@@ -45,8 +34,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Login
-        uses: docker/login-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
@@ -56,12 +48,16 @@ jobs:
         run: |
           echo VERSION=$(echo ${{ github.ref }} | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+") >> $GITHUB_ENV
 
-      - name: Push to Docker Hub
-        uses: docker/build-push-action@v2
+      - name: Build and push
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }}
+          tags: |
+            antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }}
+            antonengelhardt/wasm-oidc-plugin:latest
+          cache-from: type=registry,ref=antonengelhardt/wasm-oidc-plugin:latest
+          cache-to: type=inline
 
   ghcr-image:
     name: Build and push GHCR image
@@ -69,13 +65,15 @@ jobs:
     permissions:
       contents: read
       packages: write
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Login
-        uses: docker/login-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -86,7 +84,13 @@ jobs:
         run: |
           echo VERSION=$(echo ${{ github.ref }} | grep -o "v[0-9]\+\.[0-9]\+\.[0-9]\+") >> $GITHUB_ENV
 
-      - name: Push to GHCR
-        run: |
-          docker build -t ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }} .
-          docker push ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }}
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ env.VERSION }}
+            ghcr.io/antonengelhardt/wasm-oidc-plugin:latest
+          cache-from: type=registry,ref=ghcr.io/antonengelhardt/wasm-oidc-plugin:latest
+          cache-to: type=inline

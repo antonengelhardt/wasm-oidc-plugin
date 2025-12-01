@@ -11,29 +11,17 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/antonengelhardt/rust-docker-tools
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up cargo cache
-        uses: actions/cache@v4
+      - name: Setup Rust with wasm32-wasip1
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          cache: true
 
       - name: Build wasm-oidc-plugin
-        run: |
-          cargo build --target wasm32-wasip1 --release
+        run: cargo build --target wasm32-wasip1 --release
 
       - name: Upload plugin as artifact
         uses: actions/upload-artifact@v4
@@ -43,26 +31,27 @@ jobs:
 
   docker-image:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Login
-        uses: docker/login-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Pull previous image to cache
-        run: docker pull antonengelhardt/wasm-oidc-plugin:latest
-
-      - name: Push to Docker Hub
-        uses: docker/build-push-action@v2
+      - name: Build and push
+        uses: docker/build-push-action@v5
         with:
           context: .
           push: true
           tags: antonengelhardt/wasm-oidc-plugin:latest
+          cache-from: type=registry,ref=antonengelhardt/wasm-oidc-plugin:latest
+          cache-to: type=inline
 
   ghcr-image:
     runs-on: ubuntu-latest
@@ -70,23 +59,28 @@ jobs:
     permissions:
       contents: read
       packages: write
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Login
-        uses: docker/login-action@v2
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Push to GHCR
-        run: |
-          docker pull ghcr.io/antonengelhardt/wasm-oidc-plugin:latest # Pull the image to cache
-          docker build -t ghcr.io/antonengelhardt/wasm-oidc-plugin:latest .
-          docker push ghcr.io/antonengelhardt/wasm-oidc-plugin:latest
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/antonengelhardt/wasm-oidc-plugin:latest
+          cache-from: type=registry,ref=ghcr.io/antonengelhardt/wasm-oidc-plugin:latest
+          cache-to: type=inline
 
   deploy-demo:
     needs: ghcr-image
