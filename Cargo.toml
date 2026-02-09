@@ -17,7 +17,7 @@ jwt-simple = {git = "https://github.com/antonengelhardt/rust-jwt-simple", rev = 
 log = "0.4.22"
 proxy-wasm = "0.2.2"
 pkce = "0.2.0"
-regex = "1.10.5"
+regex = "1.12.3"
 sec = { version = "1.0.0", features = ["serde", "deserialize"] }
 serde = { version = "1.0.204", features = ["derive"] }
 serde_yaml = "0.9.33"
