@@ -88,39 +88,39 @@ data:
                         "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
       clusters:
       - name: httpbin #! This name must match the name of the cluster in the route_config section.
-      connect_timeout: 5s
-      type: STRICT_DNS
-      lb_policy: ROUND_ROBIN
-      load_assignment:
-        cluster_name: httpbin #! This name must match the name of the cluster in the route_config section.
-        endpoints:
-          - lb_endpoints:
-              - endpoint:
-                  address:
-                    socket_address:
-                      address: httpbin #! This is the hostname of the service you want to access.
-                      port_value: 80
-                  hostname: "httpbin.org" #! This is the hostname of the service you want to access.
-        - name: google #! must match the upstream_cluster in the plugin's configuration.
-          connect_timeout: 5s
-          type: STRICT_DNS
-          dns_lookup_family: V4_ONLY
-          load_assignment:
-            cluster_name: google
-            endpoints:
-              - lb_endpoints:
-                  - endpoint:
-                      address:
-                        socket_address:
-                          address: accounts.google.com #! Your Auth Server's domain name.
-                          port_value: 443
-                  - endpoint:
-                      address:
-                        socket_address:
-                          address: www.googleapis.com #! Your Auth Server's domain name.
-                          port_value: 443
-          transport_socket:
-            name: envoy.transport_sockets.tls
-            typed_config:
-              "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
-              sni: "accounts.google.com" #! Your Auth Server's domain name.
+        connect_timeout: 5s
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: httpbin #! This name must match the name of the cluster in the route_config section.
+          endpoints:
+            - lb_endpoints:
+                - endpoint:
+                    address:
+                      socket_address:
+                        address: httpbin #! This is the hostname of the service you want to access.
+                        port_value: 80
+                    hostname: "httpbin.org" #! This is the hostname of the service you want to access.
+      - name: google #! must match the upstream_cluster in the plugin's configuration.
+        connect_timeout: 5s
+        type: STRICT_DNS
+        dns_lookup_family: V4_ONLY
+        load_assignment:
+          cluster_name: google
+          endpoints:
+            - lb_endpoints:
+                - endpoint:
+                    address:
+                      socket_address:
+                        address: accounts.google.com #! Your Auth Server's domain name.
+                        port_value: 443
+                - endpoint:
+                    address:
+                      socket_address:
+                        address: www.googleapis.com #! Your Auth Server's domain name.
+                        port_value: 443
+        transport_socket:
+          name: envoy.transport_sockets.tls
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
+            sni: "accounts.google.com" #! Your Auth Server's domain name.
