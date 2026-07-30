@@ -62,7 +62,7 @@ impl HttpContext for OidcHttpContext {
         // Get the host, path and scheme from the request headers
         let host = self.get_host().unwrap_or_default();
         let path = self.get_http_request_header(":path").unwrap_or_default();
-        let query = path.split('?').next_back().unwrap();
+        let query = path.split('?').nth(1).unwrap_or("");
         let scheme = self
             .get_http_request_header(":scheme")
             .unwrap_or("http".to_string());
@@ -93,7 +93,10 @@ impl HttpContext for OidcHttpContext {
             match self.logout() {
                 Ok(action) => return action,
                 Err(e) => {
-                    warn!("logout failed for request {} with error: {}", self.request_id, e);
+                    warn!(
+                        "logout failed for request {} with error: {}",
+                        self.request_id, e
+                    );
                     self.show_error_page(503, "Logout failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
                 }
             }
@@ -105,7 +108,10 @@ impl HttpContext for OidcHttpContext {
             match self.provider_selection(query) {
                 Ok(_) => return Action::Pause,
                 Err(e) => {
-                    warn!("provider selection failed for request {} with error: {}", self.request_id, e);
+                    warn!(
+                        "provider selection failed for request {} with error: {}",
+                        self.request_id, e
+                    );
                     self.show_error_page(503, "Provider selection failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
                     return Action::Pause;
                 }
@@ -121,7 +127,10 @@ impl HttpContext for OidcHttpContext {
             match self.exchange_code_for_token(path) {
                 Ok(_) => return Action::Pause,
                 Err(e) => {
-                    warn!("token exchange failed for request {} with error: {}", self.request_id, e);
+                    warn!(
+                        "token exchange failed for request {} with error: {}",
+                        self.request_id, e
+                    );
                     // TODO: Show explicit error to the user?
                     self.show_error_page(503, "Token exchange failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
                 }
@@ -136,7 +145,10 @@ impl HttpContext for OidcHttpContext {
                 PluginError::SessionCookieNotFoundError => {}
                 PluginError::NonceCookieNotFoundError => {}
                 _ => {
-                    warn!("cookie validation failed for request {} with error: {}", self.request_id, e);
+                    warn!(
+                        "cookie validation failed for request {} with error: {}",
+                        self.request_id, e
+                    );
                     self.show_error_page(503, "Cookie validation failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
                 }
             },
@@ -172,7 +184,8 @@ impl Context for OidcHttpContext {
             }
             Err(e) => {
                 warn!(
-                    "storing token in cookie failed for request {} with error: {}", self.request_id, e
+                    "storing token in cookie failed for request {} with error: {}",
+                    self.request_id, e
                 );
                 // Send a 503 if storing the token in the cookie failed
                 self.show_error_page(
@@ -610,8 +623,7 @@ impl OidcHttpContext {
             .open_id_providers
             .iter()
             .find(|provider| provider.issuer == session.issuer)
-            .unwrap();
-        // TODO: Error handling
+            .ok_or_else(|| PluginError::ProviderNotFoundError(session.issuer.clone()))?;
 
         // Redirect to end session endpoint, if available (not all OIDC providers support this)
         let location = match &provider.end_session_endpoint {
@@ -667,10 +679,20 @@ impl OidcHttpContext {
                 headers,
                 Some(html::auth_page_html(provider_cards).as_bytes()),
             );
-        } else {
+        } else if let Some(provider) = self.open_id_providers.first() {
             // If there is only one provider, redirect the user to the authorization endpoint right away
             debug!("no cookie found or invalid, redirecting to authorization endpoint");
-            self.redirect_to_authorization_endpoint(self.open_id_providers.first().unwrap(), None);
+            self.redirect_to_authorization_endpoint(provider, None);
+        } else {
+            warn!(
+                "no open id providers configured for request {}",
+                self.request_id
+            );
+            self.show_error_page(
+                503,
+                "No providers configured",
+                "Please contact your system administrator with the request id!",
+            );
         }
     }
 
@@ -705,11 +727,11 @@ impl OidcHttpContext {
 
         // Generate PKCE code verifier and challenge
         let pkce_verifier = pkce::code_verifier(128);
-        let pkce_verifier_string = String::from_utf8(pkce_verifier.clone()).unwrap();
+        let pkce_verifier_string = String::from_utf8_lossy(&pkce_verifier).into_owned();
         let pkce_challenge = pkce::code_challenge(&pkce_verifier);
 
         // Generate state
-        let state_string = String::from_utf8(pkce::code_verifier(128)).unwrap();
+        let state_string = String::from_utf8_lossy(&pkce::code_verifier(128)).into_owned();
 
         // Create session struct and encrypt it
         let (session, nonce) = session::Session {
@@ -737,7 +759,7 @@ impl OidcHttpContext {
             serde_json::to_string(&open_id_provider.open_id_config.claims).unwrap_or_default();
 
         // Build URL
-        let location = Url::parse_with_params(
+        let location = match Url::parse_with_params(
             open_id_provider.auth_endpoint.as_str(),
             &[
                 ("response_type", "code"),
@@ -752,8 +774,21 @@ impl OidcHttpContext {
                 ("scope", &open_id_provider.open_id_config.scope),
                 ("claims", &claims),
             ],
-        )
-        .unwrap();
+        ) {
+            Ok(url) => url,
+            Err(e) => {
+                warn!(
+                    "failed to build authorization url for request {}: {}",
+                    self.request_id, e
+                );
+                self.show_error_page(
+                    503,
+                    "Authorization redirect failed",
+                    "Please contact your system administrator with the request id!",
+                );
+                return Action::Pause;
+            }
+        };
 
         headers.push(("Location", location.as_str()));
 
@@ -816,7 +851,9 @@ impl OidcHttpContext {
             if key.to_lowercase().trim() == "cookie" {
                 let cookies: Vec<_> = value.split(';').collect();
                 for cookie_string in cookies {
-                    let cookie_name_end = cookie_string.find('=').unwrap_or(0);
+                    let Some(cookie_name_end) = cookie_string.find('=') else {
+                        continue;
+                    };
                     let cookie_name = &cookie_string[0..cookie_name_end];
                     if cookie_name.trim() == name {
                         return Some(
