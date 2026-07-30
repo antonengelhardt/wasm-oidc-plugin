@@ -1,7 +1,7 @@
 // aes_gcm
 use aes_gcm::{
-    aead::{AeadMut, OsRng},
-    AeadCore, Aes256Gcm,
+    aead::{Aead, Generate, Nonce},
+    Aes256Gcm,
 };
 
 // base64
@@ -11,6 +11,7 @@ use base64::{engine::general_purpose::STANDARD_NO_PAD as base64engine, Engine as
 use log::debug;
 
 // std
+use std::convert::TryInto;
 use std::fmt::Debug;
 
 // serde
@@ -61,11 +62,11 @@ impl Session {
     /// * the base64 encoded nonce needed to decrypt it
     pub fn encrypt_and_encode(
         &self,
-        mut cipher: Aes256Gcm,
+        cipher: Aes256Gcm,
     ) -> Result<(String, String), PluginError> {
         // Generate nonce and encode it
         // We generate the nonce here to make sure we never encrypt with the same nonce twice
-        let nonce = Aes256Gcm::generate_nonce(OsRng);
+        let nonce = Nonce::<Aes256Gcm>::generate();
         let encoded_nonce = base64engine.encode(nonce.as_slice());
 
         // Encrypt and encode cookie
@@ -141,19 +142,21 @@ impl Session {
     /// * `encoded_nonce` - Nonce used to decrypt the cookie
     pub fn decode_and_decrypt(
         encoded_cookie: String,
-        mut cipher: Aes256Gcm,
+        cipher: Aes256Gcm,
         encoded_nonce: String,
     ) -> Result<Session, PluginError> {
         // Decode nonce using base64
         debug!("decrypting with nonce: {}", encoded_nonce);
         let decoded_nonce = base64engine.decode(encoded_nonce.as_bytes())?;
-        let nonce = aes_gcm::Nonce::from_slice(decoded_nonce.as_slice());
+        let nonce: Nonce<Aes256Gcm> = decoded_nonce.as_slice().try_into().map_err(|_| {
+            PluginError::CookieValidationError("invalid nonce length".to_string())
+        })?;
 
         // Decode cookie using base64
         let decoded_cookie = base64engine.decode(encoded_cookie.as_bytes())?;
 
         // Decrypt with cipher
-        let decrypted_cookie = cipher.decrypt(nonce, decoded_cookie.as_slice())?;
+        let decrypted_cookie = cipher.decrypt(&nonce, decoded_cookie.as_slice())?;
 
         // Parse cookie into a struct
         let state = serde_json::from_slice::<Session>(&decrypted_cookie)?;
