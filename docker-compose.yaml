@@ -2,7 +2,7 @@ version: "3.8"
 
 services:
   envoy:
-    image: envoyproxy/envoy:v1.36-latest
+    image: envoyproxy/envoy:v1.39-latest
     hostname: envoy
     ports:
       - "9901:9901"
