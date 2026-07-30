@@ -219,12 +219,33 @@ impl OidcHttpContext {
                             const darkModeToggle = document.getElementById('darkModeToggle');
                             const body = document.body;
 
+                            function getDarkModePreference() {{
+                                try {{
+                                    return localStorage.getItem('darkMode');
+                                }} catch (error) {{
+                                    console.warn('localStorage is not available', error);
+                                    return null;
+                                }}
+                            }}
+
+                            function setDarkModePreference(value) {{
+                                try {{
+                                    if (value === null) {{
+                                        localStorage.removeItem('darkMode');
+                                    }} else {{
+                                        localStorage.setItem('darkMode', value);
+                                    }}
+                                }} catch (error) {{
+                                    console.warn('localStorage is not available', error);
+                                }}
+                            }}
+
                             darkModeToggle.addEventListener('change', () => {{
                                 body.classList.toggle('dark-mode');
                             }});
 
                             // Check for saved dark mode preference
-                            if (localStorage.getItem('darkMode') === 'enabled') {{
+                            if (getDarkModePreference() === 'enabled') {{
                                 body.classList.add('dark-mode');
                                 darkModeToggle.checked = true;
                             }}
@@ -232,9 +253,9 @@ impl OidcHttpContext {
                             // Save dark mode preference
                             darkModeToggle.addEventListener('change', () => {{
                                 if (body.classList.contains('dark-mode')) {{
-                                    localStorage.setItem('darkMode', 'enabled');
+                                    setDarkModePreference('enabled');
                                 }} else {{
-                                    localStorage.setItem('darkMode', null);
+                                    setDarkModePreference(null);
                                 }}
                             }});
 
