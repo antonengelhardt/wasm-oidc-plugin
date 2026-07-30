@@ -70,6 +70,24 @@ class ProviderNameTests(unittest.TestCase):
         self.assertEqual(migrate._provider_name({}), "default")
 
 
+class NormalizeClaimsTests(unittest.TestCase):
+    def test_parses_json_string_into_mapping(self) -> None:
+        self.assertEqual(
+            migrate._normalize_claims(
+                '{"id_token":{"groups":null,"username":null}}'
+            ),
+            {"id_token": {"groups": None, "username": None}},
+        )
+
+    def test_preserves_mapping(self) -> None:
+        claims = {"id_token": {"groups": None}}
+        self.assertEqual(migrate._normalize_claims(claims), claims)
+
+    def test_rejects_invalid_json_string(self) -> None:
+        with self.assertRaises(SystemExit):
+            migrate._normalize_claims("{not-json")
+
+
 class MigrateConfigTests(unittest.TestCase):
     def test_migrates_legacy_single_provider_config(self) -> None:
         migrated = migrate.migrate_config(LEGACY_CONFIG)
@@ -79,7 +97,13 @@ class MigrateConfigTests(unittest.TestCase):
 
         provider = migrated["open_id_configs"][0]
         self.assertEqual(provider["name"], "accounts")
-        self.assertEqual(provider["image"], "")
+        self.assertEqual(provider["image"], migrate.DEFAULT_PROVIDER_IMAGE)
+        self.assertTrue(provider["image"].startswith(("http://", "https://", "data:")))
+        self.assertEqual(
+            provider["claims"],
+            {"id_token": {"groups": None, "username": None}},
+        )
+        self.assertIsInstance(provider["claims"], dict)
         self.assertEqual(
             provider["config_endpoint"],
             LEGACY_CONFIG["config_endpoint"],
@@ -117,6 +141,11 @@ class MigrateConfigTests(unittest.TestCase):
         migrate.migrate_config(original)
         self.assertEqual(original, LEGACY_CONFIG)
 
+    def test_defaults_claims_to_empty_mapping_when_missing(self) -> None:
+        config = {k: v for k, v in LEGACY_CONFIG.items() if k != "claims"}
+        migrated = migrate.migrate_config(config)
+        self.assertEqual(migrated["open_id_configs"][0]["claims"], {})
+
 
 class MainCliTests(unittest.TestCase):
     def test_writes_migrated_yaml_to_stdout(self) -> None:
@@ -125,6 +154,7 @@ class MainCliTests(unittest.TestCase):
                 "authority: accounts.google.com\n"
                 "config_endpoint: https://example.com/.well-known/openid-configuration\n"
                 "upstream_cluster: google\n"
+                'claims: \'{"id_token":{"groups":null}}\'\n'
             )
             input_path = handle.name
 
@@ -137,6 +167,9 @@ class MainCliTests(unittest.TestCase):
         self.assertIn("open_id_configs:", output)
         self.assertIn("name: accounts", output)
         self.assertIn("logout_path: /logout", output)
+        self.assertIn("id_token:", output)
+        self.assertIn("data:image/svg+xml", output)
+        self.assertNotIn('claims: \'{"id_token"', output)
 
         Path(input_path).unlink()
 
@@ -160,6 +193,8 @@ class MainCliTests(unittest.TestCase):
             self.assertIn("open_id_configs:", content)
             self.assertIn("name: auth", content)
             self.assertIn("client_id: demo", content)
+            self.assertIn("claims: {}", content)
+            self.assertIn("data:image/svg+xml", content)
 
         Path(input_path).unlink()
 

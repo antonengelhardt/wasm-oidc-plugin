@@ -9,6 +9,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from copy import deepcopy
 from typing import Any
@@ -32,12 +33,44 @@ PROVIDER_FIELDS = (
     "audience",
 )
 
+# Placeholder that parses as url::Url; replace with a real provider logo URL.
+DEFAULT_PROVIDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E"
+
 
 def _provider_name(config: dict[str, Any]) -> str:
     authority = config.get("authority")
     if isinstance(authority, str) and authority:
         return authority.split(".")[0]
     return "default"
+
+
+def _normalize_claims(claims: Any) -> dict[str, Any]:
+    """Convert legacy claims (JSON string or mapping) into a dict for serde_json::Map."""
+    if claims is None:
+        return {}
+
+    if isinstance(claims, dict):
+        return claims
+
+    if isinstance(claims, str):
+        stripped = claims.strip()
+        if not stripped:
+            return {}
+        try:
+            parsed = json.loads(stripped)
+        except json.JSONDecodeError as exc:
+            raise SystemExit(
+                f"Failed to parse legacy `claims` JSON string: {exc}"
+            ) from exc
+        if not isinstance(parsed, dict):
+            raise SystemExit(
+                "Legacy `claims` JSON must decode to an object/mapping."
+            )
+        return parsed
+
+    raise SystemExit(
+        f"Unsupported `claims` type {type(claims).__name__}; expected mapping or JSON string."
+    )
 
 
 def migrate_config(config: dict[str, Any]) -> dict[str, Any]:
@@ -51,8 +84,13 @@ def migrate_config(config: dict[str, Any]) -> dict[str, Any]:
         if field in migrated:
             provider[field] = migrated.pop(field)
 
-    if "image" not in provider:
-        provider["image"] = ""
+    if "claims" in provider:
+        provider["claims"] = _normalize_claims(provider["claims"])
+    else:
+        provider["claims"] = {}
+
+    if "image" not in provider or not provider["image"]:
+        provider["image"] = DEFAULT_PROVIDER_IMAGE
 
     if "ticking_interval_in_ms" not in migrated:
         migrated["ticking_interval_in_ms"] = 500
