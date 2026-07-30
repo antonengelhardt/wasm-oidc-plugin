@@ -208,6 +208,14 @@ impl RootContext for Root {
     /// openid configuration endpoint or the jwks endpoint depending on the state of the resolver.
     fn on_tick(&mut self) {
         debug!("tick");
+
+        let Some(plugin_config) = self.plugin_config.as_ref() else {
+            warn!("plugin configuration not available during tick");
+            return;
+        };
+        let ticking_interval_in_ms = plugin_config.ticking_interval_in_ms;
+        let reload_interval_in_h = plugin_config.reload_interval_in_h;
+
         // Discovery is not active, start discovery
         if !self.discovery_active {
             info!("discovery is not active, starting discovery");
@@ -218,9 +226,7 @@ impl RootContext for Root {
                 resolver.state = OpenIdResolverState::LoadingConfig;
             }
             // Tick every x ms to not overload the openid configuration endpoint. x is the configured interval.
-            self.set_tick_period(Duration::from_millis(
-                self.plugin_config.as_ref().unwrap().ticking_interval_in_ms,
-            ));
+            self.set_tick_period(Duration::from_millis(ticking_interval_in_ms));
         }
 
         // If all providers are in `Ready` state, any request that was sent during the loading phase,
@@ -253,9 +259,7 @@ impl RootContext for Root {
 
             // Switch discovery to inactive and set the ticking period to the configured interval.
             self.discovery_active = false;
-            self.set_tick_period(Duration::from_secs(
-                self.plugin_config.as_ref().unwrap().reload_interval_in_h * 3600,
-            ));
+            self.set_tick_period(Duration::from_secs(reload_interval_in_h * 3600));
         }
 
         // Make call to openid configuration endpoint for all providers whose state is not ready.
@@ -416,8 +420,7 @@ impl Context for Root {
                         // Check if keys are present
                         if jwks_response.keys.is_empty() {
                             warn!("no keys found in jwks response, retry in 1 minute");
-                            // TODO: Hmm??
-                            // self.set_tick_period(Duration::from_secs(60));
+                            self.set_tick_period(Duration::from_secs(60));
                             return;
                         }
 
