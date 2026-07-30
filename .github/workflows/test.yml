@@ -145,6 +145,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Sanitize branch name
+        id: sanitize
+        run: echo "tag=pr-$(echo '${{ github.event.pull_request.head.ref }}' | tr '/' '-')" >> $GITHUB_OUTPUT
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -159,8 +163,8 @@ jobs:
         with:
           context: .
           push: true
-          tags: antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }}
-          cache-from: type=registry,ref=antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }}
+          tags: antonengelhardt/wasm-oidc-plugin:${{ steps.sanitize.outputs.tag }}
+          cache-from: type=registry,ref=antonengelhardt/wasm-oidc-plugin:${{ steps.sanitize.outputs.tag }}
           cache-to: type=inline
 
   ghcr-image:
@@ -172,6 +176,10 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Sanitize branch name
+        id: sanitize
+        run: echo "tag=pr-$(echo '${{ github.event.pull_request.head.ref }}' | tr '/' '-')" >> $GITHUB_OUTPUT
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -188,6 +196,6 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }}
-          cache-from: type=registry,ref=ghcr.io/antonengelhardt/wasm-oidc-plugin:pr-${{ github.event.pull_request.head.ref }}
+          tags: ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ steps.sanitize.outputs.tag }}
+          cache-from: type=registry,ref=ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ steps.sanitize.outputs.tag }}
           cache-to: type=inline
