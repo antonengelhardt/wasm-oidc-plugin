@@ -145,12 +145,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Sanitize branch name
-        id: sanitize
-        run: echo "tag=pr-$(echo '${{ github.event.pull_request.head.ref }}' | tr '/' '-')" >> $GITHUB_OUTPUT
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Sanitize branch name for image tag
+        id: image_tag
+        env:
+          BRANCH_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          sanitized="$(printf '%s' "$BRANCH_REF" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g')"
+          echo "tag=pr-${sanitized}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -163,8 +167,8 @@ jobs:
         with:
           context: .
           push: true
-          tags: antonengelhardt/wasm-oidc-plugin:${{ steps.sanitize.outputs.tag }}
-          cache-from: type=registry,ref=antonengelhardt/wasm-oidc-plugin:${{ steps.sanitize.outputs.tag }}
+          tags: antonengelhardt/wasm-oidc-plugin:${{ steps.image_tag.outputs.tag }}
+          cache-from: type=registry,ref=antonengelhardt/wasm-oidc-plugin:${{ steps.image_tag.outputs.tag }}
           cache-to: type=inline
 
   ghcr-image:
@@ -177,12 +181,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Sanitize branch name
-        id: sanitize
-        run: echo "tag=pr-$(echo '${{ github.event.pull_request.head.ref }}' | tr '/' '-')" >> $GITHUB_OUTPUT
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Sanitize branch name for image tag
+        id: image_tag
+        env:
+          BRANCH_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          sanitized="$(printf '%s' "$BRANCH_REF" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._-]/-/g')"
+          echo "tag=pr-${sanitized}" >> "$GITHUB_OUTPUT"
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -196,6 +204,6 @@ jobs:
         with:
           context: .
           push: true
-          tags: ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ steps.sanitize.outputs.tag }}
-          cache-from: type=registry,ref=ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ steps.sanitize.outputs.tag }}
+          tags: ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ steps.image_tag.outputs.tag }}
+          cache-from: type=registry,ref=ghcr.io/antonengelhardt/wasm-oidc-plugin:${{ steps.image_tag.outputs.tag }}
           cache-to: type=inline
