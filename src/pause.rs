@@ -38,11 +38,13 @@ impl HttpContext for PauseRequests {
         info!("filter now ready, sending redirect");
 
         // Send a redirect to the original path
+        let location = self.original_path.as_deref().unwrap_or("/");
+
         self.send_http_response(
             307,
             vec![
                 // Redirect to the requested path
-                ("location", self.original_path.as_ref().unwrap()),
+                ("location", location),
                 // Disable caching
                 ("Cache-Control", "no-cache"),
             ],
