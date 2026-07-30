@@ -60,10 +60,7 @@ impl Session {
     /// Returns:
     /// * the base64 encoded encrypted session data
     /// * the base64 encoded nonce needed to decrypt it
-    pub fn encrypt_and_encode(
-        &self,
-        cipher: Aes256Gcm,
-    ) -> Result<(String, String), PluginError> {
+    pub fn encrypt_and_encode(&self, cipher: Aes256Gcm) -> Result<(String, String), PluginError> {
         // Generate nonce and encode it
         // We generate the nonce here to make sure we never encrypt with the same nonce twice
         let nonce = Nonce::<Aes256Gcm>::generate();
@@ -148,9 +145,10 @@ impl Session {
         // Decode nonce using base64
         debug!("decrypting with nonce: {}", encoded_nonce);
         let decoded_nonce = base64engine.decode(encoded_nonce.as_bytes())?;
-        let nonce: Nonce<Aes256Gcm> = decoded_nonce.as_slice().try_into().map_err(|_| {
-            PluginError::CookieValidationError("invalid nonce length".to_string())
-        })?;
+        let nonce: Nonce<Aes256Gcm> = decoded_nonce
+            .as_slice()
+            .try_into()
+            .map_err(|_| PluginError::CookieValidationError("invalid nonce length".to_string()))?;
 
         // Decode cookie using base64
         let decoded_cookie = base64engine.decode(encoded_cookie.as_bytes())?;
