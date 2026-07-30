@@ -109,7 +109,7 @@ The plugin is configured via the `envoy.yaml`-file. The following configuration 
 | `filter_plugin_cookies` | `bool` | Whether to filter the cookies that are managed and controlled by the plugin (namely cookie_name and `nonce`). | `true` | ✅ |
 | `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` | ✅ |
 | `token_validation` | bool | Whether to validate the token or not. | `true` | ✅ |
-| `aes_key` | `string` | A base64 encoded AES-256 Key: `openssl rand -base64 32` | `SFDUGDbOsRzSZbv+mvnZdu2x6+Hqe2WRaBABvfxmh3Q=` | ✅ |
+| `aes_key` | `string` | A base64 encoded AES-256 Key: `openssl rand -base64 32` | `<generated-aes-key>` | ✅ |
 | `reload_interval_in_h` | `u64` | The interval in hours, after which the OpenID configuration is reloaded. | `24` | ✅ |
 | `ticking_interval_in_ms` | `u64` | The interval in milliseconds, after which the plugin will wait for the discovery endpoint to respond or send a new request. | `500` | ✅ |
 | `open_id_configs` | `Vec<OpenIdConfig>` | A list of OpenID Configuration objects. | See below | ✅ |
