@@ -138,6 +138,7 @@ pub fn auth_page_html(provider_cards: String) -> String {
                         height: auto;
                         object-fit: contain;
                         mix-blend-mode: darken;
+                        transition: opacity 0.2s ease, mix-blend-mode 0.2s ease;
                     }}
                     .dark-mode .provider-logo {{
                         mix-blend-mode: lighten;
@@ -236,23 +237,33 @@ pub fn auth_page_html(provider_cards: String) -> String {
                     const darkModeToggle = document.getElementById('darkModeToggle');
                     const body = document.body;
 
-                    function updateLogoVisibility() {{
-                        const logos = document.querySelectorAll('.provider-logo');
-                        logos.forEach(logo => {{
-                            logo.style.visibility = 'hidden';
-                            setTimeout(() => {{
-                                logo.style.visibility = 'visible';
-                            }}, 0);
-                        }});
+                    function getDarkModePreference() {{
+                        try {{
+                            return localStorage.getItem('darkMode');
+                        }} catch (error) {{
+                            console.warn('localStorage is not available', error);
+                            return null;
+                        }}
+                    }}
+
+                    function setDarkModePreference(value) {{
+                        try {{
+                            if (value === null) {{
+                                localStorage.removeItem('darkMode');
+                            }} else {{
+                                localStorage.setItem('darkMode', value);
+                            }}
+                        }} catch (error) {{
+                            console.warn('localStorage is not available', error);
+                        }}
                     }}
 
                     darkModeToggle.addEventListener('change', () => {{
                         body.classList.toggle('dark-mode');
-                        updateLogoVisibility();
                     }});
 
                     // Check for saved dark mode preference
-                    if (localStorage.getItem('darkMode') === 'enabled') {{
+                    if (getDarkModePreference() === 'enabled') {{
                         body.classList.add('dark-mode');
                         darkModeToggle.checked = true;
                     }}
@@ -260,14 +271,11 @@ pub fn auth_page_html(provider_cards: String) -> String {
                     // Save dark mode preference
                     darkModeToggle.addEventListener('change', () => {{
                         if (body.classList.contains('dark-mode')) {{
-                            localStorage.setItem('darkMode', 'enabled');
+                            setDarkModePreference('enabled');
                         }} else {{
-                            localStorage.setItem('darkMode', null);
+                            setDarkModePreference(null);
                         }}
                     }});
-
-                    // Call updateLogoVisibility on page load
-                    updateLogoVisibility();
                 </script>
             </body>
             </html>
