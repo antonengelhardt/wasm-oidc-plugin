@@ -76,6 +76,11 @@ jobs:
         with:
           cache: false
 
+      - name: Verify Rust toolchain
+        run: |
+          rustc --version
+          rustup show active-toolchain
+
       - name: Verify project
         run: cargo verify-project
 
