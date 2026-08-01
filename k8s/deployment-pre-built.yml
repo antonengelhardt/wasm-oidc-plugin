@@ -35,11 +35,11 @@ spec:
 
           resources:
             requests:
-              cpu: 300m
-              memory: 300Mi
+              cpu: 100m
+              memory: 256Mi
             limits:
-              cpu: 300m
-              memory: 300Mi
+              cpu: 500m
+              memory: 512Mi
 
           volumeMounts:
             - name: envoy-config
@@ -62,13 +62,26 @@ spec:
             periodSeconds: 5
             failureThreshold: 5
 
+          livenessProbe:
+            httpGet:
+              path: /plugin-health
+              port: 10000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 5
+
           ports:
-            - containerPort: 9901
-              name: admin
-              protocol: TCP
             - containerPort: 10000
               name: http
               protocol: TCP
+
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            seccompProfile:
+              type: RuntimeDefault
 
           command:
             ["envoy", "-c", "/etc/envoy/envoy.yaml", "--concurrency", "1"]
