@@ -95,40 +95,40 @@ cargo doc --document-private-items --open
 
 The plugin is configured via the `envoy.yaml`-file. The following configuration options are required:
 
-| Name | Type | Description | Example | Required |
-| ---- | ---- | ----------- | ------- | -------- |
-| `exclude_hosts` | `Vec<Regex>` | A comma separated list Hosts (in Regex expressions), that are excluded from the filter. | `["localhost:10000"]` | ❌ |
-| `exclude_paths` | `Vec<Regex>` | A comma separated list of paths (in Regex expressions), that are excluded from the filter. | `["/health"]` | ❌ |
-| `exclude_urls` | `Vec<Regex>` | A comma separated list of URLs (in Regex expressions), that are excluded from the filter. | `["http://localhost:10000/health"]` | ❌ |
-| `access_token_header_name` | `string` | If set, this name will be used to forward the access token to the backend. | `X-Access-Token` | ❌ |
-| `access_token_header_prefix` | `string` | The prefix of the header, that is used to forward the access token, if empty "" is used. | `Bearer ` | ❌ |
-| `id_token_header_name` | `string` | If set, this name will be used to forward the id token to the backend. | `X-Id-Token` | ❌ |
-| `id_token_header_prefix` | `string` | The prefix of the header, that is used to forward the id token, if empty "" is used. | `Bearer ` | ❌ |
-| `cookie_name` | `string` | The name of the cookie, that is used to store the session.  Will be suffixed with a dash and a number for multiple cookies if the state is too long. | `oidcSession` | ✅ |
-| `logout_path` | `string` | The path, that is used to logout the user. The user will be redirected to `end_session_endpoint` of the OIDC provider, if the server supports this; alternatively the user is sent to "/" | `/logout` | ✅ |
-| `filter_plugin_cookies` | `bool` | Whether to filter the cookies that are managed and controlled by the plugin (namely cookie_name and `nonce`). | `true` | ✅ |
-| `cookie_duration` | `u64` | The duration in seconds, after which the session cookie expires. | `86400` | ✅ |
-| `token_validation` | bool | Whether to validate the token or not. | `true` | ✅ |
-| `aes_key` | `string` | A base64 encoded AES-256 Key: `openssl rand -base64 32` | `<generated-aes-key>` | ✅ |
-| `reload_interval_in_h` | `u64` | The interval in hours, after which the OpenID configuration is reloaded. | `24` | ✅ |
-| `ticking_interval_in_ms` | `u64` | The interval in milliseconds, after which the plugin will wait for the discovery endpoint to respond or send a new request. | `500` | ✅ |
-| `open_id_configs` | `Vec<OpenIdConfig>` | A list of OpenID Configuration objects. | See below | ✅ |
+| Name                         | Type                | Description                                                                                                                                                                               | Example                             | Required |
+| ---------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | -------- |
+| `exclude_hosts`              | `Vec<Regex>`        | A comma separated list Hosts (in Regex expressions), that are excluded from the filter.                                                                                                   | `["localhost:10000"]`               | ❌       |
+| `exclude_paths`              | `Vec<Regex>`        | A comma separated list of paths (in Regex expressions), that are excluded from the filter.                                                                                                | `["/health"]`                       | ❌       |
+| `exclude_urls`               | `Vec<Regex>`        | A comma separated list of URLs (in Regex expressions), that are excluded from the filter.                                                                                                 | `["http://localhost:10000/health"]` | ❌       |
+| `access_token_header_name`   | `string`            | If set, this name will be used to forward the access token to the backend.                                                                                                                | `X-Access-Token`                    | ❌       |
+| `access_token_header_prefix` | `string`            | The prefix of the header, that is used to forward the access token, if empty "" is used.                                                                                                  | `Bearer `                           | ❌       |
+| `id_token_header_name`       | `string`            | If set, this name will be used to forward the id token to the backend.                                                                                                                    | `X-Id-Token`                        | ❌       |
+| `id_token_header_prefix`     | `string`            | The prefix of the header, that is used to forward the id token, if empty "" is used.                                                                                                      | `Bearer `                           | ❌       |
+| `cookie_name`                | `string`            | The name of the cookie, that is used to store the session. Will be suffixed with a dash and a number for multiple cookies if the state is too long.                                       | `oidcSession`                       | ✅       |
+| `logout_path`                | `string`            | The path, that is used to logout the user. The user will be redirected to `end_session_endpoint` of the OIDC provider, if the server supports this; alternatively the user is sent to "/" | `/logout`                           | ✅       |
+| `filter_plugin_cookies`      | `bool`              | Whether to filter the cookies that are managed and controlled by the plugin (namely cookie_name and `nonce`).                                                                             | `true`                              | ✅       |
+| `cookie_duration`            | `u64`               | The duration in seconds, after which the session cookie expires.                                                                                                                          | `86400`                             | ✅       |
+| `token_validation`           | bool                | Whether to validate the token or not.                                                                                                                                                     | `true`                              | ✅       |
+| `aes_key`                    | `string`            | A base64 encoded AES-256 Key: `openssl rand -base64 32`                                                                                                                                   | `<generated-aes-key>`               | ✅       |
+| `reload_interval_in_h`       | `u64`               | The interval in hours, after which the OpenID configuration is reloaded.                                                                                                                  | `24`                                | ✅       |
+| `ticking_interval_in_ms`     | `u64`               | The interval in milliseconds, after which the plugin will wait for the discovery endpoint to respond or send a new request.                                                               | `500`                               | ✅       |
+| `open_id_configs`            | `Vec<OpenIdConfig>` | A list of OpenID Configuration objects.                                                                                                                                                   | See below                           | ✅       |
 
 #### `OpenIdConfig`
 
-| Name | Type | Description | Example | Required |
-| ---- | ---- | ----------- | ------- | -------- |
-| `name` | `string` | The name of the OpenID provider (this will be shown on the Auth Page). | `Google` | ✅ |
-| `image` | `string` | The URL to the image of the OpenID provider (this will be shown on the Auth Page). | `https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/2560px-Google_2015_logo.svg.png` | ✅ |
-| `config_endpoint` | `string` | The open id configuration endpoint. | `https://accounts.google.com/.well-known/openid-configuration` | ✅ |
-| `upstream_cluster` | `string` | The name of the upstream cluster in your Envoy configuration. | `httpbin` | ✅ |
-| `authority` | `string` | The authority of the `authorization_endpoint`. | `accounts.google.com` | ✅ |
-| `redirect_uri` | `string` | The redirect URI, that the `authorization_endpoint` will redirect to. | `http://localhost:10000/oidc/callback` | ✅ |
-| `client_id` | `string` | The client ID, for getting and exchanging the code. | `wasm-oidc-plugin` | ✅ |
-| `scope` | `string` | The scope, to validate | `openid email` | ✅ |
-| `claims` | `map` | The claims to request as defined [here](https://openid.net/specs/openid-connect-core-1_0.html#ClaimsParameter) | See below | ✅ |
-| `client_secret` | `string` | The client secret, that is used to authenticate with the `authorization_endpoint`. | `secret` | ✅ |
-| `audience` | `string` | The audience, that is used to validate the token. | `wasm-oidc-plugin` | ✅ |
+| Name               | Type     | Description                                                                                                    | Example                                                                                                          | Required |
+| ------------------ | -------- | -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------- |
+| `name`             | `string` | The name of the OpenID provider (this will be shown on the Auth Page).                                         | `Google`                                                                                                         | ✅       |
+| `image`            | `string` | The URL to the image of the OpenID provider (this will be shown on the Auth Page).                             | `https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/2560px-Google_2015_logo.svg.png` | ✅       |
+| `config_endpoint`  | `string` | The open id configuration endpoint.                                                                            | `https://accounts.google.com/.well-known/openid-configuration`                                                   | ✅       |
+| `upstream_cluster` | `string` | The name of the upstream cluster in your Envoy configuration.                                                  | `httpbin`                                                                                                        | ✅       |
+| `authority`        | `string` | The authority of the `authorization_endpoint`.                                                                 | `accounts.google.com`                                                                                            | ✅       |
+| `redirect_uri`     | `string` | The redirect URI, that the `authorization_endpoint` will redirect to.                                          | `http://localhost:10000/oidc/callback`                                                                           | ✅       |
+| `client_id`        | `string` | The client ID, for getting and exchanging the code.                                                            | `wasm-oidc-plugin`                                                                                               | ✅       |
+| `scope`            | `string` | The scope, to validate                                                                                         | `openid email`                                                                                                   | ✅       |
+| `claims`           | `map`    | The claims to request as defined [here](https://openid.net/specs/openid-connect-core-1_0.html#ClaimsParameter) | See below                                                                                                        | ✅       |
+| `client_secret`    | `string` | The client secret, that is used to authenticate with the `authorization_endpoint`.                             | `secret`                                                                                                         | ✅       |
+| `audience`         | `string` | The audience, that is used to validate the token.                                                              | `wasm-oidc-plugin`                                                                                               | ✅       |
 
 #### `claims`
 
@@ -139,6 +139,17 @@ claims:
   id_token:
     groups: null
     username: null
+```
+
+### Migrating from the legacy single-provider config
+
+Legacy configs (provider fields at the root) still work and are converted at runtime with a deprecation warning. Prefer migrating to `open_id_configs`.
+
+Set `upstream_cluster` to an Envoy cluster name that actually exists — auto-derivation from `authority` is often wrong.
+
+```bash
+# Requires PyYAML. Accepts a bare plugin config or a full Envoy/ConfigMap YAML.
+python3 scripts/migrate-config.py envoy-legacy.yaml -o envoy-migrated.yaml
 ```
 
 ### States

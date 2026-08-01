@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Migrate wasm-oidc-plugin config from single-provider to multi-provider format.
 
+Accepts either:
+  - a bare plugin configuration YAML, or
+  - a full Envoy / ConfigMap YAML with the plugin config in a `value: |` block
+
 Usage:
   python3 scripts/migrate-config.py input.yaml > output.yaml
   python3 scripts/migrate-config.py input.yaml -o output.yaml
@@ -35,6 +39,29 @@ PROVIDER_FIELDS = (
 
 # Placeholder that parses as url::Url; replace with a real provider logo URL.
 DEFAULT_PROVIDER_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'/%3E"
+
+
+def _represent_str(dumper: yaml.Dumper, data: str) -> yaml.Node:
+    """Dump multiline strings as literal block scalars (`|`) instead of quoted `\\n`."""
+    if "\n" in data:
+        # Block scalars should end with a newline for clean round-trips.
+        if not data.endswith("\n"):
+            data = f"{data}\n"
+        return dumper.represent_scalar("tag:yaml.org,2002:str", data, style="|")
+    return dumper.represent_scalar("tag:yaml.org,2002:str", data)
+
+
+yaml.SafeDumper.add_representer(str, _represent_str)
+
+
+def dump_yaml(data: Any) -> str:
+    return yaml.safe_dump(
+        data,
+        sort_keys=False,
+        default_flow_style=False,
+        allow_unicode=True,
+        width=1000,
+    )
 
 
 def _provider_name(config: dict[str, Any]) -> str:
@@ -79,6 +106,11 @@ def migrate_config(config: dict[str, Any]) -> dict[str, Any]:
     if "open_id_configs" in migrated:
         return migrated
 
+    # Empty YAML keys with only comments load as null; the plugin expects lists.
+    for list_field in ("exclude_hosts", "exclude_paths", "exclude_urls"):
+        if migrated.get(list_field) is None:
+            migrated[list_field] = []
+
     provider: dict[str, Any] = {"name": _provider_name(migrated)}
     for field in PROVIDER_FIELDS:
         if field in migrated:
@@ -92,6 +124,10 @@ def migrate_config(config: dict[str, Any]) -> dict[str, Any]:
     if "image" not in provider or not provider["image"]:
         provider["image"] = DEFAULT_PROVIDER_IMAGE
 
+    if "upstream_cluster" not in provider or not provider["upstream_cluster"]:
+        # Match the plugin's runtime legacy conversion default.
+        provider["upstream_cluster"] = "oidc"
+
     if "ticking_interval_in_ms" not in migrated:
         migrated["ticking_interval_in_ms"] = 500
 
@@ -102,9 +138,50 @@ def migrate_config(config: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _looks_like_plugin_config(doc: dict[str, Any]) -> bool:
+    return "open_id_configs" in doc or "config_endpoint" in doc
+
+
+def _looks_like_plugin_yaml(text: str) -> bool:
+    return "config_endpoint:" in text or "open_id_configs:" in text
+
+
+def migrate_document(doc: Any) -> Any:
+    """Migrate a bare plugin config or an Envoy/ConfigMap document containing one."""
+    if isinstance(doc, dict):
+        if _looks_like_plugin_config(doc):
+            return migrate_config(doc)
+
+        migrated: dict[str, Any] = {}
+        for key, value in doc.items():
+            if (
+                key == "value"
+                and isinstance(value, str)
+                and _looks_like_plugin_yaml(value)
+            ):
+                plugin = yaml.safe_load(value)
+                if not isinstance(plugin, dict):
+                    raise SystemExit(
+                        "Plugin `value` block must be a YAML mapping."
+                    )
+                # Keep trailing newline so Envoy literal blocks stay tidy.
+                migrated[key] = dump_yaml(migrate_config(plugin))
+            else:
+                migrated[key] = migrate_document(value)
+        return migrated
+
+    if isinstance(doc, list):
+        return [migrate_document(item) for item in doc]
+
+    return doc
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("input", help="Path to the legacy plugin configuration YAML")
+    parser.add_argument(
+        "input",
+        help="Path to a legacy plugin config or full Envoy/ConfigMap YAML",
+    )
     parser.add_argument(
         "-o",
         "--output",
@@ -113,13 +190,13 @@ def main() -> int:
     args = parser.parse_args()
 
     with open(args.input, encoding="utf-8") as handle:
-        config = yaml.safe_load(handle)
+        document = yaml.safe_load(handle)
 
-    if not isinstance(config, dict):
+    if not isinstance(document, dict):
         raise SystemExit("Input YAML must be a mapping at the top level.")
 
-    migrated = migrate_config(config)
-    output = yaml.safe_dump(migrated, sort_keys=False)
+    migrated = migrate_document(document)
+    output = dump_yaml(migrated)
 
     if args.output:
         with open(args.output, "w", encoding="utf-8") as handle:
