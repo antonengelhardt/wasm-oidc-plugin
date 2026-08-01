@@ -1,0 +1,23 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: wasm-oidc-plugin-pdb
+  namespace: wasm-oidc-plugin
+spec:
+  minAvailable: 1
+
+  selector:
+    matchLabels:
+      app: wasm-oidc-plugin
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: httpbin-pdb
+  namespace: wasm-oidc-plugin
+spec:
+  minAvailable: 1
+
+  selector:
+    matchLabels:
+      app: httpbin
