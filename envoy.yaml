@@ -53,6 +53,7 @@ static_resources:
                           reload_interval_in_h: 1 # in hours
                           ticking_interval_in_ms: 500 # in milliseconds
                           open_id_configs:
+                            - name: "Google"
                               image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/3840px-Google_2015_logo.svg.png"
                               config_endpoint: "https://accounts.google.com/.well-known/openid-configuration"
                               upstream_cluster: "google"
@@ -93,6 +94,13 @@ static_resources:
       connect_timeout: 5s
       type: STRICT_DNS
       dns_lookup_family: V4_ONLY
+      typed_extension_protocol_options:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          explicit_http_config:
+            http_protocol_options: {}
+          upstream_http_protocol_options:
+            auto_sni: true
       load_assignment:
         cluster_name: google
         endpoints:
@@ -107,6 +115,15 @@ static_resources:
                     socket_address:
                       address: www.googleapis.com
                       port_value: 443
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: oauth2.googleapis.com
+                      port_value: 443
+      transport_socket:
+        name: envoy.transport_sockets.tls
+        typed_config:
+          "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
       transport_socket:
         name: envoy.transport_sockets.tls
         typed_config:

@@ -53,8 +53,8 @@ data:
                               id_token_header_name: # or "X-Id-Token"
                               id_token_header_prefix: "Bearer "
 
-                              cookie_name: "oidcSession"
-                              logout_path: "/logout"
+                              cookie_name: "oidc-session"
+                              logout_path: "/_wasm-oidc-plugin/logout"
                               filter_plugin_cookies: true # or false
                               cookie_duration: 8640000 # in seconds
                               token_validation: true # or false
@@ -64,25 +64,31 @@ data:
                               ticking_interval_in_ms: 500 # in milliseconds
                               open_id_configs:
                                 - name: auth0
-                                  image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Logo_de_Auth0.svg/2560px-Logo_de_Auth0.svg.png"
+                                  image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Logo_de_Auth0.svg/1920px-Logo_de_Auth0.svg.png"
                                   config_endpoint: "https://demo-wasm-oidc-plugin.eu.auth0.com/.well-known/openid-configuration"
                                   upstream_cluster: "auth0"
                                   authority: "demo-wasm-oidc-plugin.eu.auth0.com"
                                   redirect_uri: "https://demo.wasm-oidc-plugin.ae02.de/oidc/callback"
                                   client_id: "redacted"
                                   scope: "openid profile email"
-                                  claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+                                  claims:
+                                    id_token:
+                                      groups: null
+                                      username: null
                                   client_secret: "redacted"
                                   audience: "redacted"
                                 - name: "google (unusable, will not work)"
-                                  image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/2560px-Google_2015_logo.svg.png"
+                                  image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/3840px-Google_2015_logo.svg.png"
                                   config_endpoint: "https://accounts.google.com/.well-known/openid-configuration"
                                   upstream_cluster: "google"
                                   authority: "accounts.google.com"
                                   redirect_uri: "http://localhost:10000/oidc/callback"
                                   client_id: "google-client-id"
                                   scope: "openid profile email"
-                                  claims: "{\"id_token\":{\"groups\":null,\"username\":null}}"
+                                  claims:
+                                    id_token:
+                                      groups: null
+                                      username: null
                                   client_secret: "google-client-secret"
                                   audience: "google-client-id"
 

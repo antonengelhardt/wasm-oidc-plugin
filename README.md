@@ -279,37 +279,57 @@ These commands are also run in the CI pipeline.
 
 ## FAQ
 
-> My OpenID provider uses a different endpoint for the jwks_uri. How can I configure this?
+> My OpenID provider uses different hosts for discovery, JWKS, and token exchange (e.g. Google). How can I configure this?
 
-Google does exactly that:
+Google publishes:
 
 ```json
 {
+  "authorization_endpoint": "https://accounts.google.com/o/oauth2/v2/auth",
+  "token_endpoint": "https://oauth2.googleapis.com/token",
   "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs"
 }
 ```
 
-You can add the endpoint in your `envoy.yaml`-file like this:
+Add all three hosts to the Envoy cluster and enable `auto_sni` so TLS SNI matches the `:authority` used for each call:
 
 ```yaml
 - name: google
-      connect_timeout: 5s
-      type: STRICT_DNS
-      dns_lookup_family: V4_ONLY
-      load_assignment:
-        cluster_name: google
-        endpoints:
-          - lb_endpoints:
-              - endpoint:
-                  address:
-                    socket_address:
-                      address: accounts.google.com
-                      port_value: 443
-              - endpoint:
-                  address:
-                    socket_address:
-                      address: www.googleapis.com
-                      port_value: 443
+  connect_timeout: 5s
+  type: STRICT_DNS
+  dns_lookup_family: V4_ONLY
+  typed_extension_protocol_options:
+    envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+      "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+      explicit_http_config:
+        http_protocol_options: {}
+      upstream_http_protocol_options:
+        auto_sni: true
+  load_assignment:
+    cluster_name: google
+    endpoints:
+      - lb_endpoints:
+          - endpoint:
+              address:
+                socket_address:
+                  address: accounts.google.com
+                  port_value: 443
+          - endpoint:
+              address:
+                socket_address:
+                  address: www.googleapis.com
+                  port_value: 443
+          - endpoint:
+              address:
+                socket_address:
+                  address: oauth2.googleapis.com
+                  port_value: 443
+  transport_socket:
+    name: envoy.transport_sockets.tls
+    typed_config:
+      "@type": type.googleapis.com/envoy.extensions.transport_sockets.tls.v3.UpstreamTlsContext
 ```
 
-The rest should work fine.
+Keep `authority` as `accounts.google.com` for discovery; the plugin uses the token/JWKS URL host for those calls.
+
+Also ensure the Google OAuth client has your `redirect_uri` (e.g. `http://localhost:10000/oidc/callback`) allowlisted.

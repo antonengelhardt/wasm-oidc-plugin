@@ -477,17 +477,19 @@ impl OidcHttpContext {
             .append_pair("state", &state)
             .finish();
 
-        // Dispatch request to token endpoint using built-in envoy function
+        // Dispatch request to token endpoint using built-in envoy function.
+        let token_authority = provider_to_use
+            .token_endpoint
+            .host_str()
+            .unwrap_or(provider_to_use.open_id_config.authority.as_str());
+
         debug!("sending data to token endpoint: {data}");
         match self.dispatch_http_call(
             &provider_to_use.open_id_config.upstream_cluster,
             vec![
                 (":method", "POST"),
                 (":path", provider_to_use.token_endpoint.path()),
-                (
-                    ":authority",
-                    provider_to_use.open_id_config.authority.as_str(),
-                ),
+                (":authority", token_authority),
                 ("Authorization", &auth),
                 ("Content-Type", "application/x-www-form-urlencoded"),
             ],
