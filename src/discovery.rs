@@ -18,7 +18,7 @@ use url::Url;
 
 // crate
 use crate::auth::OidcHttpContext;
-use crate::config::{OpenIdConfig, PluginConfiguration};
+use crate::config::{OpenIdConfig, V2PluginConfiguration};
 use crate::pause::PauseRequests;
 use crate::responses::{JWKsResponse, OpenIdDiscoveryResponse, SigningKey};
 
@@ -26,7 +26,7 @@ use crate::responses::{JWKsResponse, OpenIdDiscoveryResponse, SigningKey};
 /// Open ID Providers and creates the HTTP Contexts.
 pub struct Root {
     /// Plugin config loaded from the envoy configuration
-    pub plugin_config: Option<Arc<PluginConfiguration>>,
+    pub plugin_config: Option<Arc<V2PluginConfiguration>>,
     /// A set of Open ID Resolvers which are used to load the configuration from the discovery endpoint
     pub open_id_resolvers: Vec<OpenIdResolver>,
     /// A set of Open ID Providers which are used to store the configuration from the discovery endpoint
@@ -118,13 +118,22 @@ impl RootContext for Root {
         if let Some(config_bytes) = self.get_plugin_configuration() {
             debug!("got plugin configuration");
 
-            let plugin_config = match PluginConfiguration::parse(&config_bytes) {
-                Ok(config) => config,
+            let (plugin_config, is_legacy) = match V2PluginConfiguration::parse(&config_bytes) {
+                Ok(result) => result,
                 Err(e) => {
                     error!("plugin configuration is invalid: {e}");
                     return false;
                 }
             };
+
+            // Log deprecation warning if legacy format was used
+            if is_legacy {
+                warn!(
+                    "legacy single-provider config is deprecated; migrate with: \
+                     python3 scripts/migrate-config.py <plugin-config.yaml> -o migrated.yaml \
+                     (see README.md#migrating-from-the-legacy-single-provider-config)"
+                );
+            }
 
             self.plugin_config = Some(Arc::new(plugin_config.clone()));
 
@@ -454,6 +463,7 @@ impl Context for Root {
                             self.open_id_providers.push(new_provider);
                         }
 
+                        // Set the state to `Ready` and clear all token_ids
                         resolver_to_update.state = OpenIdResolverState::Ready {};
                         resolver_to_update.token_ids.clear();
                     }
