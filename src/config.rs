@@ -106,7 +106,7 @@ impl V2PluginConfiguration {
             "`cookie_name` is too long, max 32"
         );
 
-        let cookies_name_regex = Regex::new(r"[\w\d-]+").unwrap();
+        let cookies_name_regex = Regex::new(r"^[\w\d-]+$").unwrap();
         ensure!(cookies_name_regex.is_match(&self.cookie_name), "`cookie_name` is empty or not valid meaning that it contains invalid characters like ;, =, :, /, space");
 
         ensure!(!self.logout_path.is_empty(), "`logout_path` is empty");

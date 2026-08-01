@@ -1,3 +1,19 @@
+/// Escape text for safe interpolation into HTML text nodes and quoted attributes.
+pub fn escape_html(input: &str) -> String {
+    let mut escaped = String::with_capacity(input.len());
+    for c in input.chars() {
+        match c {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '"' => escaped.push_str("&quot;"),
+            '\'' => escaped.push_str("&#39;"),
+            _ => escaped.push(c),
+        }
+    }
+    escaped
+}
+
 /// Generate provider card HTML
 ///
 /// ## Arguments
@@ -6,6 +22,9 @@
 /// * `name` - Name of the provider
 /// * `logo` - URL to the logo of the provider
 pub fn provider_card(url: &str, name: &str, logo: &str) -> String {
+    let url = escape_html(url);
+    let name = escape_html(name);
+    let logo = escape_html(logo);
     format!(
         r#"
                 <a href="{url}" class="provider-link">
@@ -281,4 +300,30 @@ pub fn auth_page_html(provider_cards: String) -> String {
             </html>
             "#
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn escape_html_escapes_special_characters() {
+        assert_eq!(
+            escape_html(r#"'<script>"&xss"#),
+            "&#39;&lt;script&gt;&quot;&amp;xss"
+        );
+    }
+
+    #[test]
+    fn provider_card_escapes_interpolated_values() {
+        let html = provider_card(
+            r#"/x?a="onclick"#,
+            r#"Evil<script>"#,
+            r#"https://example.com/a"onerror="alert(1)"#,
+        );
+        assert!(!html.contains("<script>"));
+        assert!(html.contains("&lt;script&gt;"));
+        assert!(html.contains("&quot;"));
+        assert!(!html.contains(r#"a="onclick"#));
+    }
 }
