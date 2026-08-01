@@ -21,7 +21,7 @@ use proxy_wasm::types::*;
 // url
 use url::{form_urlencoded, Url};
 
-use crate::config::PluginConfiguration;
+use crate::config::V2PluginConfiguration;
 use crate::discovery::OpenIdProvider;
 use crate::error::PluginError;
 use crate::html;
@@ -37,7 +37,7 @@ pub struct OidcHttpContext {
     /// keys to validate the JWT
     pub open_id_providers: Vec<OpenIdProvider>,
     /// Plugin configuration parsed from the envoy configuration
-    pub plugin_config: Arc<PluginConfiguration>,
+    pub plugin_config: Arc<V2PluginConfiguration>,
     /// Token id of the current request
     pub token_id: Option<u32>,
     /// ID of the current request
@@ -89,17 +89,9 @@ impl HttpContext for OidcHttpContext {
         }
 
         // If Path is logout route, clear cookies and redirect to base path
+        // (or the provider end-session endpoint when the session is still readable)
         if path == self.plugin_config.logout_path {
-            match self.logout() {
-                Ok(action) => return action,
-                Err(e) => {
-                    warn!(
-                        "logout failed for request {} with error: {}",
-                        self.request_id, e
-                    );
-                    self.show_error_page(503, "Logout failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
-                }
-            }
+            return self.logout();
         }
 
         // If the path matches the provider selection endpoint, redirect to the authorization endpoint
@@ -131,7 +123,6 @@ impl HttpContext for OidcHttpContext {
                         "token exchange failed for request {} with error: {}",
                         self.request_id, e
                     );
-                    // TODO: Show explicit error to the user?
                     self.show_error_page(503, "Token exchange failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
                 }
             }
@@ -603,41 +594,47 @@ impl OidcHttpContext {
         }
     }
 
-    /// Clear the cookies and redirect to the base path or `end_session_endpoint`.
-    fn logout(&self) -> Result<Action, PluginError> {
-        let cookie_values = Session::make_cookie_values("", "", &self.plugin_config.cookie_name, 0);
-
+    /// Clear the session cookies and redirect to the base path or `end_session_endpoint`.
+    ///
+    /// Always clears cookies via `Set-Cookie` with `Max-Age=0`, even when the session is
+    /// missing or undecryptable (HttpOnly cookies cannot be cleared from the browser).
+    fn logout(&self) -> Action {
+        let cookie_name = &self.plugin_config.cookie_name;
+        let num_parts = self
+            .get_cookie(&format!("{cookie_name}-parts"))
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(1);
+        let cookie_values = Session::clear_cookie_values(cookie_name, num_parts);
         let mut headers = Session::make_set_cookie_headers(&cookie_values);
 
-        // Get session from cookie
-        let cookie = self.get_session_cookie_as_string()?;
-        let nonce = self.get_nonce()?;
-        let session = Session::decode_and_decrypt(
-            cookie,
-            self.plugin_config.aes_key.reveal().clone(),
-            nonce,
-        )?;
+        // Prefer IdP end-session redirect when the session is still readable; otherwise go home.
+        let location = self
+            .get_session_cookie_as_string()
+            .ok()
+            .and_then(|cookie| {
+                let nonce = self.get_nonce().ok()?;
+                Session::decode_and_decrypt(
+                    cookie,
+                    self.plugin_config.aes_key.reveal().clone(),
+                    nonce,
+                )
+                .ok()
+            })
+            .and_then(|session| {
+                self.open_id_providers
+                    .iter()
+                    .find(|provider| provider.issuer == session.issuer)
+                    .and_then(|provider| provider.end_session_endpoint.as_ref())
+                    .map(|url| url.as_str().to_string())
+            })
+            .unwrap_or_else(|| "/".to_string());
 
-        // Get provider to use based on issuer because the end session endpoint is provider-specific
-        let provider = self
-            .open_id_providers
-            .iter()
-            .find(|provider| provider.issuer == session.issuer)
-            .ok_or_else(|| PluginError::ProviderNotFoundError(session.issuer.clone()))?;
-
-        // Redirect to end session endpoint, if available (not all OIDC providers support this)
-        let location = match &provider.end_session_endpoint {
-            // if the end session endpoint is available, redirect to it
-            Some(url) => url.as_str(),
-            // else, redirect to the base path
-            None => "/",
-        };
-        headers.push(("Location", location));
+        headers.push(("Location", location.as_str()));
         headers.push(("Cache-Control", "no-cache"));
 
         self.send_http_response(307, headers, Some(b"Logging out..."));
 
-        Ok(Action::Pause)
+        Action::Pause
     }
 
     /// Show the auth page or redirect to the authorization endpoint.

@@ -120,6 +120,29 @@ impl Session {
         cookie_values
     }
 
+    /// Build Set-Cookie values that expire all session cookie parts immediately.
+    ///
+    /// `num_parts` should be the current `{cookie_name}-parts` value from the request
+    /// (default to at least 1 so `{cookie_name}-0` is cleared even if `-parts` is missing).
+    pub fn clear_cookie_values(cookie_name: &str, num_parts: u8) -> Vec<String> {
+        let num_parts = num_parts.max(1);
+        let mut cookie_values = Vec::with_capacity(num_parts as usize + 2);
+
+        for i in 0..num_parts {
+            cookie_values.push(format!(
+                "{cookie_name}-{i}=; Path=/; Secure; HttpOnly; Max-Age=0; SameSite=Lax"
+            ));
+        }
+        cookie_values.push(format!(
+            "{cookie_name}-parts=; Path=/; Secure; HttpOnly; Max-Age=0; SameSite=Lax"
+        ));
+        cookie_values.push(format!(
+            "{cookie_name}-nonce=; Path=/; Secure; HttpOnly; Max-Age=0; SameSite=Lax"
+        ));
+
+        cookie_values
+    }
+
     /// Make the Set-Cookie headers from the cookie values
     /// * `cookie_values` - Cookie values to be set in the Set-Cookie headers
     pub fn make_set_cookie_headers(cookie_values: &[String]) -> Vec<(&'static str, &str)> {

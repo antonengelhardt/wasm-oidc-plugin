@@ -64,6 +64,7 @@ impl OidcHttpContext {
     pub fn show_error_page(&self, status_code: u32, title: &str, message: &str) {
         let headers = vec![("cache-control", "no-cache"), ("content-type", "text/html")];
         let request_id = &self.request_id;
+        let logout_path = &self.plugin_config.logout_path;
 
         self.send_http_response(
             status_code,
@@ -186,6 +187,7 @@ impl OidcHttpContext {
                                 background-color: #2c3e50;
                             }}
                             .reset-button {{
+                                display: inline-block;
                                 margin-top: 20px;
                                 padding: 10px 20px;
                                 background-color: var(--button-bg);
@@ -194,6 +196,7 @@ impl OidcHttpContext {
                                 border-radius: 5px;
                                 cursor: pointer;
                                 font-size: 16px;
+                                text-decoration: none;
                                 transition: background-color 0.3s ease;
                             }}
                             .reset-button:hover {{
@@ -213,7 +216,7 @@ impl OidcHttpContext {
                             <h2>{title}</h2>
                             <p>{message}</p>
                             <p class="request-id">Request-ID: {request_id}</p>
-                            <button class="reset-button" onclick="resetCookies()">Reset Cookies and back</button>
+                            <a class="reset-button" href="{logout_path}">Reset Cookies</a>
                         </div>
                         <script>
                             const darkModeToggle = document.getElementById('darkModeToggle');
@@ -258,17 +261,6 @@ impl OidcHttpContext {
                                     setDarkModePreference(null);
                                 }}
                             }});
-
-                            function resetCookies() {{
-                                const cookies = document.cookie.split('; ');
-                                for (let i = 0; i < cookies.length; i++) {{
-                                    const cookie = cookies[i];
-                                    const cookie_name = cookie.split('=')[0];
-                                    document.cookie = cookie_name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/;SameSite=Lax';
-                                }}
-                                // Go back to referrer
-                                window.location.href = document.referrer;
-                            }}
                         </script>
                     </body>
                     </html>
