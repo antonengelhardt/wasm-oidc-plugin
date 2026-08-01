@@ -233,6 +233,7 @@ struct V1PluginConfiguration {
 
 impl V1PluginConfiguration {
     /// Convert legacy configuration to new multi-provider format
+    #[allow(clippy::wrong_self_convention)]
     fn to_new_format(self) -> anyhow::Result<V2PluginConfiguration> {
         // Parse the claims JSON string
         let claims: serde_json::Map<String, serde_json::Value> = serde_json::from_str(&self.claims)
