@@ -135,6 +135,9 @@ impl HttpContext for OidcHttpContext {
                 // disable logging for these errors
                 PluginError::SessionCookieNotFoundError => {}
                 PluginError::NonceCookieNotFoundError => {}
+                PluginError::TokenValidationError(_) => {
+                    debug!("token validation failed, continuing with authentication");
+                }
                 _ => {
                     warn!(
                         "cookie validation failed for request {} with error: {}",
