@@ -2,6 +2,120 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.6.0
+
+### 🚀 Features
+
+- **(discovery)** Multiple oidc providers
+- **(discovery)** Configurable `ticking_interval_in_ms` controls ticking
+- **(errors)** Use envoy's request-id to log errors and show, helvetica
+- **(ci)** Add audit, outdated and verify-project steps
+- Add reset button and styling for cookie management
+- **(scripts)** Add config migration script for legacy configs
+
+### 🐛 Bug Fixes
+
+- Add footer to auth page and layout fixes
+- **(discovery)** Implement Display for ResolverState
+- **(logs)** Pretty print discovery reponses debug logs
+- **(logs)** Lower case log
+- **(html)** Fixed height for all providers cards
+- **(discovery)** Fix if host of jwks endpoint is different
+- **(exclude)** Get scheme to parse url
+- **(logout)** Write something to clear the cookie, refactor cookie fn
+- **(ci)** Run test jobs more quickly
+- **(html)** Error page has dark mode now!
+- Store number of cookie parts in a cookie
+- Update cookie attributes to include HttpOnly
+- Lints and format
+- **(auth)** Replace unwraps with proper error handling
+- **(discovery)** Guard config access and retry empty JWKS responses
+- **(pause)** Default redirect path when original path is missing
+- **(session)** Normalize cookie attribute formatting
+- **(html)** Harden localStorage access and improve dark-mode styling
+- **(lib)** Set default log level to Info
+- **(k8s)** Correct google cluster indentation in example configmap
+- Sanitize branch name in Docker tags to handle slashes
+- **(ci)** Sanitize PR branch ref before using it as docker tag
+- **(scripts)** Emit Rust-compatible claims map and image URL
+- **(configmap)** Correct indentation for transport_socket
+- **(auth)** Add debug logging for token validation
+
+### 🚜 Refactor
+
+- Split into separate files
+- Error page is now generic
+- Naming change, more comments and log level changes
+- Rebase logout path PR with mulitple providers PR
+- `wasm32-wasi` renamed to `wasm32-wasip1` & rust to 1.78
+- Rename `ConfiguredOidc` and use inline strings
+- Move config parsing to separate function
+- **(ci)** Use actions to speed up ci workflows
+- **(config)** Update envoy.yaml and migration script
+- **(auth)** Update OIDC logout handling and cookie management
+- **(config)** Introduce V2PluginConfiguration
+- **(config)** Update OIDC configuration and enhance token handling
+- **(config)** Allow clippy lint for wrong self convention
+- **(deployment)** Update resource requests and limits
+- **(tests)** Remove test_migrate_config.py as part of code cleanup
+- **(ci)** Remove outdated CI configuration for wasm-oidc-plugin
+- **(html)** Implement HTML escaping utility
+- **(html)** Replace custom HTML escaping with html_escape crate
+- **(logging)** Change log level from Info to Debug
+- **(config)** Update OIDC config
+- **(config)** Rename cookie_duration in v2 config
+- **(auth)** Provider selection logic
+- **(config)** Rename cookie_duration to cookie_duration_in_s
+- **(rs256)** Use jwt simple crate and fallback to fork for +4096bit
+- **(dependencies)** Update jwt-simple fork source, box type and ci
+- **(responses)** Change RS256PublicKey to use Box type
+- **(dependencies)** Update jwt-simple to legacy version
+- **(session)** Remove obsolete comment about current cookies
+
+### 📚 Documentation
+
+- Move social-graphic to .github/assets
+- Update readme and examples with multiple providers logic
+- Enhance README with state and sequence diagrams for OpenID flow
+- Update README to clarify OpenID flow steps and notes
+- Update README env vars
+- **(readme)** Replace aes_key example with placeholder
+
+### 🎨 Styling
+
+- Fmt
+- Clippy lints fixed
+- **(fmt)** Order modules
+- Fmt
+- Use inline variables in html.rs
+- Use inline formatting in errors.rs
+- Clean up Cargo.toml, chore(deps): upgrade url to 2.5.4
+- Rustfmt session.rs after aes-gcm upgrade
+
+### 🧪 Testing
+
+- **(scripts)** Add unit tests for config migration script
+
+### ⚙️ Miscellaneous Tasks
+
+- Pr template
+- Add audit.toml file
+- Remove dead code
+- Update cargo-deny action to v2
+- Update build target from wasm32-wasi to wasm32-wasip1
+- Update Docker image references and fix ci
+- Update CHANGELOG formatting for consistency and clarity
+- Upgrade Envoy image to v1.36
+- Update CI configuration for wasm32-wasip1 target and optimise ci
+- Refactor CI workflow to use actions instead of image
+- Add rust-toolchain and use fixed rust version
+- Update CI and deployment configurations for wasm32-wasip1 target
+- **(demo)** Redact client credentials in example configmap
+- Verify pinned rust toolchain in test workflow
+- **(ci)** Upgrade rust toolchain to 1.97.1
+- **(docker)** Upgrade envoy image to v1.39-latest
+- **(deny)** Allow BSD-2-Clause and Zlib transitive licenses
+
 ## v0.5.4
 
 ### 🎨 Styling
