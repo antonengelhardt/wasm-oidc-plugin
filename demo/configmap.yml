@@ -56,14 +56,14 @@ data:
                               cookie_name: "oidc-session"
                               logout_path: "/_wasm-oidc-plugin/logout"
                               filter_plugin_cookies: true # or false
-                              cookie_duration: 8640000 # in seconds
-                              token_validation: true # or false
+                              cookie_duration: 8640000
+                              token_validation: true
                               aes_key: "redacted"
 
-                              reload_interval_in_h: 1 # in hours
-                              ticking_interval_in_ms: 500 # in milliseconds
+                              reload_interval_in_h: 1
+                              ticking_interval_in_ms: 500
                               open_id_configs:
-                                - name: auth0
+                                - name: Auth0
                                   image: "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5b/Logo_de_Auth0.svg/1920px-Logo_de_Auth0.svg.png"
                                   config_endpoint: "https://demo-wasm-oidc-plugin.eu.auth0.com/.well-known/openid-configuration"
                                   upstream_cluster: "auth0"
@@ -77,12 +77,12 @@ data:
                                       username: null
                                   client_secret: "redacted"
                                   audience: "redacted"
-                                - name: "google (unusable, will not work)"
+                                - name: "Google"
                                   image: "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/3840px-Google_2015_logo.svg.png"
                                   config_endpoint: "https://accounts.google.com/.well-known/openid-configuration"
                                   upstream_cluster: "google"
                                   authority: "accounts.google.com"
-                                  redirect_uri: "http://localhost:10000/oidc/callback"
+                                  redirect_uri: "https://demo.wasm-oidc-plugin.ae02.de/oidc/callback"
                                   client_id: "google-client-id"
                                   scope: "openid profile email"
                                   claims:
@@ -136,6 +136,13 @@ data:
         connect_timeout: 5s
         type: STRICT_DNS
         dns_lookup_family: V4_ONLY
+        typed_extension_protocol_options:
+          envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+            "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+            explicit_http_config:
+              http_protocol_options: {}
+            upstream_http_protocol_options:
+              auto_sni: true
         load_assignment:
           cluster_name: google
           endpoints:
@@ -149,6 +156,11 @@ data:
                     address:
                       socket_address:
                         address: www.googleapis.com
+                        port_value: 443
+                - endpoint:
+                    address:
+                      socket_address:
+                        address: oauth2.googleapis.com
                         port_value: 443
         transport_socket:
           name: envoy.transport_sockets.tls
