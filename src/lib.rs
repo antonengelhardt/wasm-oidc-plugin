@@ -39,7 +39,7 @@ use crate::discovery::Root;
 // This is the initial entry point of the plugin.
 proxy_wasm::main! {{
 
-    proxy_wasm::set_log_level(LogLevel::Info);
+    proxy_wasm::set_log_level(LogLevel::Debug);
 
     info!("starting plugin");
 
