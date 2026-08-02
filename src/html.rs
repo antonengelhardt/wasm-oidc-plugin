@@ -1,18 +1,4 @@
-/// Escape text for safe interpolation into HTML text nodes and quoted attributes.
-pub fn escape_html(input: &str) -> String {
-    let mut escaped = String::with_capacity(input.len());
-    for c in input.chars() {
-        match c {
-            '&' => escaped.push_str("&amp;"),
-            '<' => escaped.push_str("&lt;"),
-            '>' => escaped.push_str("&gt;"),
-            '"' => escaped.push_str("&quot;"),
-            '\'' => escaped.push_str("&#39;"),
-            _ => escaped.push(c),
-        }
-    }
-    escaped
-}
+use html_escape::encode_safe;
 
 /// Generate provider card HTML
 ///
@@ -22,9 +8,9 @@ pub fn escape_html(input: &str) -> String {
 /// * `name` - Name of the provider
 /// * `logo` - URL to the logo of the provider
 pub fn provider_card(url: &str, name: &str, logo: &str) -> String {
-    let url = escape_html(url);
-    let name = escape_html(name);
-    let logo = escape_html(logo);
+    let url = encode_safe(url);
+    let name = encode_safe(name);
+    let logo = encode_safe(logo);
     format!(
         r#"
                 <a href="{url}" class="provider-link">
@@ -309,8 +295,8 @@ mod tests {
     #[test]
     fn escape_html_escapes_special_characters() {
         assert_eq!(
-            escape_html(r#"'<script>"&xss"#),
-            "&#39;&lt;script&gt;&quot;&amp;xss"
+            encode_safe(r#"'<script>"&xss"#),
+            "&#x27;&lt;script&gt;&quot;&amp;xss"
         );
     }
 

@@ -1,12 +1,14 @@
 // proxy-wasm
 use proxy_wasm::traits::HttpContext;
 
+// html
+use html_escape::encode_safe;
+
 // thiserror
 use thiserror::Error;
 
 // crate
 use crate::auth::OidcHttpContext;
-use crate::html::escape_html;
 
 /// Error type for the plugin
 #[derive(Error, Debug)]
@@ -64,10 +66,10 @@ pub enum PluginError {
 impl OidcHttpContext {
     pub fn show_error_page(&self, status_code: u32, title: &str, message: &str) {
         let headers = vec![("cache-control", "no-cache"), ("content-type", "text/html")];
-        let title = escape_html(title);
-        let message = escape_html(message);
-        let request_id = escape_html(&self.request_id);
-        let logout_path = escape_html(&self.plugin_config.logout_path);
+        let title = encode_safe(title);
+        let message = encode_safe(message);
+        let request_id = encode_safe(&self.request_id);
+        let logout_path = encode_safe(&self.plugin_config.logout_path);
 
         self.send_http_response(
             status_code,
