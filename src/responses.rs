@@ -65,7 +65,7 @@ pub enum JsonWebKey {
 #[derive(Clone, Debug)]
 pub enum SigningKey {
     RS256PublicKey(Box<jwt_simple::algorithms::RS256PublicKey>),
-    RS256PublicKeyLarge(Box<jwt_simple_fork::algorithms::RS256PublicKey>),
+    RS256PublicKeyLarge(Box<jwt_simple_legacy::algorithms::RS256PublicKey>),
 }
 
 impl SigningKey {
@@ -76,11 +76,11 @@ impl SigningKey {
                 .verify_token::<NoCustomClaims>(token, Some(options))
                 .map(|_| ()),
             SigningKey::RS256PublicKeyLarge(key) => {
-                use jwt_simple_fork::prelude::RSAPublicKeyLike as _;
+                use jwt_simple_legacy::prelude::RSAPublicKeyLike as _;
                 // Cannot use `.into()`: upstream and fork are different crates with the same type names.
-                key.verify_token::<jwt_simple_fork::claims::NoCustomClaims>(
+                key.verify_token::<jwt_simple_legacy::claims::NoCustomClaims>(
                     token,
-                    Some(jwt_simple_fork::prelude::VerificationOptions {
+                    Some(jwt_simple_legacy::prelude::VerificationOptions {
                         allowed_issuers: options.allowed_issuers,
                         allowed_audiences: options.allowed_audiences,
                         ..Default::default()
@@ -106,7 +106,7 @@ impl From<JsonWebKey> for SigningKey {
                 if n_dec.len() > RSA_MODULUS_BYTES_4096 {
                     info!("RSA modulus >4096 bits; using jwt-simple-fork");
                     SigningKey::RS256PublicKeyLarge(Box::new(
-                        jwt_simple_fork::algorithms::RS256PublicKey::from_components(
+                        jwt_simple_legacy::algorithms::RS256PublicKey::from_components(
                             &n_dec, &e_dec,
                         )
                         .expect("failed to parse large RS256 public key"),

@@ -850,9 +850,9 @@ checksum = "c9356095b4b41197bba32173600e1582792cda618f65d12f68e2e77d273413c5"
 
 [[package]]
 name = "hybrid-array"
-version = "0.4.13"
+version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "818356c5132c1fede50f837ca96afbe78ff42413047f4abb886217845e1b6c8c"
+checksum = "707114b52a152fa7bdb290cd7cd5912d9467273b6d74e21b8d81aca1f8533f6b"
 dependencies = [
  "ctutils",
  "subtle",
@@ -1010,31 +1010,6 @@ dependencies = [
 
 [[package]]
 name = "jwt-simple"
-version = "0.11.4"
-source = "git+https://github.com/antonengelhardt/rust-jwt-simple?branch=master#b92ac707dab1f65fae00569a468793d5eb6dab22"
-dependencies = [
- "anyhow",
- "binstring",
- "coarsetime",
- "ct-codecs",
- "ed25519-compact",
- "hmac-sha1-compact",
- "hmac-sha256",
- "hmac-sha512",
- "k256 0.13.4",
- "p256 0.13.2",
- "p384 0.13.1",
- "rand 0.8.7",
- "rsa 0.7.2",
- "serde",
- "serde_json",
- "spki 0.6.0",
- "thiserror 1.0.69",
- "zeroize",
-]
-
-[[package]]
-name = "jwt-simple"
 version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c8c93b8464e3c9f1ac3e7c7d7d0639a67581a98ab2b6d96aab19cf82c262d1f3"
@@ -1057,6 +1032,31 @@ dependencies = [
  "serde_json",
  "superboring",
  "thiserror 2.0.19",
+ "zeroize",
+]
+
+[[package]]
+name = "jwt-simple-legacy"
+version = "0.13.0"
+source = "git+https://github.com/antonengelhardt/rust-jwt-simple?branch=master#47f339ee57b56ef9e303b9370ab13357ec61aa2f"
+dependencies = [
+ "anyhow",
+ "binstring",
+ "coarsetime",
+ "ct-codecs",
+ "ed25519-compact",
+ "hmac-sha1-compact",
+ "hmac-sha256",
+ "hmac-sha512",
+ "k256 0.13.4",
+ "p256 0.13.2",
+ "p384 0.13.1",
+ "rand 0.8.7",
+ "rsa 0.7.2",
+ "serde",
+ "serde_json",
+ "spki 0.6.0",
+ "thiserror 1.0.69",
  "zeroize",
 ]
 
@@ -2148,8 +2148,8 @@ dependencies = [
  "aes-gcm",
  "base64 0.23.0",
  "html-escape",
- "jwt-simple 0.11.4",
- "jwt-simple 0.13.0",
+ "jwt-simple",
+ "jwt-simple-legacy",
  "log",
  "pkce",
  "proxy-wasm",
