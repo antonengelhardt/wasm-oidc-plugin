@@ -1011,7 +1011,7 @@ dependencies = [
 [[package]]
 name = "jwt-simple"
 version = "0.11.4"
-source = "git+https://github.com/antonengelhardt/rust-jwt-simple?rev=b92ac707dab1f65fae00569a468793d5eb6dab22#b92ac707dab1f65fae00569a468793d5eb6dab22"
+source = "git+https://github.com/antonengelhardt/rust-jwt-simple?branch=master#b92ac707dab1f65fae00569a468793d5eb6dab22"
 dependencies = [
  "anyhow",
  "binstring",
