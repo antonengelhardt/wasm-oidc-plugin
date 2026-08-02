@@ -342,7 +342,7 @@ impl OidcHttpContext {
         // Iterate over all public keys of the provider
         for public_key in provider_to_use.public_keys.iter() {
             // Perform the validation
-            let validation_result = public_key.verify_token(token, verification_options.to_owned());
+            let validation_result = public_key.verify_token(token, verification_options.clone());
 
             // Check if the token is valid, the aud and iss are correct and the signature is valid.
             match validation_result {

@@ -3,11 +3,10 @@ use {
     base64::engine::general_purpose::URL_SAFE_NO_PAD as base64engine_urlsafe, base64::Engine as _,
 };
 
-// jwt_simple
+// jwt_simple (upstream / superboring)
 use jwt_simple::{
-    self,
     claims::NoCustomClaims,
-    prelude::{JWTClaims, RSAPublicKeyLike, VerificationOptions},
+    prelude::{RSAPublicKeyLike, VerificationOptions},
     Error,
 };
 
@@ -17,6 +16,9 @@ use log::{debug, info};
 // serde
 use serde::Deserialize;
 use url::Url;
+
+/// RSA modulus longer than 4096 bits is 512+ bytes in raw form.
+const RSA_MODULUS_BYTES_4096: usize = 512;
 
 /// [OpenID Connect Discovery Response](https://openid.net/specs/openid-connect-discovery-1_0.html#ProviderConfig)
 #[derive(Deserialize, Debug)]
@@ -46,7 +48,7 @@ pub struct JWKsResponse {
 #[derive(Deserialize, Debug)]
 #[serde(tag = "alg")]
 pub enum JsonWebKey {
-    /// A RSA Key of 256 bits
+    /// A RSA Key with RS256 algorithm
     RS256 {
         /// The key type like RSA
         kty: String,
@@ -58,55 +60,65 @@ pub enum JsonWebKey {
     // Add more key types here
 }
 
-/// Enum that holds the public keys that will be used for the validation of the ID Token
-/// Essentially a wrapper to connect the `JWKsResponse` struct with the `jwt_simple` crate
-/// to use the `verify_token` function
+/// Enum that holds the public keys used to validate ID Tokens.
+/// Upstream jwt-simple for normal keys; fork for RSA moduli > 4096 bits.
 #[derive(Clone, Debug)]
 pub enum SigningKey {
-    /// A [RSA Key](https://github.com/antonengelhardt/rust-jwt-simple/blob/master/src/algorithms/rsa.rs) of 256 bits
     RS256PublicKey(jwt_simple::algorithms::RS256PublicKey),
-    // Add more key types here
+    RS256PublicKeyLarge(jwt_simple_fork::algorithms::RS256PublicKey),
 }
 
-/// A public key that can be used for the validation of the ID Token
 impl SigningKey {
-    /// Function that calls the `verify_token` function of the `jwt_simple` crate for each key type
-    pub fn verify_token(
-        &self,
-        token: &str,
-        options: VerificationOptions,
-    ) -> Result<JWTClaims<NoCustomClaims>, Error> {
+    /// Returns `Ok(())` if the token verifies against this key.
+    pub fn verify_token(&self, token: &str, options: VerificationOptions) -> Result<(), Error> {
         match self {
-            // RSA Key of 256 bits
-            SigningKey::RS256PublicKey(key) => key.verify_token(token, Some(options)),
-            // Add more key types here
+            SigningKey::RS256PublicKey(key) => key
+                .verify_token::<NoCustomClaims>(token, Some(options))
+                .map(|_| ()),
+            SigningKey::RS256PublicKeyLarge(key) => {
+                use jwt_simple_fork::prelude::RSAPublicKeyLike as _;
+                // Cannot use `.into()`: upstream and fork are different crates with the same type names.
+                key.verify_token::<jwt_simple_fork::claims::NoCustomClaims>(
+                    token,
+                    Some(jwt_simple_fork::prelude::VerificationOptions {
+                        allowed_issuers: options.allowed_issuers,
+                        allowed_audiences: options.allowed_audiences,
+                        ..Default::default()
+                    }),
+                )
+                .map(|_| ())
+            }
         }
     }
 }
 
-/// Implementation of the `From` trait for the `SigningKey` enum to convert the `JsonWebKey` into the `SigningKey` enum
 impl From<JsonWebKey> for SigningKey {
-    /// Function that converts the `JsonWebKey` into the `SigningKey` enum
     fn from(key: JsonWebKey) -> Self {
         match key {
-            // RSA Key of 256 bits
             JsonWebKey::RS256 { kty, n, e, .. } => {
-                // Check if the key is of type RSA
                 if kty != "RSA" {
                     debug!("key is not of type RSA although alg is RS256");
                 }
 
-                // Decode and parse the public key components
                 let n_dec = base64engine_urlsafe.decode(n).unwrap();
                 let e_dec = base64engine_urlsafe.decode(e).unwrap();
 
-                info!("loaded RS256 public key");
-
-                SigningKey::RS256PublicKey(
-                    jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
-                        .unwrap(),
-                )
-            } // Add more key types here
+                if n_dec.len() > RSA_MODULUS_BYTES_4096 {
+                    info!("RSA modulus >4096 bits; using jwt-simple-fork");
+                    SigningKey::RS256PublicKeyLarge(
+                        jwt_simple_fork::algorithms::RS256PublicKey::from_components(
+                            &n_dec, &e_dec,
+                        )
+                        .expect("failed to parse large RS256 public key"),
+                    )
+                } else {
+                    info!("loaded RS256 public key");
+                    SigningKey::RS256PublicKey(
+                        jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
+                            .expect("failed to parse RS256 public key"),
+                    )
+                }
+            }
         }
     }
 }
