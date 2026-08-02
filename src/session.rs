@@ -81,7 +81,6 @@ impl Session {
     /// * `encoded_nonce` - Base64 encoded nonce needed to decrypt the cookie
     /// * `cookie_name` - Name of the cookie
     /// * `cookie_duration_in_s` - Duration of the cookie in seconds
-    /// * `number_current_cookies` - Number of cookies that are currently set (important because otherwise decryption will fail if older and expired cookies are still present)
     pub fn make_cookie_values(
         encoded_cookie: &str,
         encoded_nonce: &str,
