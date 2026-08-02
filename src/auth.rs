@@ -579,7 +579,7 @@ impl OidcHttpContext {
                     &new_session,
                     &new_nonce,
                     self.plugin_config.cookie_name.as_str(),
-                    self.plugin_config.cookie_duration,
+                    self.plugin_config.cookie_duration_in_s,
                 );
 
                 // Build cookie headers
@@ -748,7 +748,7 @@ impl OidcHttpContext {
             &session,
             &nonce,
             self.plugin_config.cookie_name.as_str(),
-            self.plugin_config.cookie_duration,
+            self.plugin_config.cookie_duration_in_s,
         );
 
         // Build cookie headers

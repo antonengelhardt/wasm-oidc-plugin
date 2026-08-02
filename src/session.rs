@@ -80,13 +80,13 @@ impl Session {
     /// * `encoded_cookie` - Encoded cookie to be split into chunks of 4000 bytes
     /// * `encoded_nonce` - Base64 encoded nonce needed to decrypt the cookie
     /// * `cookie_name` - Name of the cookie
-    /// * `cookie_duration` - Duration of the cookie in seconds
+    /// * `cookie_duration_in_s` - Duration of the cookie in seconds
     /// * `number_current_cookies` - Number of cookies that are currently set (important because otherwise decryption will fail if older and expired cookies are still present)
     pub fn make_cookie_values(
         encoded_cookie: &str,
         encoded_nonce: &str,
         cookie_name: &str,
-        cookie_duration: u64,
+        cookie_duration_in_s: u64,
     ) -> Vec<String> {
         // Split every 4000 bytes
         let cookie_parts = encoded_cookie
@@ -100,20 +100,20 @@ impl Session {
         // Build the cookie values
         for (i, cookie_part) in cookie_parts.enumerate() {
             let cookie_value = format!(
-                "{cookie_name}-{i}={cookie_part}; Path=/; Secure; HttpOnly; Max-Age={cookie_duration}; SameSite=Lax",
+                "{cookie_name}-{i}={cookie_part}; Path=/; Secure; HttpOnly; Max-Age={cookie_duration_in_s}; SameSite=Lax",
             );
             cookie_values.push(cookie_value);
         }
 
         let num_parts = cookie_values.len();
         let num_parts_cookie_value = format!(
-            "{cookie_name}-parts={num_parts}; Path=/; Secure; HttpOnly; Max-Age={cookie_duration}; SameSite=Lax"
+            "{cookie_name}-parts={num_parts}; Path=/; Secure; HttpOnly; Max-Age={cookie_duration_in_s}; SameSite=Lax"
         );
         cookie_values.push(num_parts_cookie_value);
 
         // Build nonce cookie value
         let nonce_cookie_value = format!(
-            "{cookie_name}-nonce={encoded_nonce}; Path=/; Secure; HttpOnly; Max-Age={cookie_duration}; SameSite=Lax",
+            "{cookie_name}-nonce={encoded_nonce}; Path=/; Secure; HttpOnly; Max-Age={cookie_duration_in_s}; SameSite=Lax",
         );
         cookie_values.push(nonce_cookie_value);
 

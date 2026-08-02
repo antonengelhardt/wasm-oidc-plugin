@@ -56,7 +56,7 @@ data:
 
                               cookie_name: "oidcSession" # max. 32 characters
                               logout_path: "/logout"
-                              cookie_duration: 8640000 # in seconds
+                              cookie_duration_in_s: 8640000 # in seconds
                               token_validation: true # or false
                               aes_key: "i-am-a-forty-four-characters-long-string-key" # generate with `openssl rand -base64 32`
 

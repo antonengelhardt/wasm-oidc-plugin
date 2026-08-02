@@ -46,7 +46,7 @@ static_resources:
                           cookie_name: "oidc-session" # max. 32 characters
                           logout_path: "/_wasm-oidc-plugin/logout"
                           filter_plugin_cookies: true # or false
-                          cookie_duration: 8640000 # in seconds
+                          cookie_duration_in_s: 8640000 # in seconds
                           token_validation: true # or false
                           aes_key: "i-am-a-forty-four-characters-long-string-key" # generate with `openssl rand -base64 32`
 

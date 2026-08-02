@@ -57,7 +57,7 @@ pub struct V2PluginConfiguration {
     /// If the value is true, the cookies will be filtered out
     pub filter_plugin_cookies: bool,
     /// The cookie duration in seconds
-    pub cookie_duration: u64,
+    pub cookie_duration_in_s: u64,
     /// Option to skip Token Validation
     pub token_validation: bool,
     /// AES Key
@@ -101,6 +101,7 @@ impl V2PluginConfiguration {
     /// Type checking is done by serde, so we only need to check the values.
     fn validate(&self) -> anyhow::Result<()> {
         ensure!(self.reload_interval_in_h > 0, "`reload_interval` is 0");
+        ensure!(self.ticking_interval_in_ms > 0, "`ticking_interval` is 0");
         ensure!(
             self.cookie_name.len() <= 32,
             "`cookie_name` is too long, max 32"
@@ -114,7 +115,7 @@ impl V2PluginConfiguration {
             self.logout_path.starts_with('/'),
             "`logout_path` does not start with a `/`"
         );
-        ensure!(self.cookie_duration > 0, "`cookie_duration` is 0");
+        ensure!(self.cookie_duration_in_s > 0, "`cookie_duration_in_s` is 0");
 
         for provider in &self.open_id_configs {
             ensure!(!provider.authority.is_empty(), "`authority` is empty");
@@ -275,7 +276,7 @@ impl V1PluginConfiguration {
             cookie_name: self.cookie_name,
             logout_path: self.logout_path.unwrap_or_else(|| "/logout".to_string()),
             filter_plugin_cookies: self.filter_plugin_cookies,
-            cookie_duration: self.cookie_duration,
+            cookie_duration_in_s: self.cookie_duration,
             token_validation: self.token_validation,
             aes_key: self.aes_key,
         })

@@ -56,7 +56,7 @@ data:
                               cookie_name: "oidc-session"
                               logout_path: "/_wasm-oidc-plugin/logout"
                               filter_plugin_cookies: true # or false
-                              cookie_duration: 8640000
+                              cookie_duration_in_s: 8640000
                               token_validation: true
                               aes_key: "redacted"
 
