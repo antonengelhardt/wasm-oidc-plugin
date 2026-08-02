@@ -1,3 +1,6 @@
+/// This module contains optional access rules evaluated against ID token claims
+mod access;
+
 /// This module contains all functions, calls and callbacks to execute the OpenID Authorization Code Flow
 mod auth;
 

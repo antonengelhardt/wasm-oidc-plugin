@@ -61,6 +61,12 @@ pub enum PluginError {
     AuthorizationStateNotFoundError,
     #[error("state does not match")]
     StateMismatchError,
+
+    // Access control errors
+    #[error("invalid access rule: {0}")]
+    AccessRuleParseError(String),
+    #[error("access denied by access rules")]
+    AccessDenied,
 }
 
 impl OidcHttpContext {

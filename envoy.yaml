@@ -48,6 +48,10 @@ static_resources:
                           filter_plugin_cookies: true # or false
                           cookie_duration_in_s: 8640000 # in seconds
                           token_validation: true # or false
+                          # Optional: restrict access by ID token claims (OR across rules, AND with &)
+                          # access_rules:
+                          #   - "email==admin@company.com"
+                          #   - "email=~.*@company\\.com$ & groups==admins"
                           aes_key: "i-am-a-forty-four-characters-long-string-key" # generate with `openssl rand -base64 32`
 
                           reload_interval_in_h: 1 # in hours

@@ -60,6 +60,12 @@ pub struct V2PluginConfiguration {
     pub cookie_duration_in_s: u64,
     /// Option to skip Token Validation
     pub token_validation: bool,
+    /// Optional access rules evaluated against ID token claims.
+    /// Any matching rule grants access; conditions within a rule are AND'd with `&`.
+    /// Example: `email==admin@company.com` or `email=~.*@company\\.com$ & groups==admins`
+    /// If omitted or empty, all authenticated users are allowed.
+    #[serde(default)]
+    pub access_rules: Vec<String>,
     /// AES Key
     #[serde(deserialize_with = "deserialize_aes_key")]
     pub aes_key: Secret<Aes256Gcm>,
@@ -116,6 +122,9 @@ impl V2PluginConfiguration {
             "`logout_path` does not start with a `/`"
         );
         ensure!(self.cookie_duration_in_s > 0, "`cookie_duration_in_s` is 0");
+
+        // Validate access rules parse correctly
+        crate::access::parse_rules(&self.access_rules).map_err(|e| anyhow::anyhow!("{e}"))?;
 
         for provider in &self.open_id_configs {
             ensure!(!provider.authority.is_empty(), "`authority` is empty");
@@ -278,6 +287,7 @@ impl V1PluginConfiguration {
             filter_plugin_cookies: self.filter_plugin_cookies,
             cookie_duration_in_s: self.cookie_duration,
             token_validation: self.token_validation,
+            access_rules: vec![],
             aes_key: self.aes_key,
         })
     }

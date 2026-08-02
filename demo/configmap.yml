@@ -58,6 +58,10 @@ data:
                               filter_plugin_cookies: true # or false
                               cookie_duration_in_s: 8640000
                               token_validation: true
+                              # Optional: restrict access by ID token claims (OR across rules, AND with &)
+                              # access_rules:
+                              #   - "email==admin@company.com"
+                              #   - "email=~.*@company\\.com$ & groups==admins"
                               aes_key: "redacted"
 
                               reload_interval_in_h: 1

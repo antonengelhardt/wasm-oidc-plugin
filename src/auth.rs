@@ -21,6 +21,7 @@ use proxy_wasm::types::*;
 // url
 use url::{form_urlencoded, Url};
 
+use crate::access;
 use crate::config::V2PluginConfiguration;
 use crate::discovery::OpenIdProvider;
 use crate::error::PluginError;
@@ -147,6 +148,36 @@ impl HttpContext for OidcHttpContext {
                 }
             },
             Ok(auth_state) => {
+                // Enforce optional access rules against ID token claims
+                if let Err(e) = self.check_access(&auth_state) {
+                    match e {
+                        PluginError::AccessDenied => {
+                            warn!(
+                                "access denied by access rules for request {}",
+                                self.request_id
+                            );
+                            self.show_error_page(
+                                403,
+                                "Access denied",
+                                "Authentication was successful, but you do not have access to this application. Please contact your administrator.",
+                            );
+                            return Action::Pause;
+                        }
+                        _ => {
+                            warn!(
+                                "access rule evaluation failed for request {} with error: {}",
+                                self.request_id, e
+                            );
+                            self.show_error_page(
+                                503,
+                                "Access check failed",
+                                "Please try again, delete your cookies or contact your system administrator with the request id!",
+                            );
+                            return Action::Pause;
+                        }
+                    }
+                }
+
                 // Append headers
                 self.append_headers(&auth_state);
                 // Filter proxy cookies
@@ -194,6 +225,27 @@ impl Context for OidcHttpContext {
 
 /// Helper functions for the `OidcHttpContext`` struct.
 impl OidcHttpContext {
+    /// Check optional access rules against the ID token claims.
+    ///
+    /// If `access_rules` is empty, access is granted. Otherwise the ID token
+    /// payload is decoded and evaluated: any matching rule grants access.
+    fn check_access(&self, auth_state: &AuthorizationState) -> Result<(), PluginError> {
+        if self.plugin_config.access_rules.is_empty() {
+            return Ok(());
+        }
+
+        // Rules were validated at config load; re-parse for evaluation.
+        let rules = access::parse_rules(&self.plugin_config.access_rules)?;
+        let claims = access::decode_jwt_claims(&auth_state.id_token)?;
+
+        if access::evaluate(&rules, &claims) {
+            debug!("access rules matched, granting access");
+            Ok(())
+        } else {
+            Err(PluginError::AccessDenied)
+        }
+    }
+
     /// Check if the request is excluded.
     ///
     /// ## Arguments
