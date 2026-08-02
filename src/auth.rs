@@ -96,7 +96,7 @@ impl HttpContext for OidcHttpContext {
 
         // If the path matches the provider selection endpoint, redirect to the authorization endpoint
         // with the selected provider.
-        if path.contains("/_wasm-oidc-plugin/provider-selection") {
+        if path.starts_with("/_wasm-oidc-plugin/provider-selection") {
             match self.provider_selection(query) {
                 Ok(_) => return Action::Pause,
                 Err(e) => {
