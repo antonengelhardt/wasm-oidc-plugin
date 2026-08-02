@@ -64,7 +64,7 @@ pub enum JsonWebKey {
 /// Upstream jwt-simple for normal keys; fork for RSA moduli > 4096 bits.
 #[derive(Clone, Debug)]
 pub enum SigningKey {
-    RS256PublicKey(jwt_simple::algorithms::RS256PublicKey),
+    RS256PublicKey(Box<jwt_simple::algorithms::RS256PublicKey>),
     RS256PublicKeyLarge(Box<jwt_simple_fork::algorithms::RS256PublicKey>),
 }
 
@@ -113,10 +113,10 @@ impl From<JsonWebKey> for SigningKey {
                     ))
                 } else {
                     info!("loaded RS256 public key");
-                    SigningKey::RS256PublicKey(
+                    SigningKey::RS256PublicKey(Box::new(
                         jwt_simple::algorithms::RS256PublicKey::from_components(&n_dec, &e_dec)
                             .expect("failed to parse RS256 public key"),
-                    )
+                    ))
                 }
             }
         }
