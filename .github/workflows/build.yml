@@ -92,8 +92,15 @@ jobs:
           KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
         with:
           args: |
-            rollout restart deployment wasm-oidc-plugin -n wasm-oidc-plugin \
-            && kubectl rollout status deployment wasm-oidc-plugin -n wasm-oidc-plugin --timeout=300s
+            rollout restart deployment wasm-oidc-plugin -n wasm-oidc-plugin
+
+      - name: Wait for deployment to be ready
+        uses: actions-hub/kubectl@master
+        env:
+          KUBE_CONFIG: ${{ secrets.KUBE_CONFIG }}
+        with:
+          args: |
+            rollout status deployment wasm-oidc-plugin -n wasm-oidc-plugin --timeout=300s
 
   # changelog-and-release:
   #   runs-on: ubuntu-latest
