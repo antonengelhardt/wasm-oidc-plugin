@@ -71,4 +71,4 @@ jobs:
     steps:
       - name: Deploy documentation
         id: pages
-        uses: actions/deploy-pages@v2
+        uses: actions/deploy-pages@v4
