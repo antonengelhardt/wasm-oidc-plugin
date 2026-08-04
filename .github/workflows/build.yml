@@ -11,6 +11,8 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -31,6 +33,8 @@ jobs:
 
   docker-image:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -86,6 +90,7 @@ jobs:
     needs: ghcr-image
     environment: demo
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - uses: actions-hub/kubectl@master
         env:
