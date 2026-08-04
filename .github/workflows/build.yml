@@ -90,8 +90,7 @@ jobs:
     needs: ghcr-image
     environment: demo
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    permissions: {}
     steps:
       - uses: actions-hub/kubectl@master
         env:
