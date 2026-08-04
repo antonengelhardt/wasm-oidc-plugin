@@ -109,6 +109,7 @@ The plugin is configured via the `envoy.yaml`-file. The following configuration 
 | `filter_plugin_cookies`      | `bool`              | Whether to filter the cookies that are managed and controlled by the plugin (namely cookie_name and `nonce`).                                                                             | `true`                              | ✅       |
 | `cookie_duration_in_s`       | `u64`               | The duration in seconds, after which the session cookie expires.                                                                                                                          | `86400`                             | ✅       |
 | `token_validation`           | bool                | Whether to validate the token or not.                                                                                                                                                     | `true`                              | ✅       |
+| `access_rules`               | `Vec<String>`       | Optional access rules evaluated against ID token claims. Any matching rule grants access; see [Access rules](#access-rules).                                                              | See below                           | ❌       |
 | `aes_key`                    | `string`            | A base64 encoded AES-256 Key: `openssl rand -base64 32`                                                                                                                                   | `<generated-aes-key>`               | ✅       |
 | `reload_interval_in_h`       | `u64`               | The interval in hours, after which the OpenID configuration is reloaded.                                                                                                                  | `24`                                | ✅       |
 | `ticking_interval_in_ms`     | `u64`               | The interval in milliseconds, after which the plugin will wait for the discovery endpoint to respond or send a new request.                                                               | `500`                               | ✅       |
@@ -139,6 +140,25 @@ claims:
   id_token:
     groups: null
     username: null
+```
+
+#### Access rules
+
+Optional rules restrict which authenticated users may reach the upstream. If `access_rules` is omitted or empty, every successfully authenticated user is allowed.
+
+- **OR** across list entries — one matching rule is enough
+- **AND** within a rule using `&`
+- `claim==value` — exact match; for JSON array claims (e.g. `groups`), true if any element equals `value`
+- `claim=~regex` — regex match against a string claim, or any array element
+- Claim names are ID token fields (`email`, `groups`, `sub`, …)
+- Invalid rules fail plugin configuration at load time
+
+If authentication succeeds but no rule matches, the plugin returns **403** with an error page explaining that authentication succeeded but access was denied, and that an administrator should be contacted.
+
+```yaml
+access_rules:
+  - "email==admin@company.com"
+  - "email=~.*@company\\.com$ & groups==admins"
 ```
 
 ### Migrating from the legacy single-provider config
