@@ -97,7 +97,7 @@ impl HttpContext for OidcHttpContext {
         // If the path matches the clear-cookies endpoint, clear cookies and redirect to base path.
         // This is used from the error page to allow users to reset their session without triggering
         // a full logout at the OIDC provider.
-        if path == "/_wasm-oidc-plugin/clear-cookies" {
+        if url.path() == "/_wasm-oidc-plugin/clear-cookies" {
             return self.clear_cookies();
         }
 
