@@ -64,12 +64,16 @@ pub enum PluginError {
 }
 
 impl OidcHttpContext {
-    pub fn show_error_page(&self, status_code: u32, title: &str, message: &str) {
+    pub fn show_error_page(&self, status_code: u32, title: &str, message: &str, show_reset_button: bool) {
         let headers = vec![("cache-control", "no-cache"), ("content-type", "text/html")];
         let title = encode_safe(title);
         let message = encode_safe(message);
         let request_id = encode_safe(&self.request_id);
-        let logout_path = encode_safe(&self.plugin_config.logout_path);
+        let reset_button = if show_reset_button {
+            r#"<a class="reset-button" href="/_wasm-oidc-plugin/clear-cookies">Reset Cookies</a>"#
+        } else {
+            ""
+        };
 
         self.send_http_response(
             status_code,
@@ -221,7 +225,7 @@ impl OidcHttpContext {
                             <h2>{title}</h2>
                             <p>{message}</p>
                             <p class="request-id">Request-ID: {request_id}</p>
-                            <a class="reset-button" href="{logout_path}">Reset Cookies</a>
+                            {reset_button}
                         </div>
                         <script>
                             const darkModeToggle = document.getElementById('darkModeToggle');

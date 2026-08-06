@@ -94,6 +94,13 @@ impl HttpContext for OidcHttpContext {
             return self.logout();
         }
 
+        // If the path matches the clear-cookies endpoint, clear cookies and redirect to base path.
+        // This is used from the error page to allow users to reset their session without triggering
+        // a full logout at the OIDC provider.
+        if path == "/_wasm-oidc-plugin/clear-cookies" {
+            return self.clear_cookies();
+        }
+
         // If the path matches the provider selection endpoint, redirect to the authorization endpoint
         // with the selected provider.
         if path.starts_with("/_wasm-oidc-plugin/provider-selection") {
@@ -104,7 +111,7 @@ impl HttpContext for OidcHttpContext {
                         "provider selection failed for request {} with error: {}",
                         self.request_id, e
                     );
-                    self.show_error_page(503, "Provider selection failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
+                    self.show_error_page(503, "Provider selection failed", "Please try again, delete your cookies or contact your system administrator with the request id!", true);
                     return Action::Pause;
                 }
             }
@@ -123,7 +130,7 @@ impl HttpContext for OidcHttpContext {
                         "token exchange failed for request {} with error: {}",
                         self.request_id, e
                     );
-                    self.show_error_page(503, "Token exchange failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
+                    self.show_error_page(503, "Token exchange failed", "Please try again, delete your cookies or contact your system administrator with the request id!", true);
                 }
             }
             return Action::Pause;
@@ -143,7 +150,7 @@ impl HttpContext for OidcHttpContext {
                         "cookie validation failed for request {} with error: {}",
                         self.request_id, e
                     );
-                    self.show_error_page(503, "Cookie validation failed", "Please try again, delete your cookies or contact your system administrator with the request id!");
+                    self.show_error_page(503, "Cookie validation failed", "Please try again, delete your cookies or contact your system administrator with the request id!", true);
                 }
             },
             Ok(auth_state) => {
@@ -186,6 +193,7 @@ impl Context for OidcHttpContext {
                     503,
                     "Storing Token in Cookie failed",
                     "Please try again, delete your cookies or contact your system administrator with the request id!",
+                    true,
                 );
             }
         }
@@ -642,6 +650,29 @@ impl OidcHttpContext {
         Action::Pause
     }
 
+    /// Clear the session cookies and redirect to the base path.
+    ///
+    /// Unlike [`logout`], this does **not** redirect to the OIDC provider's
+    /// end-session endpoint. It is meant for error-recovery: the user's cookies
+    /// are corrupt or invalid, so we just wipe them and let re-authentication
+    /// happen on the next request.
+    fn clear_cookies(&self) -> Action {
+        let cookie_name = &self.plugin_config.cookie_name;
+        let num_parts = self
+            .get_cookie(&format!("{cookie_name}-parts"))
+            .and_then(|value| value.parse().ok())
+            .unwrap_or(1);
+        let cookie_values = Session::clear_cookie_values(cookie_name, num_parts);
+        let mut headers = Session::make_set_cookie_headers(&cookie_values);
+
+        headers.push(("Location", "/"));
+        headers.push(("Cache-Control", "no-cache"));
+
+        self.send_http_response(307, headers, Some(b"Clearing cookies..."));
+
+        Action::Pause
+    }
+
     /// Show the auth page or redirect to the authorization endpoint.
     fn generate_auth_page(&self) {
         // If there is more than one provider, show an auth page where the user selects the provider
@@ -694,6 +725,7 @@ impl OidcHttpContext {
                 503,
                 "No providers configured",
                 "Please contact your system administrator with the request id!",
+                false,
             );
         }
     }
@@ -787,6 +819,7 @@ impl OidcHttpContext {
                     503,
                     "Authorization redirect failed",
                     "Please contact your system administrator with the request id!",
+                    false,
                 );
                 return Action::Pause;
             }
