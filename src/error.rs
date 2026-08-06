@@ -64,7 +64,13 @@ pub enum PluginError {
 }
 
 impl OidcHttpContext {
-    pub fn show_error_page(&self, status_code: u32, title: &str, message: &str, show_reset_button: bool) {
+    pub fn show_error_page(
+        &self,
+        status_code: u32,
+        title: &str,
+        message: &str,
+        show_reset_button: bool,
+    ) {
         let headers = vec![("cache-control", "no-cache"), ("content-type", "text/html")];
         let title = encode_safe(title);
         let message = encode_safe(message);
