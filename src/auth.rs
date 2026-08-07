@@ -82,28 +82,40 @@ impl HttpContext for OidcHttpContext {
             return Action::Continue;
         }
 
+        // Compare against `url.path()` (no query) with `==` for exact plugin endpoints.
+        // Prefer that over `:path` / `starts_with`, which either miss `?query` or match longer paths.
+        let request_path = url.path();
+
         // Health check
-        if path == "/plugin-health" {
+        if request_path == "/plugin-health" {
             self.send_http_response(200, vec![], Some(b"OK"));
             return Action::Pause;
         }
 
         // If Path is logout route, clear cookies and redirect to base path
         // (or the provider end-session endpoint when the session is still readable)
-        if path == self.plugin_config.logout_path {
+        if request_path == self.plugin_config.logout_path {
+            if !self.is_same_origin_get() {
+                self.send_http_response(403, vec![], Some(b"Forbidden"));
+                return Action::Pause;
+            }
             return self.logout();
         }
 
         // If the path matches the clear-cookies endpoint, clear cookies and redirect to base path.
         // This is used from the error page to allow users to reset their session without triggering
         // a full logout at the OIDC provider.
-        if url.path() == "/_wasm-oidc-plugin/clear-cookies" {
+        if request_path == "/_wasm-oidc-plugin/clear-cookies" {
+            if !self.is_same_origin_get() {
+                self.send_http_response(403, vec![], Some(b"Forbidden"));
+                return Action::Pause;
+            }
             return self.clear_cookies();
         }
 
         // If the path matches the provider selection endpoint, redirect to the authorization endpoint
         // with the selected provider.
-        if path.starts_with("/_wasm-oidc-plugin/provider-selection") {
+        if request_path == "/_wasm-oidc-plugin/provider-selection" {
             match self.provider_selection(query) {
                 Ok(_) => return Action::Pause,
                 Err(e) => {
@@ -121,7 +133,7 @@ impl HttpContext for OidcHttpContext {
         if self
             .open_id_providers
             .iter()
-            .any(|provider| path.starts_with(provider.open_id_config.redirect_uri.path()))
+            .any(|provider| request_path == provider.open_id_config.redirect_uri.path())
         {
             match self.exchange_code_for_token(path) {
                 Ok(_) => return Action::Pause,
@@ -611,6 +623,23 @@ impl OidcHttpContext {
                 self.send_http_response(307, headers, Some(b"Redirecting..."));
                 Ok(())
             }
+        }
+    }
+
+    /// Returns true when the request is a same-origin (or non-browser) GET.
+    ///
+    /// Used to mitigate logout / cookie-reset CSRF from cross-site navigations.
+    /// `Sec-Fetch-Site` is absent in older browsers and non-browser clients; those are
+    /// allowed. Modern browsers send `cross-site` for attacker-driven top-level GETs.
+    fn is_same_origin_get(&self) -> bool {
+        let method = self.get_http_request_header(":method").unwrap_or_default();
+        if !method.eq_ignore_ascii_case("GET") {
+            return false;
+        }
+
+        match self.get_http_request_header("sec-fetch-site").as_deref() {
+            None | Some("same-origin") | Some("none") => true,
+            Some(_) => false,
         }
     }
 
