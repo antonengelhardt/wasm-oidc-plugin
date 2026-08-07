@@ -713,7 +713,7 @@ impl OidcHttpContext {
     fn generate_auth_page(&self) {
         // If there is more than one provider, show an auth page where the user selects the provider
         if self.open_id_providers.len() > 1 {
-            debug!("no cookie found or invalid, showing auth page");
+            debug!("no session cookie found or invalid, showing auth page");
 
             // Grab the original path and encode it
             let original_path = self
@@ -750,7 +750,7 @@ impl OidcHttpContext {
             );
         } else if let Some(provider) = self.open_id_providers.first() {
             // If there is only one provider, redirect the user to the authorization endpoint right away
-            debug!("no cookie found or invalid, redirecting to authorization endpoint");
+            debug!("no session cookie found or invalid, redirecting to authorization endpoint");
             self.redirect_to_authorization_endpoint(provider, None);
         } else {
             warn!(
