@@ -2,6 +2,42 @@
 
 All notable changes to this project will be documented in this file.
 
+## v0.6.1
+
+### 🚀 Features
+
+- Add /_wasm-oidc-plugin/clear-cookies endpoint and make error page reset button optional
+
+### 🐛 Bug Fixes
+
+- Upgrade actions/deploy-pages from v2 to v4 in documentation workflow
+- Improve error handling in authentication process by logging specific cookie validation errors
+- Update authority extraction in OpenID response handling
+- Remove redundant transport socket configuration in envoy.yaml
+- Add SNI configuration for upstream TLS context in configmap.yml
+- Enhance path matching and add same-origin check
+- Set imagePullPolicy to Always for envoy containers in deployment
+- Clarify debug messages regarding session cookie
+
+### 📚 Documentation
+
+- Update README
+
+### 🎨 Styling
+
+- Format error page signature
+
+### ⚙️ Miscellaneous Tasks
+
+- **(ci)** Add separate step to wait for deployment readiness
+- Bump upload-pages-artifact from v3 to v4 for Node 24 compatibility
+- Stop pushing PR GHCR images during tests
+- Update dependencies in Cargo.lock and Cargo.toml to latest versions
+
+### ◀️ Revert
+
+- Restore original PR GHCR workflow
+
 ## v0.6.0
 
 ### 🚀 Features
