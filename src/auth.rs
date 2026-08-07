@@ -139,11 +139,18 @@ impl HttpContext for OidcHttpContext {
         // Else, validate the cookie and forward the request if the authorization state is valid
         match self.validate_cookie() {
             Err(e) => match e {
-                // disable logging for these errors
-                PluginError::SessionCookieNotFoundError => {}
-                PluginError::NonceCookieNotFoundError => {}
+                // Do not show an error page for these errors
+                PluginError::SessionCookieNotFoundError => {
+                    debug!("session cookie not found, continuing with authentication");
+                }
+                PluginError::NonceCookieNotFoundError => {
+                    debug!("nonce cookie not found, continuing with authentication");
+                }
                 PluginError::TokenValidationError(_) => {
                     debug!("token validation failed, continuing with authentication");
+                }
+                PluginError::AuthorizationStateNotFoundError => {
+                    debug!("authorization state not found, result of an unfinished authentication process, continuing with authentication");
                 }
                 _ => {
                     warn!(
