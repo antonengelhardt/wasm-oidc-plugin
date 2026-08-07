@@ -53,6 +53,7 @@ spec:
       containers:
         - name: envoy
           image: envoyproxy/envoy:v1.39-latest
+          imagePullPolicy: Always
 
           resources:
             requests:

@@ -27,6 +27,7 @@ spec:
       containers:
         - name: envoy
           image: ghcr.io/antonengelhardt/wasm-oidc-plugin:latest
+          imagePullPolicy: Always
 
           resources:
             requests:
