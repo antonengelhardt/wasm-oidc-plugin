@@ -15,7 +15,7 @@ crate-type = ["cdylib"]
 [dependencies]
 regex = "1.13.1"
 aes-gcm = "0.11.0"
-base64 = "0.23.0"
+base64 = "0.23.1"
 jwt-simple = "0.13.0"
 # Fork that accepts RSA moduli larger than 4096 bits (package name stays jwt-simple).
 jwt-simple-legacy = { package = "jwt-simple-legacy", git = "https://github.com/antonengelhardt/rust-jwt-simple", branch = "master" }
