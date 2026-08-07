@@ -44,7 +44,7 @@ cargo build --target wasm32-wasip1 --release
 make run
 ```
 
----
+***
 
 ### Detailed variant
 
@@ -56,13 +56,13 @@ cargo build --target wasm32-wasip1 --release
 make build
 ```
 
-2. **Testing locally with Envoy** ([docker](https://www.docker.com/) and [docker-compose](https://docs.docker.com/compose/install/) are needed):
+1. **Testing locally with Envoy** ([docker](https://www.docker.com/) and [docker-compose](https://docs.docker.com/compose/install/) are needed):
 
 ```sh
 docker compose up
 ```
 
-3. **Requests to the locally running envoy with the plugin enabled:**
+1. **Requests to the locally running envoy with the plugin enabled:**
 
 ```sh
 curl localhost:10000
@@ -79,6 +79,7 @@ To deploy the plugin to production, the following steps are needed (either manua
    1.2 by using the pre-built Docker image [antonengelhardt/wasm-oidc-plugin](https://hub.docker.com/r/antonengelhardt/wasm-oidc-plugin).
 
 2. Run envoy as a container with the `envoy.yaml` file mounted through the [ConfigMap](./k8s/configmap.yml) as a volume.
+
 3. Set up [Service](./k8s/service.yml), [Certificate](./k8s/certificate-production.yml), [Ingress](./k8s/ingress.yml) to expose the Envoy to the internet.
 
 For reference, see the [k8s folder](./k8s).
@@ -95,24 +96,24 @@ cargo doc --document-private-items --open
 
 The plugin is configured via the `envoy.yaml`-file. The following configuration options are required:
 
-| Name                         | Type                | Description                                                                                                                                                                               | Example                             | Required |
-| ---------------------------- | ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | -------- |
-| `exclude_hosts`              | `Vec<Regex>`        | A comma separated list Hosts (in Regex expressions), that are excluded from the filter.                                                                                                   | `["localhost:10000"]`               | ❌       |
-| `exclude_paths`              | `Vec<Regex>`        | A comma separated list of paths (in Regex expressions), that are excluded from the filter.                                                                                                | `["/health"]`                       | ❌       |
-| `exclude_urls`               | `Vec<Regex>`        | A comma separated list of URLs (in Regex expressions), that are excluded from the filter.                                                                                                 | `["http://localhost:10000/health"]` | ❌       |
-| `access_token_header_name`   | `string`            | If set, this name will be used to forward the access token to the backend.                                                                                                                | `X-Access-Token`                    | ❌       |
-| `access_token_header_prefix` | `string`            | The prefix of the header, that is used to forward the access token, if empty "" is used.                                                                                                  | `Bearer `                           | ❌       |
-| `id_token_header_name`       | `string`            | If set, this name will be used to forward the id token to the backend.                                                                                                                    | `X-Id-Token`                        | ❌       |
-| `id_token_header_prefix`     | `string`            | The prefix of the header, that is used to forward the id token, if empty "" is used.                                                                                                      | `Bearer `                           | ❌       |
-| `cookie_name`                | `string`            | The name of the cookie, that is used to store the session. Will be suffixed with a dash and a number for multiple cookies if the state is too long.                                       | `oidcSession`                       | ✅       |
-| `logout_path`                | `string`            | The path, that is used to logout the user. The user will be redirected to `end_session_endpoint` of the OIDC provider, if the server supports this; alternatively the user is sent to "/" | `/logout`                           | ✅       |
-| `filter_plugin_cookies`      | `bool`              | Whether to filter the cookies that are managed and controlled by the plugin (namely cookie_name and `nonce`).                                                                             | `true`                              | ✅       |
-| `cookie_duration_in_s`       | `u64`               | The duration in seconds, after which the session cookie expires.                                                                                                                          | `86400`                             | ✅       |
-| `token_validation`           | bool                | Whether to validate the token or not.                                                                                                                                                     | `true`                              | ✅       |
-| `aes_key`                    | `string`            | A base64 encoded AES-256 Key: `openssl rand -base64 32`                                                                                                                                   | `<generated-aes-key>`               | ✅       |
-| `reload_interval_in_h`       | `u64`               | The interval in hours, after which the OpenID configuration is reloaded.                                                                                                                  | `24`                                | ✅       |
-| `ticking_interval_in_ms`     | `u64`               | The interval in milliseconds, after which the plugin will wait for the discovery endpoint to respond or send a new request.                                                               | `500`                               | ✅       |
-| `open_id_configs`            | `Vec<OpenIdConfig>` | A list of OpenID Configuration objects.                                                                                                                                                   | See below                           | ✅       |
+| Name                         | Type                | Description                                                                                                                                                                                                     | Example                             | Required |
+| ---------------------------- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | -------- |
+| `exclude_hosts`              | `Vec<Regex>`        | A comma separated list Hosts (in Regex expressions), that are excluded from the filter.                                                                                                                         | `["localhost:10000"]`               | ❌       |
+| `exclude_paths`              | `Vec<Regex>`        | A comma separated list of paths (in Regex expressions), that are excluded from the filter.                                                                                                                      | `["/health"]`                       | ❌       |
+| `exclude_urls`               | `Vec<Regex>`        | A comma separated list of URLs (in Regex expressions), that are excluded from the filter.                                                                                                                       | `["http://localhost:10000/health"]` | ❌       |
+| `access_token_header_name`   | `string`            | If set, this name will be used to forward the access token to the backend.                                                                                                                                      | `X-Access-Token`                    | ❌       |
+| `access_token_header_prefix` | `string`            | The prefix of the header value, that is used to forward the access token. If empty, "" is used.                                                                                                                 | `Bearer`                            | ❌       |
+| `id_token_header_name`       | `string`            | If set, this name will be used to forward the id token to the backend.                                                                                                                                          | `X-Id-Token`                        | ❌       |
+| `id_token_header_prefix`     | `string`            | The prefix of the header value, that is used to forward the id token. If empty, "" is used.                                                                                                                     | `Bearer`                            | ❌       |
+| `cookie_name`                | `string`            | The name of the cookie, that is used to store the session. Will be suffixed with a dash and a number for multiple cookies if the state is too long.                                                             | `oidcSession`                       | ✅       |
+| `logout_path`                | `string`            | The path, that is used to logout the user and clear all cookies. The user will be redirected to `end_session_endpoint` of the OIDC provider, if the server supports this; alternatively the user is sent to "/" | `/_wasm-oidc-plugin/logout`         | ✅       |
+| `filter_plugin_cookies`      | `bool`              | Whether to filter the cookies that are managed and controlled by the plugin (namely cookie\_name and `nonce`).                                                                                                  | `true`                              | ✅       |
+| `cookie_duration_in_s`       | `u64`               | The duration in seconds, after which the session cookie expires.                                                                                                                                                | `86400`                             | ✅       |
+| `token_validation`           | `bool`              | Whether to validate the token or not.                                                                                                                                                                           | `true`                              | ✅       |
+| `aes_key`                    | `string`            | A base64 encoded AES-256 Key: `openssl rand -base64 32`                                                                                                                                                         | `<generated-aes-key>`               | ✅       |
+| `reload_interval_in_h`       | `u64`               | The interval in hours, after which the OpenID configuration is reloaded.                                                                                                                                        | `24`                                | ✅       |
+| `ticking_interval_in_ms`     | `u64`               | The interval in milliseconds, after which the plugin will wait for the discovery endpoint to respond or send a new request.                                                                                     | `500`                               | ✅       |
+| `open_id_configs`            | `Vec<OpenIdConfig>` | A list of OpenID Configuration objects.                                                                                                                                                                         | See below                           | ✅       |
 
 #### `OpenIdConfig`
 
@@ -122,7 +123,7 @@ The plugin is configured via the `envoy.yaml`-file. The following configuration 
 | `image`            | `string` | The URL to the image of the OpenID provider (this will be shown on the Auth Page).                             | `https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/Google_2015_logo.svg/2560px-Google_2015_logo.svg.png` | ✅       |
 | `config_endpoint`  | `string` | The open id configuration endpoint.                                                                            | `https://accounts.google.com/.well-known/openid-configuration`                                                   | ✅       |
 | `upstream_cluster` | `string` | The name of the upstream cluster in your Envoy configuration.                                                  | `httpbin`                                                                                                        | ✅       |
-| `authority`        | `string` | The authority of the `authorization_endpoint`.                                                                 | `accounts.google.com`                                                                                            | ✅       |
+| `authority`        | `string` | The authority/domain of the `authorization_endpoint`.                                                                 | `accounts.google.com`                                                                                     | ✅       |
 | `redirect_uri`     | `string` | The redirect URI, that the `authorization_endpoint` will redirect to.                                          | `http://localhost:10000/oidc/callback`                                                                           | ✅       |
 | `client_id`        | `string` | The client ID, for getting and exchanging the code.                                                            | `wasm-oidc-plugin`                                                                                               | ✅       |
 | `scope`            | `string` | The scope, to validate                                                                                         | `openid email`                                                                                                   | ✅       |
