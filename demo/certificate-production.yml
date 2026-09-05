@@ -8,6 +8,6 @@ spec:
   issuerRef:
     name: letsencrypt-production
     kind: ClusterIssuer
-  commonName: demo.wasm-oidc-plugin.ae02.de
+  commonName: wasm-oidc-plugin.ae02.de
   dnsNames:
-    - demo.wasm-oidc-plugin.ae02.de
+    - wasm-oidc-plugin.ae02.de
