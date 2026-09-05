@@ -70,7 +70,7 @@ jobs:
           cache: true
 
       - name: Install cargo audit
-        uses: taiki-e/cache-cargo-install-action@v2
+        uses: taiki-e/cache-cargo-install-action@v3
         with:
           tool: cargo-audit
 
