@@ -68,7 +68,7 @@ data:
                                   config_endpoint: "https://demo-wasm-oidc-plugin.eu.auth0.com/.well-known/openid-configuration"
                                   upstream_cluster: "auth0"
                                   authority: "demo-wasm-oidc-plugin.eu.auth0.com"
-                                  redirect_uri: "https://demo.wasm-oidc-plugin.ae02.de/oidc/callback"
+                                  redirect_uri: "https://wasm-oidc-plugin.ae02.de/oidc/callback"
                                   client_id: "redacted"
                                   scope: "openid profile email"
                                   claims:
@@ -82,7 +82,7 @@ data:
                                   config_endpoint: "https://accounts.google.com/.well-known/openid-configuration"
                                   upstream_cluster: "google"
                                   authority: "accounts.google.com"
-                                  redirect_uri: "https://demo.wasm-oidc-plugin.ae02.de/oidc/callback"
+                                  redirect_uri: "https://wasm-oidc-plugin.ae02.de/oidc/callback"
                                   client_id: "google-client-id"
                                   scope: "openid profile email"
                                   claims:
