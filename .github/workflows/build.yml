@@ -31,32 +31,6 @@ jobs:
           name: plugin
           path: target/wasm32-wasip1/release/wasm_oidc_plugin.wasm
 
-  docker-image:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: antonengelhardt/wasm-oidc-plugin:latest
-          cache-from: type=registry,ref=antonengelhardt/wasm-oidc-plugin:latest
-          cache-to: type=inline
-
   ghcr-image:
     runs-on: ubuntu-latest
     needs: [build]
