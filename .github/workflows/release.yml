@@ -24,7 +24,7 @@ jobs:
         run: cargo build --target wasm32-wasip1 --release
 
       - name: Archive production artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wasm_oidc_plugin.wasm
           path: target/wasm32-wasip1/release/wasm_oidc_plugin.wasm
