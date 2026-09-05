@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,6 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -40,6 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -56,6 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -71,12 +75,13 @@ jobs:
           tool: cargo-audit
 
       - name: Audit
-        run: cargo audit -f audit.toml
+        run: cargo audit
 
   verify-project:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -98,6 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -119,6 +125,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -135,6 +142,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      actions: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -155,8 +163,10 @@ jobs:
 
   docker-image:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: read
+      actions: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -189,8 +199,10 @@ jobs:
 
   ghcr-image:
     runs-on: ubuntu-latest
+    if: github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: read
+      actions: write
       packages: write
     steps:
       - name: Checkout code
