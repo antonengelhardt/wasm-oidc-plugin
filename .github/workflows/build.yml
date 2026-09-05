@@ -1,4 +1,4 @@
-name: Test, Build and Deploy wasm-oidc-plugin
+name: Test and Build wasm-oidc-plugin
 
 on:
   push:
