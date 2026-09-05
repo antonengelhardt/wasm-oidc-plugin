@@ -105,10 +105,10 @@ jobs:
       - name: Setup Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          cache: true
+          cache: false
 
       - name: Install cargo-outdated
-        uses: taiki-e/cache-cargo-install-action@v2
+        uses: taiki-e/install-action@v2
         with:
           tool: cargo-outdated
 
