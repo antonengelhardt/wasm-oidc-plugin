@@ -688,7 +688,7 @@ impl OidcHttpContext {
 
     /// Clear the session cookies and redirect to the base path.
     ///
-    /// Unlike [`logout`], this does **not** redirect to the OIDC provider's
+    /// Unlike [`Self::logout`], this does **not** redirect to the OIDC provider's
     /// end-session endpoint. It is meant for error-recovery: the user's cookies
     /// are corrupt or invalid, so we just wipe them and let re-authentication
     /// happen on the next request.
