@@ -1,4 +1,4 @@
-FROM rust:1.98.1 AS builder
+FROM rust:1.99.1 AS builder
 
 COPY src/ src/
 COPY Cargo.toml Cargo.toml
@@ -10,7 +10,7 @@ RUN cargo build --target=wasm32-wasip1 --release
 
 ##################################################
 
-FROM envoyproxy/envoy:v1.39-latest
+FROM envoyproxy/envoy:v1.40-latest
 
 COPY --from=builder /target/wasm32-wasip1/release/wasm_oidc_plugin.wasm /etc/envoy/proxy-wasm-plugins/wasm_oidc_plugin.wasm
 
